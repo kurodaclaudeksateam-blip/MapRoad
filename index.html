@@ -1798,7 +1798,6 @@ function renderTracking(){
       <div id="tErr"></div>
       <form id="tForm">
         <div class="field"><label>Folio de pedido</label><input name="folio" placeholder="Ej. F1000" required></div>
-        <div class="field"><label>Teléfono o C.P. registrado</label><input name="verif" placeholder="Para validar tu identidad" required></div>
         <button class="btn primary block" type="submit">Rastrear pedido</button>
       </form>
       <div class="auth-links"><a href="#/login">← Volver al inicio de sesión</a></div>
@@ -1808,10 +1807,9 @@ function renderTracking(){
   document.getElementById('tForm').addEventListener('submit', e=>{
     e.preventDefault();
     const f=new FormData(e.target);
-    const folio=f.get('folio').trim(), verif=f.get('verif').trim();
-    const pedido = DB.get('pedidos').find(p=>p.folio && p.folio.toLowerCase()===folio.toLowerCase() &&
-      ((p.telefono&&p.telefono.includes(verif)) || (p.cp&&p.cp===verif)));
-    if(!pedido){ document.getElementById('tErr').innerHTML='<div class="errbox">No encontramos un pedido con esos datos. Verifica el folio y el teléfono/C.P.</div>'; document.getElementById('tResult').innerHTML=''; return; }
+    const folio=f.get('folio').trim();
+    const pedido = DB.get('pedidos').find(p=>p.folio && p.folio.toLowerCase()===folio.toLowerCase());
+    if(!pedido){ document.getElementById('tErr').innerHTML='<div class="errbox">No encontramos ningún pedido con ese folio.</div>'; document.getElementById('tResult').innerHTML=''; return; }
     document.getElementById('tErr').innerHTML='';
     renderTrackingResult(pedido);
   });
