@@ -1357,16 +1357,19 @@ function openDetalleRutaModal(rutaId){
       <div class="card"><h3>Estatus ruta</h3><div style="margin-top:4px">${estatusBadge(ruta.estatus)}</div></div>
     </div>
     <div class="table-wrap" style="max-height:360px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
-      <table><thead><tr><th>#</th><th>Folio</th><th>Cliente</th><th>Dirección</th><th>Estatus</th><th>Hora</th><th></th></tr></thead>
+      <table><thead><tr><th>#</th><th>Folio</th><th>Cliente</th><th>Estatus</th><th>Llegada</th><th>Salida</th><th>En sitio</th><th></th></tr></thead>
       <tbody>${pedidos.length?pedidos.map((p,i)=>{
         const ent = entregas.find(e=>e.pedidoId===p.id);
+        const enSitio = p.horaLlegada && ent ? Util.minsBetween(p.horaLlegada, ent.horaEntrega) : null;
         return `<tr>
           <td>${p.ordenEnRuta||i+1}</td><td class="mono">${Util.esc(p.folio)}</td><td>${Util.esc(p.nombreContacto||'—')}</td>
-          <td>${Util.esc(p.direccion||'—')}</td><td>${estatusBadge(p.estatus)}</td>
+          <td>${estatusBadge(p.estatus)}</td>
+          <td class="small">${p.horaLlegada?Util.fmtTime(p.horaLlegada):'—'}</td>
           <td class="small">${ent?Util.fmtTime(ent.horaEntrega):'—'}</td>
+          <td class="small">${enSitio!=null?Util.fmtMins(enSitio):'—'}</td>
           <td><button class="btn sm" data-verfolio="${Util.esc(p.folio)}">Ver informe</button></td>
         </tr>`;
-      }).join(''):`<tr><td colspan="7" class="empty">Esta ruta no tiene envíos.</td></tr>`}</tbody></table>
+      }).join(''):`<tr><td colspan="8" class="empty">Esta ruta no tiene envíos.</td></tr>`}</tbody></table>
     </div>
   `, [{label:'Cerrar', cls:'btn primary', action:'cerrar'}], (action)=>{
     if(action==='cerrar') closeCustomModal('detalleRutaModal');
@@ -1415,6 +1418,11 @@ function openInformeFolioModal(folioQuery){
       <div class="panel-b">
         ${ent ? `
           <div class="small muted" style="margin-bottom:10px">${Util.fmtDateTime(ent.horaEntrega)}</div>
+          <div class="grid cols-3" style="margin-bottom:12px">
+            <div class="card"><h3>Llegada</h3><div class="stat small-stat">${pedido.horaLlegada?Util.fmtTime(pedido.horaLlegada):'—'}</div></div>
+            <div class="card"><h3>Salida</h3><div class="stat small-stat">${Util.fmtTime(ent.horaEntrega)}</div></div>
+            <div class="card"><h3>Tiempo en sitio</h3><div class="stat small-stat">${pedido.horaLlegada?Util.fmtMins(Util.minsBetween(pedido.horaLlegada, ent.horaEntrega)):'—'}</div></div>
+          </div>
           ${ent.motivo?`<div class="small" style="margin-bottom:8px"><b>Motivo:</b> ${Util.esc(ent.motivo)}</div>`:''}
           ${ent.comentarios?`<div class="small" style="margin-bottom:8px"><b>Comentarios:</b> ${Util.esc(ent.comentarios)}</div>`:''}
           <div class="field"><label>Fotos (${ent.fotos.length})</label>
@@ -1424,7 +1432,7 @@ function openInformeFolioModal(folioQuery){
             ${ent.firma?`<img src="${ent.firma}" style="max-width:100%;border:1px solid var(--border);border-radius:8px;background:#fff">`:'<span class="small mute2">Sin firma</span>'}
           </div>
           ${ent.documentos&&ent.documentos.length?`<div class="field"><label>Documentos</label><div class="small">${ent.documentos.map(d=>Util.esc(d)).join(', ')}</div></div>`:''}
-        ` : `<div class="empty">Este pedido aún no ha sido entregado.</div>`}
+        ` : (pedido.horaLlegada ? `<div class="empty">📍 El chofer llegó a las ${Util.fmtTime(pedido.horaLlegada)} — entrega en curso.</div>` : `<div class="empty">Este pedido aún no ha sido entregado.</div>`)}
       </div>
     </div>
   `, [{label:'Cerrar', cls:'btn primary', action:'cerrar'}], (action)=>{
@@ -1614,6 +1622,7 @@ function renderChoferRuta(body, ruta, chofer){
 
   const cur = orden[pendientesIdx];
   const mapsUrl = cur.lat!=null ? `https://www.google.com/maps/dir/?api=1&destination=${cur.lat},${cur.lng}` : '#';
+  const yaLlego = !!cur.horaLlegada;
   document.getElementById('currentStop').outerHTML = `
     <div class="stop-card current">
       <span class="stop-num">${pendientesIdx+1}</span><b>${Util.esc(cur.nombreContacto||cur.folio)}</b>
@@ -1622,10 +1631,24 @@ function renderChoferRuta(body, ruta, chofer){
       ${cur.comentarios?`<div class="small muted" style="margin-left:34px;margin-top:4px">📝 ${Util.esc(cur.comentarios)}</div>`:''}
       <div style="display:flex;gap:8px;margin-top:12px">
         <a class="btn ${cur.lat!=null?'primary':''}" href="${mapsUrl}" target="_blank" style="flex:1;justify-content:center" ${cur.lat==null?'aria-disabled="true" onclick="return false;"':''}>🧭 Navegar</a>
-        <button class="btn success" style="flex:1" id="btnEntregar">✅ Registrar entrega</button>
+        ${yaLlego?'':'<button class="btn success" style="flex:1" id="btnLlegue">📍 Confirmar llegada</button>'}
       </div>
+      ${yaLlego?`
+        <div class="small" style="margin-top:10px;padding:8px 10px;background:var(--success-soft);border-radius:8px;color:#166534">✅ Llegada registrada a las ${Util.fmtTime(cur.horaLlegada)}</div>
+        <button class="btn success block" style="margin-top:10px" id="btnEntregar">✅ Registrar entrega y firma</button>
+      `:`
+        <div class="small muted" style="margin-top:8px">Confirma tu llegada al domicilio para poder registrar la entrega — así medimos el tiempo de traslado y el tiempo en el sitio.</div>
+      `}
     </div>`;
-  document.getElementById('btnEntregar').onclick=()=>openEntregaForm(body, ruta, cur, orden, chofer);
+  if(yaLlego){
+    document.getElementById('btnEntregar').onclick=()=>openEntregaForm(body, ruta, cur, orden, chofer);
+  } else {
+    document.getElementById('btnLlegue').onclick=()=>{
+      DB.update('pedidos', cur.id, {horaLlegada:Util.nowISO()});
+      Util.toast('Llegada registrada','ok');
+      renderChoferRuta(body, DB.find('rutas',ruta.id), chofer);
+    };
+  }
 }
 
 function openEntregaForm(body, ruta, pedido, orden, chofer){
@@ -1636,6 +1659,7 @@ function openEntregaForm(body, ruta, pedido, orden, chofer){
     <div class="modal wide">
       <div class="modal-h"><b>Registrar entrega — Folio ${Util.esc(pedido.folio)}</b><button class="icon-btn" id="mClose">✕</button></div>
       <div class="modal-b">
+        ${pedido.horaLlegada?`<div class="small muted" style="margin-bottom:12px">📍 Llegada: ${Util.fmtTime(pedido.horaLlegada)} · Tiempo en el sitio: ${Util.fmtMins(Util.minsBetween(pedido.horaLlegada, Util.nowISO()))}</div>`:''}
         <div class="field"><label>Resultado</label>
           <select id="eResultado"><option value="entregado">Entregado correctamente</option><option value="fallido">No se pudo entregar</option></select>
         </div>
@@ -1733,12 +1757,27 @@ function renderFinalizarRuta(body, ruta, chofer, orden){
     DB.update('rutas', ruta.id, {estatus:'concluida', horaFin});
     const dur=Util.minsBetween(ruta.horaInicio, horaFin);
     const exitosas = orden.filter(p=>p.estatus==='entregado').length;
+
+    // Tiempo de traslado (entre paradas) vs tiempo en el sitio (llegada -> entrega),
+    // calculado con las marcas de "Confirmar llegada" registradas durante la ruta.
+    const entregas = DB.get('entregas');
+    let tiempoTraslado=0, tiempoEnSitio=0, conteoSitio=0;
+    let prevSalida = ruta.horaInicio;
+    orden.forEach(p=>{
+      const ent = entregas.find(e=>e.pedidoId===p.id);
+      if(p.horaLlegada && prevSalida) tiempoTraslado += Util.minsBetween(prevSalida, p.horaLlegada);
+      if(ent && p.horaLlegada){ tiempoEnSitio += Util.minsBetween(p.horaLlegada, ent.horaEntrega); conteoSitio++; }
+      if(ent) prevSalida = ent.horaEntrega;
+    });
+
     body.innerHTML = `<div class="stop-card current" style="text-align:center">
       <h3>✅ Ruta concluida</h3>
       <div class="grid cols-2" style="margin-top:14px;text-align:left">
         <div class="card"><h3>Duración total</h3><div class="stat small-stat">${Util.fmtMins(dur)}</div></div>
-        <div class="card"><h3>Prom. por parada</h3><div class="stat small-stat">${Util.fmtMins(orden.length?Math.round(dur/orden.length):0)}</div></div>
         <div class="card"><h3>Entregas exitosas</h3><div class="stat small-stat" style="color:var(--success)">${exitosas}/${orden.length}</div></div>
+        <div class="card"><h3>Tiempo en traslado</h3><div class="stat small-stat">${Util.fmtMins(tiempoTraslado)}</div></div>
+        <div class="card"><h3>Tiempo en sitio</h3><div class="stat small-stat">${Util.fmtMins(tiempoEnSitio)}</div></div>
+        <div class="card"><h3>Prom. en sitio/parada</h3><div class="stat small-stat">${Util.fmtMins(conteoSitio?Math.round(tiempoEnSitio/conteoSitio):null)}</div></div>
         <div class="card"><h3>Eficiencia</h3><div class="stat small-stat">${orden.length?Math.round(exitosas/orden.length*100):0}%</div></div>
       </div>
       <p class="muted" style="margin-top:14px">Gracias, ${Util.esc(chofer?.nombre||'')}. Puedes cerrar la app.</p>
