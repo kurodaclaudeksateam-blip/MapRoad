@@ -1,0 +1,1591 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>MapRoad · Control de Rutas y Entregas</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+/* ============================================================
+   MapRoad — Prototipo funcional (localStorage)
+   ============================================================ */
+:root{
+  --bg:#0f172a; --bg-soft:#111827; --panel:#ffffff; --panel-2:#f8fafc;
+  --border:#e2e8f0; --text:#0f172a; --text-soft:#475569; --text-mute:#94a3b8;
+  --primary:#2563eb; --primary-dark:#1d4ed8; --primary-soft:#dbeafe;
+  --success:#16a34a; --success-soft:#dcfce7;
+  --warning:#d97706; --warning-soft:#fef3c7;
+  --danger:#dc2626; --danger-soft:#fee2e2;
+  --sidebar-w:230px; --radius:10px; --shadow:0 1px 3px rgba(15,23,42,.08),0 1px 2px rgba(15,23,42,.06);
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{font-family:var(--font);background:var(--panel-2);color:var(--text);font-size:14px;line-height:1.45;}
+#app{min-height:100vh;}
+a{color:var(--primary);text-decoration:none;}
+button{font-family:inherit;cursor:pointer;}
+input,select,textarea,button{font-size:14px;font-family:inherit;}
+h1,h2,h3,h4{margin:0 0 4px;font-weight:700;}
+.hidden{display:none !important;}
+.muted{color:var(--text-soft);}
+.mute2{color:var(--text-mute);}
+.mono{font-family:var(--mono);}
+.small{font-size:12px;}
+
+/* ---------- Layout shell ---------- */
+.shell{display:flex;min-height:100vh;}
+.sidebar{width:var(--sidebar-w);background:var(--bg-soft);color:#e2e8f0;flex-shrink:0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;}
+.sidebar .brand{display:flex;align-items:center;gap:10px;padding:18px 16px;border-bottom:1px solid rgba(255,255,255,.08);}
+.sidebar .brand .logo{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--primary),#7c3aed);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;}
+.sidebar .brand b{font-size:16px;color:#fff;}
+.sidebar .brand span{display:block;font-size:11px;color:#94a3b8;}
+.nav{padding:10px;flex:1;}
+.nav .grp{margin:14px 8px 6px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#64748b;}
+.nav a{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;color:#cbd5e1;font-size:13.5px;margin-bottom:2px;}
+.nav a:hover{background:rgba(255,255,255,.06);color:#fff;}
+.nav a.active{background:var(--primary);color:#fff;}
+.nav a .ic{width:18px;text-align:center;}
+.sidebar .foot{padding:12px;border-top:1px solid rgba(255,255,255,.08);}
+.userbox{display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;background:rgba(255,255,255,.05);}
+.avatar{width:30px;height:30px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;}
+.userbox .who b{display:block;font-size:12.5px;color:#fff;}
+.userbox .who span{font-size:11px;color:#94a3b8;text-transform:capitalize;}
+.btn-logout{margin-top:8px;width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#e2e8f0;padding:7px;border-radius:7px;}
+.btn-logout:hover{background:rgba(255,255,255,.12);}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column;}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;background:#fff;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:5;}
+.topbar h1{font-size:19px;}
+.content{padding:22px 24px;flex:1;}
+
+/* ---------- Generic UI ---------- */
+.grid{display:grid;gap:16px;}
+.cols-4{grid-template-columns:repeat(4,1fr);}
+.cols-3{grid-template-columns:repeat(3,1fr);}
+.cols-2{grid-template-columns:repeat(2,1fr);}
+@media(max-width:1100px){.cols-4{grid-template-columns:repeat(2,1fr);}.cols-3{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:640px){.cols-4,.cols-3{grid-template-columns:1fr;}}
+
+.card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);}
+.card h3{font-size:13px;color:var(--text-soft);text-transform:uppercase;letter-spacing:.04em;font-weight:600;}
+.stat{font-size:26px;font-weight:800;margin-top:4px;}
+.stat.small-stat{font-size:20px;}
+.trend{font-size:12px;margin-top:2px;}
+.trend.up{color:var(--success);} .trend.down{color:var(--danger);}
+
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;}
+.panel-h{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);gap:10px;flex-wrap:wrap;}
+.panel-b{padding:18px;}
+
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{text-align:left;padding:9px 10px;background:var(--panel-2);color:var(--text-soft);font-weight:600;border-bottom:1px solid var(--border);white-space:nowrap;}
+td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+tr:hover td{background:#f8fafc;}
+.table-wrap{overflow-x:auto;}
+
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:11.5px;font-weight:600;white-space:nowrap;}
+.badge.b-green{background:var(--success-soft);color:#166534;}
+.badge.b-amber{background:var(--warning-soft);color:#92400e;}
+.badge.b-red{background:var(--danger-soft);color:#991b1b;}
+.badge.b-blue{background:var(--primary-soft);color:#1e40af;}
+.badge.b-gray{background:#f1f5f9;color:#475569;}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:#fff;color:var(--text);font-weight:600;font-size:13px;}
+.btn:hover{background:#f8fafc;}
+.btn.primary{background:var(--primary);border-color:var(--primary);color:#fff;}
+.btn.primary:hover{background:var(--primary-dark);}
+.btn.success{background:var(--success);border-color:var(--success);color:#fff;}
+.btn.danger{background:var(--danger);border-color:var(--danger);color:#fff;}
+.btn.ghost{background:transparent;border-color:transparent;}
+.btn.sm{padding:5px 10px;font-size:12px;}
+.btn.block{width:100%;justify-content:center;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+.icon-btn{border:1px solid var(--border);background:#fff;border-radius:7px;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;}
+.icon-btn:hover{background:#f1f5f9;}
+
+.field{margin-bottom:12px;}
+.field label{display:block;font-size:12.5px;font-weight:600;color:var(--text-soft);margin-bottom:5px;}
+.field input,.field select,.field textarea{width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text);}
+.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--primary-soft);border-color:var(--primary);}
+.field-row{display:flex;gap:10px;}
+.field-row .field{flex:1;}
+
+.modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto;z-index:100;}
+.modal{background:#fff;border-radius:12px;width:100%;max-width:520px;box-shadow:0 20px 50px rgba(0,0,0,.25);}
+.modal.wide{max-width:820px;}
+.modal-h{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+.modal-b{padding:20px;max-height:70vh;overflow-y:auto;}
+.modal-f{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;}
+
+.filters{display:flex;flex-wrap:wrap;gap:8px;padding:14px 18px;background:var(--panel-2);border-bottom:1px solid var(--border);}
+.filters select,.filters input{padding:7px 9px;border:1px solid var(--border);border-radius:7px;background:#fff;font-size:12.5px;}
+.empty{padding:40px 20px;text-align:center;color:var(--text-mute);}
+.toast-wrap{position:fixed;top:16px;right:16px;z-index:300;display:flex;flex-direction:column;gap:8px;}
+.toast{background:#0f172a;color:#fff;padding:11px 16px;border-radius:8px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.25);animation:slidein .18s ease;}
+.toast.err{background:#991b1b;} .toast.ok{background:#166534;}
+@keyframes slidein{from{transform:translateX(20px);opacity:0}to{transform:translateX(0);opacity:1}}
+
+/* ---------- Login ---------- */
+.auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 20% 20%,#1e3a8a,#0f172a 60%);padding:20px;}
+.auth-card{background:#fff;border-radius:16px;padding:34px 32px;width:100%;max-width:380px;box-shadow:0 30px 60px rgba(0,0,0,.35);}
+.auth-logo{display:flex;align-items:center;gap:10px;margin-bottom:22px;}
+.auth-logo .logo{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--primary),#7c3aed);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:16px;}
+.auth-logo b{font-size:19px;}
+.auth-logo span{display:block;font-size:11.5px;color:var(--text-mute);}
+.auth-demo{background:var(--panel-2);border:1px dashed var(--border);border-radius:8px;padding:10px 12px;font-size:11.5px;color:var(--text-soft);margin-top:14px;}
+.auth-demo b{color:var(--text);}
+.auth-links{display:flex;justify-content:space-between;margin-top:14px;font-size:12.5px;}
+.errbox{background:var(--danger-soft);color:#991b1b;padding:9px 12px;border-radius:8px;font-size:12.5px;margin-bottom:12px;}
+
+/* ---------- Tracking (público) ---------- */
+.track-wrap{min-height:100vh;background:linear-gradient(180deg,#0f172a,#1e3a8a);padding:30px 16px;}
+.track-shell{max-width:460px;margin:0 auto;}
+.track-shell .auth-card{margin-bottom:16px;}
+.progress-track{position:relative;padding-left:26px;margin:18px 0;}
+.p-step{position:relative;padding-bottom:22px;}
+.p-step:last-child{padding-bottom:0;}
+.p-step::before{content:'';position:absolute;left:-20px;top:20px;bottom:-2px;width:2px;background:var(--border);}
+.p-step:last-child::before{display:none;}
+.p-dot{position:absolute;left:-26px;top:2px;width:14px;height:14px;border-radius:50%;background:#cbd5e1;border:3px solid #fff;box-shadow:0 0 0 2px #cbd5e1;}
+.p-step.done .p-dot{background:var(--success);box-shadow:0 0 0 2px var(--success);}
+.p-step.current .p-dot{background:var(--primary);box-shadow:0 0 0 4px var(--primary-soft);}
+.trackmap{height:150px;border-radius:10px;background:linear-gradient(135deg,#e0f2fe,#eef2ff);position:relative;overflow:hidden;border:1px solid var(--border);}
+.trackmap .blip{position:absolute;width:14px;height:14px;border-radius:50%;background:var(--primary);box-shadow:0 0 0 6px rgba(37,99,235,.25);transform:translate(-50%,-50%);}
+.eta-box{display:flex;align-items:center;justify-content:space-between;background:var(--primary-soft);border-radius:10px;padding:12px 14px;margin-top:10px;}
+.eta-box b{font-size:20px;color:var(--primary-dark);}
+
+/* ---------- Chofer (móvil) ---------- */
+.chofer-shell{min-height:100vh;background:var(--panel-2);}
+.chofer-top{background:var(--bg-soft);color:#fff;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10;}
+.chofer-top b{font-size:15px;}
+.chofer-top span{font-size:11.5px;color:#94a3b8;}
+.chofer-body{padding:14px;max-width:520px;margin:0 auto;padding-bottom:60px;}
+.stop-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:var(--shadow);}
+.stop-card.current{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft);}
+.stop-num{width:26px;height:26px;border-radius:50%;background:var(--panel-2);border:1px solid var(--border);display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;margin-right:8px;}
+.stop-card.current .stop-num{background:var(--primary);color:#fff;border-color:var(--primary);}
+.thumbs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:8px;}
+.thumb{position:relative;aspect-ratio:1;border-radius:6px;overflow:hidden;border:1px solid var(--border);}
+.thumb img{width:100%;height:100%;object-fit:cover;}
+.thumb .rm{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;line-height:1;}
+.sigpad{border:1px dashed var(--border);border-radius:8px;background:#fff;touch-action:none;width:100%;height:150px;}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--border);padding:10px 14px;display:flex;gap:8px;max-width:520px;margin:0 auto;}
+
+.mapcanvas{width:100%;height:380px;border-radius:10px;background:#f1f5f9;border:1px solid var(--border);}
+.legend{display:flex;flex-wrap:wrap;gap:10px;padding:10px 18px;font-size:12px;border-top:1px solid var(--border);}
+.legend .li{display:flex;align-items:center;gap:6px;}
+.legend .sw{width:12px;height:4px;border-radius:2px;}
+
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:14px;}
+.tab{padding:9px 14px;font-size:13px;font-weight:600;color:var(--text-soft);border-bottom:2px solid transparent;}
+.tab.active{color:var(--primary);border-color:var(--primary);}
+
+.mobile-warning{display:none;}
+@media(max-width:820px){
+  .sidebar{position:fixed;left:-260px;top:0;transition:left .2s;z-index:50;}
+  .sidebar.open{left:0;}
+  .content{padding:16px;}
+  .cols-4,.cols-3{grid-template-columns:repeat(2,1fr);}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+/* ============================================================
+   1. UTILIDADES
+   ============================================================ */
+const Util = {
+  uid(p){ return (p||'id') + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,8); },
+  todayISO(){ return new Date().toISOString().slice(0,10); },
+  nowISO(){ return new Date().toISOString(); },
+  fmtDate(iso){ if(!iso) return '—'; const d=new Date(iso); return d.toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}); },
+  fmtTime(iso){ if(!iso) return '—'; const d=new Date(iso); return d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}); },
+  fmtDateTime(iso){ if(!iso) return '—'; return Util.fmtDate(iso)+' '+Util.fmtTime(iso); },
+  minsBetween(a,b){ return Math.round((new Date(b)-new Date(a))/60000); },
+  fmtMins(m){ if(m==null||isNaN(m)) return '—'; const h=Math.floor(m/60), mm=m%60; return h>0 ? `${h}h ${mm}m` : `${mm}m`; },
+  toRad(d){ return d*Math.PI/180; },
+  toDeg(r){ return r*180/Math.PI; },
+  distKm(a,b){
+    if(!a||!b||a.lat==null||b.lat==null) return 0;
+    const R=6371, dLat=Util.toRad(b.lat-a.lat), dLng=Util.toRad(b.lng-a.lng);
+    const x=Math.sin(dLat/2)**2 + Math.cos(Util.toRad(a.lat))*Math.cos(Util.toRad(b.lat))*Math.sin(dLng/2)**2;
+    return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+  },
+  bearing(a,b){
+    const y=Math.sin(Util.toRad(b.lng-a.lng))*Math.cos(Util.toRad(b.lat));
+    const x=Math.cos(Util.toRad(a.lat))*Math.sin(Util.toRad(b.lat)) - Math.sin(Util.toRad(a.lat))*Math.cos(Util.toRad(b.lat))*Math.cos(Util.toRad(b.lng-a.lng));
+    return (Util.toDeg(Math.atan2(y,x))+360)%360;
+  },
+  turnDelta(prevBearing,newBearing){
+    let d = newBearing - prevBearing;
+    while(d>180) d-=360; while(d<-180) d+=360;
+    return d; // positivo = giro a la derecha, negativo = giro a la izquierda
+  },
+  jitter(point,km){
+    if(!point||point.lat==null) return point;
+    const dLat=(Math.random()-0.5)*2*(km/111);
+    const dLng=(Math.random()-0.5)*2*(km/(111*Math.cos(Util.toRad(point.lat))||111));
+    return {lat:point.lat+dLat,lng:point.lng+dLng};
+  },
+  esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); },
+  money(n){ n=Number(n||0); return '$'+n.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}); },
+  num(n,d){ n=Number(n||0); return n.toLocaleString('es-MX',{maximumFractionDigits:d==null?2:d}); },
+  parseCSV(text){
+    const rows=[]; let row=[],cell='',inQ=false;
+    text=text.replace(/\r\n/g,'\n').replace(/^﻿/,'');
+    for(let i=0;i<text.length;i++){
+      const c=text[i];
+      if(inQ){
+        if(c=='"'){ if(text[i+1]=='"'){cell+='"';i++;} else inQ=false; }
+        else cell+=c;
+      } else {
+        if(c=='"') inQ=true;
+        else if(c==','){ row.push(cell); cell=''; }
+        else if(c=='\n'){ row.push(cell); rows.push(row); row=[]; cell=''; }
+        else cell+=c;
+      }
+    }
+    if(cell.length||row.length){ row.push(cell); rows.push(row); }
+    return rows.filter(r=>r.some(c=>String(c).trim()!==''));
+  },
+  resizeImage(file,maxDim,quality){
+    return new Promise((resolve,reject)=>{
+      const reader=new FileReader();
+      reader.onload=e=>{
+        const img=new Image();
+        img.onload=()=>{
+          let w=img.width,h=img.height;
+          if(w>h){ if(w>maxDim){h=h*maxDim/w;w=maxDim;} } else { if(h>maxDim){w=w*maxDim/h;h=maxDim;} }
+          const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+          cv.getContext('2d').drawImage(img,0,0,w,h);
+          resolve(cv.toDataURL('image/jpeg',quality||0.6));
+        };
+        img.onerror=reject;
+        img.src=e.target.result;
+      };
+      reader.onerror=reject;
+      reader.readAsDataURL(file);
+    });
+  },
+  toast(msg,type){
+    const wrap=document.getElementById('toastWrap');
+    const el=document.createElement('div');
+    el.className='toast'+(type?' '+type:'');
+    el.textContent=msg;
+    wrap.appendChild(el);
+    setTimeout(()=>el.remove(),3200);
+  }
+};
+
+/* ============================================================
+   2. CAPA DE DATOS (localStorage)
+   Diseñada para ser 1:1 con una futura API de Supabase:
+   DB.get(tabla)        ≈ supabase.from(tabla).select('*')
+   DB.insert(tabla,obj) ≈ supabase.from(tabla).insert(obj)
+   DB.update(tabla,id,p)≈ supabase.from(tabla).update(p).eq('id',id)
+   DB.remove(tabla,id)  ≈ supabase.from(tabla).delete().eq('id',id)
+   Cuando se migre, basta con reemplazar la implementación de
+   estos 5 métodos por llamadas async al cliente de Supabase.
+   ============================================================ */
+const DB = {
+  _k(t){ return 'maproad_'+t; },
+  get(t){ try{ return JSON.parse(localStorage.getItem(this._k(t)))||[]; }catch(e){ return []; } },
+  set(t,arr){
+    try{ localStorage.setItem(this._k(t), JSON.stringify(arr)); return true; }
+    catch(e){ Util.toast('Almacenamiento local lleno. En producción esto se resuelve con Supabase Storage.','err'); return false; }
+  },
+  insert(t,obj){ const all=this.get(t); obj.id=obj.id||Util.uid(t); obj.creado=obj.creado||Util.nowISO(); all.push(obj); this.set(t,all); return obj; },
+  update(t,id,patch){ const all=this.get(t); const i=all.findIndex(x=>x.id===id); if(i>-1){ all[i]=Object.assign({},all[i],patch); this.set(t,all); return all[i]; } return null; },
+  remove(t,id){ const all=this.get(t).filter(x=>x.id!==id); this.set(t,all); },
+  find(t,id){ return this.get(t).find(x=>x.id===id); },
+  query(t,fn){ return this.get(t).filter(fn); },
+  seedIfEmpty(){
+    if(localStorage.getItem('maproad_seeded')) return;
+    const centros=[
+      {id:'c1',nombre:'CEDIS Norte',razonSocial:'Distribuidora del Norte S.A. de C.V.',direccion:'Av. Industrias 450, Monterrey',lat:25.6866,lng:-100.3161},
+      {id:'c2',nombre:'CEDIS Bajío',razonSocial:'Comercializadora Bajío S.A. de C.V.',direccion:'Blvd. Logístico 120, León',lat:21.1250,lng:-101.6860},
+    ];
+    const unidades=[
+      {id:'u1',placa:'MR-101-A',modelo:'Nissan NP300',capacidadKg:1200,capacidadM3:6,estatus:'disponible',centroId:'c1'},
+      {id:'u2',placa:'MR-204-B',modelo:'Isuzu ELF',capacidadKg:3500,capacidadM3:14,estatus:'disponible',centroId:'c1'},
+      {id:'u3',placa:'MR-330-C',modelo:'Ford Transit',capacidadKg:1400,capacidadM3:8,estatus:'disponible',centroId:'c2'},
+    ];
+    const choferes=[
+      {id:'d1',nombre:'Juan Pérez',telefono:'8112345601',licencia:'NL-99123',estatus:'activo',unidadId:'u1',centroId:'c1'},
+      {id:'d2',nombre:'Roberto García',telefono:'8112345602',licencia:'NL-99124',estatus:'activo',unidadId:'u2',centroId:'c1'},
+      {id:'d3',nombre:'Marco Torres',telefono:'4772345603',licencia:'GT-88213',estatus:'activo',unidadId:'u3',centroId:'c2'},
+    ];
+    unidades[0].choferId='d1'; unidades[1].choferId='d2'; unidades[2].choferId='d3';
+    const tiendas=[
+      {id:'t1',nombre:'Súper Centro Cumbres',direccion:'Av. Cumbres 800',colonia:'Cumbres',cp:'64610',lat:25.7220,lng:-100.3660,centroId:'c1',choferId:'d1'},
+      {id:'t2',nombre:'Comercial San Jerónimo',direccion:'Calz. San Jerónimo 220',colonia:'San Jerónimo',cp:'64640',lat:25.6390,lng:-100.3800,centroId:'c1',choferId:'d1'},
+      {id:'t3',nombre:'Plaza Contry',direccion:'Av. Real 45',colonia:'Contry',cp:'64860',lat:25.6280,lng:-100.2890,centroId:'c1',choferId:'d2'},
+      {id:'t4',nombre:'Mercado Apodaca',direccion:'Av. Miguel Alemán 300',colonia:'Centro',cp:'66600',lat:25.7797,lng:-100.1889,centroId:'c1',choferId:'d2'},
+      {id:'t5',nombre:'Central León Centro',direccion:'Blvd. López Mateos 100',colonia:'Centro',cp:'37000',lat:21.1230,lng:-101.6820,centroId:'c2',choferId:'d3'},
+    ];
+    const usuarios=[
+      {id:'us1',usuario:'admin',password:'admin123',rol:'admin',nombre:'Administrador General'},
+      {id:'us2',usuario:'trafico',password:'trafico123',rol:'trafico',nombre:'Tráfico y Logística'},
+      {id:'us3',usuario:'chofer1',password:'chofer123',rol:'chofer',nombre:'Juan Pérez',choferId:'d1'},
+      {id:'us4',usuario:'chofer2',password:'chofer123',rol:'chofer',nombre:'Roberto García',choferId:'d2'},
+      {id:'us5',usuario:'chofer3',password:'chofer123',rol:'chofer',nombre:'Marco Torres',choferId:'d3'},
+    ];
+    DB.set('centros',centros); DB.set('unidades',unidades); DB.set('choferes',choferes);
+    DB.set('tiendas',tiendas); DB.set('usuarios',usuarios); DB.set('pedidos',[]);
+    DB.set('rutas',[]); DB.set('entregas',[]);
+    // Histórico de ejemplo (ayer) para poblar reportes
+    seedHistorico(centros,unidades,choferes,tiendas);
+    localStorage.setItem('maproad_seeded','1');
+  }
+};
+
+function seedHistorico(centros,unidades,choferes,tiendas){
+  const ayer=new Date(Date.now()-86400000).toISOString().slice(0,10);
+  const pedidos=[],rutas=[],entregas=[];
+  choferes.forEach((ch,ci)=>{
+    const stops=tiendas.filter(t=>t.choferId===ch.id);
+    if(!stops.length) return;
+    const centro=centros.find(c=>c.id===ch.centroId);
+    const orden=optimizarRuta(centro,stops.map(s=>({id:s.id,lat:s.lat,lng:s.lng})));
+    const rutaId=Util.uid('r');
+    let t0=new Date(ayer+'T08:00:00');
+    const pedidoIds=[];
+    orden.forEach((o,idx)=>{
+      const tienda=stops.find(s=>s.id===o.id);
+      const pid=Util.uid('p');
+      const horaEntrega=new Date(t0.getTime() + (idx+1)*(22+Math.random()*14)*60000);
+      pedidos.push({
+        id:pid, folio:'F'+(1000+ci*10+idx), vehiculo:unidades.find(u=>u.choferId===ch.id).placa,
+        nombreItem:'Mercancía general', cantidad:Math.ceil(Math.random()*10)+1, codigoItem:'SKU-'+(100+idx),
+        numeroCliente:'CLI-'+tienda.id, nombreContacto:tienda.nombre, telefono:'81'+Math.floor(10000000+Math.random()*89999999),
+        emailContacto:'contacto@'+tienda.nombre.toLowerCase().replace(/\s+/g,'')+'.com', direccion:tienda.direccion,
+        colonia:tienda.colonia, cp:tienda.cp, lat:tienda.lat, lng:tienda.lng,
+        fechaMin:ayer, fechaMax:ayer, controlDestino:'', oficinaVentas:'OV-01', sucursalSolicita:centro.nombre,
+        nombreVendedor:'Vendedor Demo', comentarios:'', folioFactura:'FA-'+(2000+idx), pesoKg:(Math.random()*80+5).toFixed(1),
+        volumenM3:(Math.random()*1.2+0.1).toFixed(2), importeTotal:(Math.random()*8000+300).toFixed(2),
+        fecha:ayer, centroId:centro.id, rutaId, ordenEnRuta:idx+1, estatus:'entregado'
+      });
+      entregas.push({id:Util.uid('e'),pedidoId:pid,rutaId,horaEntrega:horaEntrega.toISOString(),fotos:[],firma:'',documentos:[],comentarios:'Entrega OK (demo)',resultado:'entregado'});
+      pedidoIds.push(pid);
+    });
+    const horaFin=new Date(t0.getTime() + (orden.length+1)*30*60000);
+    rutas.push({id:rutaId,fecha:ayer,choferId:ch.id,unidadId:unidades.find(u=>u.choferId===ch.id).id,centroId:centro.id,
+      estatus:'concluida',pedidoIds,ordenOptimizado:orden.map(o=>o.id),horaInicio:t0.toISOString(),horaFin:horaFin.toISOString()});
+  });
+  DB.set('pedidos',pedidos.concat(DB.get('pedidos')));
+  DB.set('rutas',rutas.concat(DB.get('rutas')));
+  DB.set('entregas',entregas.concat(DB.get('entregas')));
+}
+
+/* ============================================================
+   3. ALGORITMO DE OPTIMIZACIÓN DE RUTA
+   Heurística de vecino más cercano con penalización a giros a la
+   derecha (inspirado en el enfoque de Amazon de preferir giros a
+   la izquierda / continuar de frente para reducir tiempos muertos
+   en cruces). No usa red vial real: aproxima con línea recta +
+   ángulo de rumbo entre paradas consecutivas.
+   ============================================================ */
+function optimizarRuta(depot, paradas){
+  const pend = paradas.slice();
+  const orden = [];
+  let actual = depot ? {lat:depot.lat,lng:depot.lng} : (pend[0]||{lat:0,lng:0});
+  let rumboPrev = null;
+  const PENALTY = 0.35; // peso de la penalización por giro a la derecha
+  while(pend.length){
+    let bestIdx=0, bestCost=Infinity;
+    for(let i=0;i<pend.length;i++){
+      const cand=pend[i];
+      const d=Util.distKm(actual,cand);
+      let cost=d;
+      if(rumboPrev!=null && d>0){
+        const rumboNuevo=Util.bearing(actual,cand);
+        const delta=Util.turnDelta(rumboPrev,rumboNuevo);
+        if(delta>0) cost = d * (1 + PENALTY*(delta/180)); // giro a la derecha: penaliza
+        else cost = d * (1 + (PENALTY*0.15)*(Math.abs(delta)/180)); // giro a la izquierda: casi sin penalización
+      }
+      if(cost<bestCost){ bestCost=cost; bestIdx=i; }
+    }
+    const elegido=pend.splice(bestIdx,1)[0];
+    if(actual && (actual.lat!==elegido.lat || actual.lng!==elegido.lng)){
+      rumboPrev = Util.bearing(actual, elegido);
+    }
+    actual=elegido;
+    orden.push(elegido);
+  }
+  return orden;
+}
+
+/* ============================================================
+   4. SESIÓN / AUTENTICACIÓN
+   ============================================================ */
+const Auth = {
+  login(usuario,password){
+    const u = DB.get('usuarios').find(x=>x.usuario.toLowerCase()===String(usuario).toLowerCase() && x.password===password);
+    if(!u) return null;
+    localStorage.setItem('maproad_session', JSON.stringify({usuarioId:u.id, ts:Util.nowISO()}));
+    return u;
+  },
+  logout(){ localStorage.removeItem('maproad_session'); },
+  current(){
+    try{
+      const s=JSON.parse(localStorage.getItem('maproad_session'));
+      if(!s) return null;
+      return DB.find('usuarios', s.usuarioId) || null;
+    }catch(e){ return null; }
+  }
+};
+
+/* ============================================================
+   5. ROUTER
+   ============================================================ */
+const NAV_ITEMS = [
+  {group:'General', items:[
+    {path:'dashboard', label:'Resumen', icon:'📊', roles:['admin','trafico']},
+    {path:'monitoreo', label:'Monitoreo en vivo', icon:'🛰️', roles:['admin','trafico']},
+    {path:'historico', label:'Histórico y estadísticas', icon:'📈', roles:['admin','trafico']},
+  ]},
+  {group:'Operación', items:[
+    {path:'cargar-rutas', label:'Cargar rutas del día', icon:'📥', roles:['admin','trafico']},
+    {path:'unidades', label:'Control de unidades', icon:'🚚', roles:['admin','trafico']},
+    {path:'choferes', label:'Control de choferes', icon:'🧑‍✈️', roles:['admin','trafico']},
+    {path:'asignacion-tiendas', label:'Asignación de tiendas', icon:'🏬', roles:['admin','trafico']},
+    {path:'asignacion-centros', label:'Centros y razón social', icon:'🏢', roles:['admin','trafico']},
+  ]},
+  {group:'Cuenta', items:[
+    {path:'usuarios', label:'Usuarios y accesos', icon:'🔑', roles:['admin']},
+  ]},
+];
+
+function currentPath(){ return (location.hash||'#/login').replace('#/','') || 'login'; }
+
+function route(){
+  const user = Auth.current();
+  const path = currentPath();
+
+  if(path==='tracking'){ return renderTracking(); }
+  if(!user){ if(path!=='login') location.hash='#/login'; return renderLogin(); }
+
+  if(path==='login'){
+    location.hash = user.rol==='chofer' ? '#/chofer' : '#/dashboard';
+    return;
+  }
+  if(user.rol==='chofer'){
+    if(path!=='chofer'){ location.hash='#/chofer'; return; }
+    return renderChoferShell(user);
+  }
+  const allowed = NAV_ITEMS.flatMap(g=>g.items).filter(i=>i.roles.includes(user.rol)).map(i=>i.path);
+  const validPath = allowed.includes(path) ? path : 'dashboard';
+  if(validPath!==path){ location.hash='#/'+validPath; return; }
+  renderAdminShell(user, validPath);
+}
+window.addEventListener('hashchange', route);
+window.addEventListener('storage', (e)=>{
+  if(e.key && e.key.indexOf('maproad_')===0){
+    const p=currentPath();
+    if(['monitoreo','dashboard','chofer','historico'].includes(p)) route();
+  }
+});
+
+/* ============================================================
+   6. VISTA: LOGIN
+   ============================================================ */
+function renderLogin(){
+  const app=document.getElementById('app');
+  app.innerHTML = `
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <div class="logo">MR</div>
+        <div><b>MapRoad</b><span>Control de unidades, rutas y entregas</span></div>
+      </div>
+      <div id="loginErr"></div>
+      <form id="loginForm">
+        <div class="field"><label>Usuario</label><input name="usuario" autocomplete="username" required></div>
+        <div class="field"><label>Contraseña</label><input type="password" name="password" autocomplete="current-password" required></div>
+        <button class="btn primary block" type="submit">Iniciar sesión</button>
+      </form>
+      <div class="auth-demo">
+        <b>Accesos demo</b><br>
+        admin / admin123 · trafico / trafico123 · chofer1 / chofer123
+      </div>
+      <div class="auth-links">
+        <a href="#/tracking">📦 Rastrear un pedido</a>
+        <span class="mute2">MapRoad v0.1 (prototipo)</span>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('loginForm').addEventListener('submit', e=>{
+    e.preventDefault();
+    const f=new FormData(e.target);
+    const u=Auth.login(f.get('usuario'), f.get('password'));
+    if(!u){ document.getElementById('loginErr').innerHTML='<div class="errbox">Usuario o contraseña incorrectos.</div>'; return; }
+    location.hash = u.rol==='chofer' ? '#/chofer' : '#/dashboard';
+  });
+}
+
+/* ============================================================
+   7. SHELL ADMIN / TRÁFICO
+   ============================================================ */
+function renderAdminShell(user, path){
+  const app=document.getElementById('app');
+  const groupsHtml = NAV_ITEMS.map(g=>{
+    const items = g.items.filter(i=>i.roles.includes(user.rol));
+    if(!items.length) return '';
+    return `<div class="grp">${g.group}</div>` + items.map(i=>
+      `<a href="#/${i.path}" class="${i.path===path?'active':''}"><span class="ic">${i.icon}</span>${i.label}</a>`
+    ).join('');
+  }).join('');
+
+  app.innerHTML = `
+  <div class="shell">
+    <div class="sidebar" id="sidebar">
+      <div class="brand"><div class="logo">MR</div><div><b>MapRoad</b><span>Panel de control</span></div></div>
+      <div class="nav">${groupsHtml}</div>
+      <div class="foot">
+        <div class="userbox">
+          <div class="avatar">${Util.esc((user.nombre||user.usuario)[0]||'U').toUpperCase()}</div>
+          <div class="who"><b>${Util.esc(user.nombre||user.usuario)}</b><span>${Util.esc(user.rol)}</span></div>
+        </div>
+        <button class="btn-logout" id="btnLogout">Cerrar sesión</button>
+      </div>
+    </div>
+    <div class="main">
+      <div class="topbar">
+        <button class="icon-btn hidden" id="btnMenu" style="display:none">☰</button>
+        <h1 id="pageTitle"></h1>
+        <a class="btn ghost sm" href="#/tracking" target="_blank">📦 Vista de cliente</a>
+      </div>
+      <div class="content" id="content"></div>
+    </div>
+  </div>`;
+  document.getElementById('btnLogout').addEventListener('click', ()=>{ Auth.logout(); location.hash='#/login'; });
+
+  const titles = {dashboard:'Resumen general',monitoreo:'Monitoreo en vivo',historico:'Histórico y estadísticas',
+    'cargar-rutas':'Cargar rutas del día', unidades:'Control de unidades', choferes:'Control de choferes',
+    'asignacion-tiendas':'Asignación de tiendas por chofer', 'asignacion-centros':'Centros / razón social', usuarios:'Usuarios y accesos'};
+  document.getElementById('pageTitle').textContent = titles[path]||'MapRoad';
+
+  const renderers = {
+    dashboard:viewDashboard, monitoreo:viewMonitoreo, historico:viewHistorico,
+    'cargar-rutas':viewCargarRutas, unidades:viewUnidades, choferes:viewChoferes,
+    'asignacion-tiendas':viewAsignacionTiendas, 'asignacion-centros':viewAsignacionCentros, usuarios:viewUsuarios
+  };
+  (renderers[path]||viewDashboard)(document.getElementById('content'), user);
+}
+
+/* ============================================================
+   8. VISTA: DASHBOARD
+   ============================================================ */
+function viewDashboard(el,user){
+  const hoy=Util.todayISO();
+  const rutasHoy = DB.query('rutas', r=>r.fecha===hoy);
+  const pedidosHoy = DB.query('pedidos', p=>p.fecha===hoy);
+  const entregados = pedidosHoy.filter(p=>p.estatus==='entregado').length;
+  const fallidos = pedidosHoy.filter(p=>p.estatus==='fallido').length;
+  const pendientes = pedidosHoy.length - entregados - fallidos;
+  const enRuta = rutasHoy.filter(r=>r.estatus==='en_curso').length;
+  const choferes = DB.get('choferes');
+  const unidades = DB.get('unidades');
+
+  el.innerHTML = `
+  <div class="grid cols-4" style="margin-bottom:18px;">
+    <div class="card"><h3>Rutas de hoy</h3><div class="stat">${rutasHoy.length}</div><div class="trend muted">${enRuta} en curso</div></div>
+    <div class="card"><h3>Pedidos de hoy</h3><div class="stat">${pedidosHoy.length}</div><div class="trend muted">${pendientes} pendientes</div></div>
+    <div class="card"><h3>Entregados</h3><div class="stat" style="color:var(--success)">${entregados}</div><div class="trend up">${pedidosHoy.length?Math.round(entregados/pedidosHoy.length*100):0}% del total</div></div>
+    <div class="card"><h3>Fallidos</h3><div class="stat" style="color:var(--danger)">${fallidos}</div><div class="trend ${fallidos?'down':''}">requieren seguimiento</div></div>
+  </div>
+  <div class="grid cols-2" style="grid-template-columns:1.3fr .7fr;">
+    <div class="panel">
+      <div class="panel-h"><b>Rutas activas de hoy</b><a class="btn sm" href="#/monitoreo">Ver monitoreo →</a></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Chofer</th><th>Unidad</th><th>Centro</th><th>Paradas</th><th>Estatus</th><th>Inicio</th></tr></thead>
+        <tbody>${rutasHoy.length? rutasHoy.map(r=>{
+          const ch=DB.find('choferes',r.choferId), un=DB.find('unidades',r.unidadId), ce=DB.find('centros',r.centroId);
+          return `<tr><td>${Util.esc(ch?.nombre||'—')}</td><td class="mono">${Util.esc(un?.placa||'—')}</td><td>${Util.esc(ce?.nombre||'—')}</td>
+          <td>${r.pedidoIds.length}</td><td>${estatusBadge(r.estatus)}</td><td>${Util.fmtTime(r.horaInicio)}</td></tr>`;
+        }).join('') : `<tr><td colspan="6" class="empty">Aún no se han cargado rutas para hoy. <a href="#/cargar-rutas">Cargar ahora →</a></td></tr>`}</tbody>
+      </table></div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><b>Flota</b></div>
+      <div class="panel-b">
+        ${unidades.map(u=>{
+          const ch=choferes.find(c=>c.id===u.choferId);
+          return `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+            <div><b class="mono">${Util.esc(u.placa)}</b><div class="small muted">${Util.esc(ch?.nombre||'Sin chofer')}</div></div>
+            ${estatusBadge(u.estatus)}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+function estatusBadge(estatus){
+  const map={
+    pendiente:['b-gray','Pendiente'], en_curso:['b-blue','En curso'], concluida:['b-green','Concluida'],
+    disponible:['b-green','Disponible'], en_ruta:['b-blue','En ruta'], mantenimiento:['b-amber','Mantenimiento'],
+    entregado:['b-green','Entregado'], fallido:['b-red','Fallido'], activo:['b-green','Activo'], inactivo:['b-gray','Inactivo']
+  };
+  const [cls,label]=map[estatus]||['b-gray',estatus||'—'];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+/* ============================================================
+   9. VISTA: CONTROL DE UNIDADES
+   ============================================================ */
+function viewUnidades(el){
+  function draw(){
+    const unidades=DB.get('unidades'), choferes=DB.get('choferes'), centros=DB.get('centros');
+    el.innerHTML = `
+    <div class="panel">
+      <div class="panel-h"><b>Unidades registradas (${unidades.length})</b><button class="btn primary sm" id="btnNueva">+ Nueva unidad</button></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Placa</th><th>Modelo</th><th>Capacidad</th><th>Centro</th><th>Chofer asignado</th><th>Estatus</th><th></th></tr></thead>
+        <tbody>${unidades.length?unidades.map(u=>{
+          const ch=choferes.find(c=>c.id===u.choferId), ce=centros.find(c=>c.id===u.centroId);
+          return `<tr>
+            <td class="mono">${Util.esc(u.placa)}</td><td>${Util.esc(u.modelo||'—')}</td>
+            <td>${Util.num(u.capacidadKg)} kg / ${Util.num(u.capacidadM3)} m³</td>
+            <td>${Util.esc(ce?.nombre||'—')}</td><td>${Util.esc(ch?.nombre||'<span class=\"mute2\">Sin asignar</span>')}</td>
+            <td>${estatusBadge(u.estatus)}</td>
+            <td><button class="icon-btn" data-edit="${u.id}">✎</button> <button class="icon-btn" data-del="${u.id}">🗑</button></td>
+          </tr>`;
+        }).join(''):`<tr><td colspan="7" class="empty">No hay unidades registradas.</td></tr>`}</tbody>
+      </table></div>
+    </div>`;
+    el.querySelector('#btnNueva').onclick=()=>openUnidadModal();
+    el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openUnidadModal(b.dataset.edit));
+    el.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{
+      if(confirm('¿Eliminar esta unidad?')){ DB.remove('unidades',b.dataset.del); Util.toast('Unidad eliminada'); draw(); }
+    });
+  }
+  function openUnidadModal(id){
+    const u = id?DB.find('unidades',id):{};
+    const choferes=DB.get('choferes'), centros=DB.get('centros');
+    openModal(`${id?'Editar':'Nueva'} unidad`, `
+      <div class="field-row"><div class="field"><label>Placa</label><input name="placa" value="${Util.esc(u.placa||'')}" required></div>
+      <div class="field"><label>Modelo</label><input name="modelo" value="${Util.esc(u.modelo||'')}"></div></div>
+      <div class="field-row"><div class="field"><label>Capacidad (kg)</label><input type="number" name="capacidadKg" value="${u.capacidadKg||''}"></div>
+      <div class="field"><label>Capacidad (m³)</label><input type="number" name="capacidadM3" value="${u.capacidadM3||''}"></div></div>
+      <div class="field"><label>Centro</label><select name="centroId">${centros.map(c=>`<option value="${c.id}" ${u.centroId===c.id?'selected':''}>${Util.esc(c.nombre)}</option>`).join('')}</select></div>
+      <div class="field"><label>Chofer asignado</label><select name="choferId"><option value="">Sin asignar</option>${choferes.map(c=>`<option value="${c.id}" ${u.choferId===c.id?'selected':''}>${Util.esc(c.nombre)}</option>`).join('')}</select></div>
+      <div class="field"><label>Estatus</label><select name="estatus">
+        ${['disponible','en_ruta','mantenimiento'].map(s=>`<option value="${s}" ${u.estatus===s?'selected':''}>${s}</option>`).join('')}
+      </select></div>
+    `, (data)=>{
+      data.capacidadKg=Number(data.capacidadKg)||0; data.capacidadM3=Number(data.capacidadM3)||0;
+      if(id) DB.update('unidades',id,data); else DB.insert('unidades',data);
+      Util.toast('Unidad guardada','ok'); closeModal(); draw();
+    });
+  }
+  draw();
+}
+
+/* ============================================================
+   10. VISTA: CONTROL DE CHOFERES
+   ============================================================ */
+function viewChoferes(el){
+  function draw(){
+    const choferes=DB.get('choferes'), unidades=DB.get('unidades'), centros=DB.get('centros'), usuarios=DB.get('usuarios');
+    el.innerHTML = `
+    <div class="panel">
+      <div class="panel-h"><b>Choferes registrados (${choferes.length})</b><button class="btn primary sm" id="btnNuevo">+ Nuevo chofer</button></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Nombre</th><th>Teléfono</th><th>Licencia</th><th>Unidad</th><th>Centro</th><th>Login</th><th>Estatus</th><th></th></tr></thead>
+        <tbody>${choferes.length?choferes.map(c=>{
+          const un=unidades.find(u=>u.id===c.unidadId), ce=centros.find(x=>x.id===c.centroId);
+          const us=usuarios.find(u=>u.choferId===c.id);
+          return `<tr>
+            <td>${Util.esc(c.nombre)}</td><td class="mono">${Util.esc(c.telefono||'—')}</td><td class="mono">${Util.esc(c.licencia||'—')}</td>
+            <td class="mono">${Util.esc(un?.placa||'—')}</td><td>${Util.esc(ce?.nombre||'—')}</td>
+            <td>${us?`<span class="badge b-blue">${Util.esc(us.usuario)}</span>`:`<span class="mute2">Sin acceso</span>`}</td>
+            <td>${estatusBadge(c.estatus)}</td>
+            <td><button class="icon-btn" data-edit="${c.id}">✎</button> <button class="icon-btn" data-del="${c.id}">🗑</button></td>
+          </tr>`;
+        }).join(''):`<tr><td colspan="8" class="empty">No hay choferes registrados.</td></tr>`}</tbody>
+      </table></div>
+    </div>`;
+    el.querySelector('#btnNuevo').onclick=()=>openChoferModal();
+    el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openChoferModal(b.dataset.edit));
+    el.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{
+      if(confirm('¿Eliminar este chofer?')){ DB.remove('choferes',b.dataset.del); Util.toast('Chofer eliminado'); draw(); }
+    });
+  }
+  function openChoferModal(id){
+    const c = id?DB.find('choferes',id):{};
+    const unidades=DB.get('unidades'), centros=DB.get('centros');
+    const usuarios=DB.get('usuarios'); const us = id ? usuarios.find(u=>u.choferId===id) : null;
+    openModal(`${id?'Editar':'Nuevo'} chofer`, `
+      <div class="field-row"><div class="field"><label>Nombre completo</label><input name="nombre" value="${Util.esc(c.nombre||'')}" required></div>
+      <div class="field"><label>Teléfono</label><input name="telefono" value="${Util.esc(c.telefono||'')}"></div></div>
+      <div class="field-row"><div class="field"><label>Licencia</label><input name="licencia" value="${Util.esc(c.licencia||'')}"></div>
+      <div class="field"><label>Estatus</label><select name="estatus">${['activo','inactivo'].map(s=>`<option ${c.estatus===s?'selected':''}>${s}</option>`).join('')}</select></div></div>
+      <div class="field-row"><div class="field"><label>Unidad asignada</label><select name="unidadId"><option value="">Sin asignar</option>${unidades.map(u=>`<option value="${u.id}" ${c.unidadId===u.id?'selected':''}>${Util.esc(u.placa)}</option>`).join('')}</select></div>
+      <div class="field"><label>Centro</label><select name="centroId">${centros.map(x=>`<option value="${x.id}" ${c.centroId===x.id?'selected':''}>${Util.esc(x.nombre)}</option>`).join('')}</select></div></div>
+      <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
+      <div class="small muted" style="margin-bottom:8px">Acceso a la app móvil (opcional)</div>
+      <div class="field-row"><div class="field"><label>Usuario</label><input name="usLogin" value="${Util.esc(us?.usuario||'')}" placeholder="ej. chofer4"></div>
+      <div class="field"><label>Contraseña</label><input name="usPass" value="${Util.esc(us?.password||'')}" placeholder="••••••"></div></div>
+    `, (data)=>{
+      const {usLogin,usPass,...choferData} = data;
+      let choferId=id;
+      if(id) DB.update('choferes',id,choferData); else { choferId = DB.insert('choferes',choferData).id; }
+      if(usLogin){
+        const existing = DB.get('usuarios').find(u=>u.choferId===choferId);
+        if(existing) DB.update('usuarios',existing.id,{usuario:usLogin,password:usPass||existing.password,nombre:choferData.nombre});
+        else DB.insert('usuarios',{usuario:usLogin,password:usPass||'chofer123',rol:'chofer',nombre:choferData.nombre,choferId});
+      }
+      Util.toast('Chofer guardado','ok'); closeModal(); draw();
+    });
+  }
+  draw();
+}
+
+/* ============================================================
+   11. VISTA: ASIGNACIÓN DE TIENDAS POR CHOFER
+   ============================================================ */
+function viewAsignacionTiendas(el){
+  function draw(){
+    const tiendas=DB.get('tiendas'), choferes=DB.get('choferes'), centros=DB.get('centros');
+    el.innerHTML = `
+    <div class="panel">
+      <div class="panel-h">
+        <b>Tiendas / puntos de entrega (${tiendas.length})</b>
+        <div style="display:flex;gap:8px">
+          <select id="fCentro" class="small"><option value="">Todos los centros</option>${centros.map(c=>`<option value="${c.id}">${Util.esc(c.nombre)}</option>`).join('')}</select>
+          <button class="btn primary sm" id="btnNueva">+ Nueva tienda</button>
+        </div>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Tienda</th><th>Colonia</th><th>C.P.</th><th>Centro</th><th>Chofer asignado</th><th></th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table></div>
+    </div>`;
+    function renderRows(){
+      const filtro=el.querySelector('#fCentro').value;
+      const rows = tiendas.filter(t=>!filtro||t.centroId===filtro);
+      el.querySelector('#tbody').innerHTML = rows.length ? rows.map(t=>{
+        const ce=centros.find(c=>c.id===t.centroId);
+        return `<tr>
+          <td><b>${Util.esc(t.nombre)}</b><div class="small muted">${Util.esc(t.direccion||'')}</div></td>
+          <td>${Util.esc(t.colonia||'—')}</td><td class="mono">${Util.esc(t.cp||'—')}</td><td>${Util.esc(ce?.nombre||'—')}</td>
+          <td><select data-asig="${t.id}" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px">
+            <option value="">Sin asignar</option>
+            ${choferes.map(c=>`<option value="${c.id}" ${t.choferId===c.id?'selected':''}>${Util.esc(c.nombre)}</option>`).join('')}
+          </select></td>
+          <td><button class="icon-btn" data-edit="${t.id}">✎</button> <button class="icon-btn" data-del="${t.id}">🗑</button></td>
+        </tr>`;
+      }).join('') : `<tr><td colspan="6" class="empty">Sin resultados.</td></tr>`;
+      el.querySelectorAll('[data-asig]').forEach(s=>s.onchange=()=>{
+        DB.update('tiendas', s.dataset.asig, {choferId:s.value||null});
+        Util.toast('Asignación actualizada','ok');
+      });
+      el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openTiendaModal(b.dataset.edit));
+      el.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ if(confirm('¿Eliminar tienda?')){ DB.remove('tiendas',b.dataset.del); Util.toast('Eliminada'); draw(); } });
+    }
+    el.querySelector('#fCentro').onchange=renderRows;
+    el.querySelector('#btnNueva').onclick=()=>openTiendaModal();
+    renderRows();
+  }
+  function openTiendaModal(id){
+    const t=id?DB.find('tiendas',id):{};
+    const centros=DB.get('centros'), choferes=DB.get('choferes');
+    openModal(`${id?'Editar':'Nueva'} tienda`, `
+      <div class="field"><label>Nombre</label><input name="nombre" value="${Util.esc(t.nombre||'')}" required></div>
+      <div class="field"><label>Dirección</label><input name="direccion" value="${Util.esc(t.direccion||'')}"></div>
+      <div class="field-row"><div class="field"><label>Colonia</label><input name="colonia" value="${Util.esc(t.colonia||'')}"></div>
+      <div class="field"><label>C.P.</label><input name="cp" value="${Util.esc(t.cp||'')}"></div></div>
+      <div class="field-row"><div class="field"><label>Latitud</label><input type="number" step="any" name="lat" value="${t.lat||''}"></div>
+      <div class="field"><label>Longitud</label><input type="number" step="any" name="lng" value="${t.lng||''}"></div></div>
+      <div class="field-row"><div class="field"><label>Centro</label><select name="centroId">${centros.map(c=>`<option value="${c.id}" ${t.centroId===c.id?'selected':''}>${Util.esc(c.nombre)}</option>`).join('')}</select></div>
+      <div class="field"><label>Chofer asignado</label><select name="choferId"><option value="">Sin asignar</option>${choferes.map(c=>`<option value="${c.id}" ${t.choferId===c.id?'selected':''}>${Util.esc(c.nombre)}</option>`).join('')}</select></div></div>
+    `, (data)=>{
+      data.lat=data.lat?Number(data.lat):null; data.lng=data.lng?Number(data.lng):null;
+      if(id) DB.update('tiendas',id,data); else DB.insert('tiendas',data);
+      Util.toast('Tienda guardada','ok'); closeModal(); draw();
+    });
+  }
+  draw();
+}
+
+/* ============================================================
+   12. VISTA: CENTROS / RAZÓN SOCIAL
+   ============================================================ */
+function viewAsignacionCentros(el){
+  function draw(){
+    const centros=DB.get('centros'), unidades=DB.get('unidades'), choferes=DB.get('choferes'), tiendas=DB.get('tiendas');
+    el.innerHTML = `<div class="grid cols-2">` + centros.map(c=>{
+      const us=unidades.filter(u=>u.centroId===c.id), ch=choferes.filter(x=>x.centroId===c.id), ti=tiendas.filter(t=>t.centroId===c.id);
+      return `<div class="panel">
+        <div class="panel-h"><div><b>${Util.esc(c.nombre)}</b><div class="small muted">${Util.esc(c.razonSocial||'')}</div></div>
+        <div><button class="icon-btn" data-edit="${c.id}">✎</button> <button class="icon-btn" data-del="${c.id}">🗑</button></div></div>
+        <div class="panel-b">
+          <div class="small muted" style="margin-bottom:10px">${Util.esc(c.direccion||'Sin dirección')}</div>
+          <div class="grid cols-3">
+            <div class="card"><h3>Unidades</h3><div class="stat small-stat">${us.length}</div></div>
+            <div class="card"><h3>Choferes</h3><div class="stat small-stat">${ch.length}</div></div>
+            <div class="card"><h3>Tiendas</h3><div class="stat small-stat">${ti.length}</div></div>
+          </div>
+        </div>
+      </div>`;
+    }).join('') + `</div>
+    <div style="margin-top:16px"><button class="btn primary" id="btnNuevo">+ Nuevo centro / razón social</button></div>`;
+    el.querySelector('#btnNuevo').onclick=()=>openCentroModal();
+    el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openCentroModal(b.dataset.edit));
+    el.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ if(confirm('¿Eliminar centro?')){ DB.remove('centros',b.dataset.del); Util.toast('Eliminado'); draw(); } });
+  }
+  function openCentroModal(id){
+    const c=id?DB.find('centros',id):{};
+    openModal(`${id?'Editar':'Nuevo'} centro`, `
+      <div class="field"><label>Nombre del centro</label><input name="nombre" value="${Util.esc(c.nombre||'')}" required></div>
+      <div class="field"><label>Razón social</label><input name="razonSocial" value="${Util.esc(c.razonSocial||'')}"></div>
+      <div class="field"><label>Dirección</label><input name="direccion" value="${Util.esc(c.direccion||'')}"></div>
+      <div class="field-row"><div class="field"><label>Latitud (depósito)</label><input type="number" step="any" name="lat" value="${c.lat||''}"></div>
+      <div class="field"><label>Longitud (depósito)</label><input type="number" step="any" name="lng" value="${c.lng||''}"></div></div>
+    `, (data)=>{
+      data.lat=data.lat?Number(data.lat):null; data.lng=data.lng?Number(data.lng):null;
+      if(id) DB.update('centros',id,data); else DB.insert('centros',data);
+      Util.toast('Centro guardado','ok'); closeModal(); draw();
+    });
+  }
+  draw();
+}
+
+/* ============================================================
+   13. VISTA: USUARIOS Y ACCESOS (solo admin)
+   ============================================================ */
+function viewUsuarios(el){
+  function draw(){
+    const usuarios=DB.get('usuarios'), choferes=DB.get('choferes');
+    el.innerHTML = `<div class="panel">
+      <div class="panel-h"><b>Usuarios (${usuarios.length})</b><button class="btn primary sm" id="btnNuevo">+ Nuevo usuario</button></div>
+      <div class="table-wrap"><table><thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Vínculo</th><th></th></tr></thead>
+      <tbody>${usuarios.map(u=>`<tr>
+        <td class="mono">${Util.esc(u.usuario)}</td><td>${Util.esc(u.nombre||'—')}</td>
+        <td><span class="badge b-blue">${Util.esc(u.rol)}</span></td>
+        <td>${u.choferId?Util.esc(choferes.find(c=>c.id===u.choferId)?.nombre||''):'—'}</td>
+        <td><button class="icon-btn" data-edit="${u.id}">✎</button> <button class="icon-btn" data-del="${u.id}">🗑</button></td>
+      </tr>`).join('')}</tbody></table></div>
+    </div>`;
+    el.querySelector('#btnNuevo').onclick=()=>openUserModal();
+    el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openUserModal(b.dataset.edit));
+    el.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ if(confirm('¿Eliminar usuario?')){ DB.remove('usuarios',b.dataset.del); draw(); } });
+  }
+  function openUserModal(id){
+    const u=id?DB.find('usuarios',id):{};
+    const choferes=DB.get('choferes');
+    openModal(`${id?'Editar':'Nuevo'} usuario`, `
+      <div class="field"><label>Nombre</label><input name="nombre" value="${Util.esc(u.nombre||'')}"></div>
+      <div class="field-row"><div class="field"><label>Usuario</label><input name="usuario" value="${Util.esc(u.usuario||'')}" required></div>
+      <div class="field"><label>Contraseña</label><input name="password" value="${Util.esc(u.password||'')}" required></div></div>
+      <div class="field"><label>Rol</label><select name="rol">${['admin','trafico','chofer'].map(r=>`<option ${u.rol===r?'selected':''}>${r}</option>`).join('')}</select></div>
+      <div class="field"><label>Chofer vinculado (si aplica)</label><select name="choferId"><option value="">—</option>${choferes.map(c=>`<option value="${c.id}" ${u.choferId===c.id?'selected':''}>${Util.esc(c.nombre)}</option>`).join('')}</select></div>
+    `, (data)=>{
+      if(id) DB.update('usuarios',id,data); else DB.insert('usuarios',data);
+      Util.toast('Usuario guardado','ok'); closeModal(); draw();
+    });
+  }
+  draw();
+}
+
+/* ============================================================
+   14. VISTA: CARGAR RUTAS DEL DÍA (Excel/CSV)
+   ============================================================ */
+const XLS_COLS = ['Folio de Pedido','Vehiculo','Nombre de Item','Cantidad','Codigo de Item','Numero del Cliente',
+  'Nombre del Contacto','Telefono','Email del Contacto','Dirección','Colonia','C.P.','Latitud','Longitud',
+  'Fecha Minima Entrega','Fecha Maxima Entrega','Control de Destino','Oficina de Ventas','Sucursal que Solicita',
+  'Nombre del Vendedor','Comentarios','Folio de Factura','Peso Total en KG','Volumen Total en M3','Importe Total Factura'];
+
+const XLS_MAP = {
+  'folio de pedido':'folio','vehiculo':'vehiculo','nombre de item':'nombreItem','cantidad':'cantidad',
+  'codigo de item':'codigoItem','numero del cliente':'numeroCliente','nombre del contacto':'nombreContacto',
+  'telefono':'telefono','email del contacto':'emailContacto','dirección':'direccion','direccion':'direccion',
+  'colonia':'colonia','c.p.':'cp','cp':'cp','latitud':'lat','longitud':'lng',
+  'fecha minima entrega':'fechaMin','fecha maxima entrega':'fechaMax','control de destino':'controlDestino',
+  'oficina de ventas':'oficinaVentas','sucursal que solicita':'sucursalSolicita','nombre del vendedor':'nombreVendedor',
+  'comentarios':'comentarios','folio de factura':'folioFactura','peso total en kg':'pesoKg',
+  'volumen total en m3':'volumenM3','importe total factura':'importeTotal'
+};
+
+let _importState = null;
+
+function viewCargarRutas(el){
+  const centros = DB.get('centros');
+  el.innerHTML = `
+  <div class="panel">
+    <div class="panel-h"><b>1. Selecciona el archivo de rutas (.xlsx o .csv)</b></div>
+    <div class="panel-b">
+      <div class="field-row">
+        <div class="field"><label>Fecha de la ruta</label><input type="date" id="fFecha" value="${Util.todayISO()}"></div>
+        <div class="field"><label>Centro de origen (depósito)</label><select id="fCentro">${centros.map(c=>`<option value="${c.id}">${Util.esc(c.nombre)}</option>`).join('')}</select></div>
+      </div>
+      <div class="field"><label>Archivo</label><input type="file" id="fFile" accept=".xlsx,.xls,.csv"></div>
+      <div class="small muted">Columnas esperadas: ${XLS_COLS.join(', ')}</div>
+      <div id="importResult" style="margin-top:14px"></div>
+    </div>
+  </div>`;
+  el.querySelector('#fFile').addEventListener('change', async (e)=>{
+    const file=e.target.files[0]; if(!file) return;
+    try{
+      const rows = await readImportFile(file);
+      if(!rows.length){ Util.toast('El archivo no tiene datos','err'); return; }
+      procesarImportacion(el, rows);
+    }catch(err){ console.error(err); Util.toast('No se pudo leer el archivo: '+err.message,'err'); }
+  });
+}
+
+function readImportFile(file){
+  return new Promise((resolve,reject)=>{
+    const ext=file.name.split('.').pop().toLowerCase();
+    if(ext==='csv'){
+      const r=new FileReader();
+      r.onload=e=>{
+        const rows=Util.parseCSV(e.target.result);
+        const headers=rows[0].map(h=>h.trim());
+        resolve(rows.slice(1).map(row=>{ const o={}; headers.forEach((h,i)=>o[h]=row[i]); return o; }));
+      };
+      r.onerror=reject; r.readAsText(file,'UTF-8');
+    } else {
+      const r=new FileReader();
+      r.onload=e=>{
+        try{
+          const wb=XLSX.read(e.target.result,{type:'array'});
+          const sheet=wb.Sheets[wb.SheetNames[0]];
+          const json=XLSX.utils.sheet_to_json(sheet,{defval:''});
+          resolve(json);
+        }catch(err){ reject(err); }
+      };
+      r.onerror=reject; r.readAsArrayBuffer(file);
+    }
+  });
+}
+
+function normalizeRow(raw){
+  const out={};
+  Object.keys(raw).forEach(k=>{
+    const key = XLS_MAP[k.trim().toLowerCase()];
+    if(key) out[key]=raw[k];
+  });
+  return out;
+}
+
+function procesarImportacion(el, rawRows){
+  const rows = rawRows.map(normalizeRow).filter(r=>r.folio);
+  // Agrupar por folio (una fila = un artículo; un folio = una parada)
+  const porFolio = {};
+  rows.forEach(r=>{
+    if(!porFolio[r.folio]) porFolio[r.folio]={...r, items:[]};
+    porFolio[r.folio].items.push({nombre:r.nombreItem, cantidad:Number(r.cantidad)||0, codigo:r.codigoItem});
+  });
+  const pedidosNuevos = Object.values(porFolio).map(p=>({
+    folio:p.folio, vehiculo:p.vehiculo, items:p.items, numeroCliente:p.numeroCliente, nombreContacto:p.nombreContacto,
+    telefono:p.telefono, emailContacto:p.emailContacto, direccion:p.direccion, colonia:p.colonia, cp:p.cp,
+    lat:p.lat?Number(p.lat):null, lng:p.lng?Number(p.lng):null, fechaMin:p.fechaMin, fechaMax:p.fechaMax,
+    controlDestino:p.controlDestino, oficinaVentas:p.oficinaVentas, sucursalSolicita:p.sucursalSolicita,
+    nombreVendedor:p.nombreVendedor, comentarios:p.comentarios, folioFactura:p.folioFactura,
+    pesoKg:p.pesoKg, volumenM3:p.volumenM3, importeTotal:p.importeTotal
+  }));
+  const sinCoords = pedidosNuevos.filter(p=>p.lat==null||p.lng==null).length;
+  const vehiculos = [...new Set(pedidosNuevos.map(p=>p.vehiculo).filter(Boolean))];
+
+  _importState = pedidosNuevos;
+
+  const box = document.getElementById('importResult');
+  box.innerHTML = `
+    <div class="card" style="margin-bottom:14px">
+      <div class="grid cols-3">
+        <div><h3>Pedidos detectados</h3><div class="stat small-stat">${pedidosNuevos.length}</div></div>
+        <div><h3>Vehículos / rutas</h3><div class="stat small-stat">${vehiculos.length}</div></div>
+        <div><h3>Sin coordenadas</h3><div class="stat small-stat" style="color:${sinCoords?'var(--danger)':'inherit'}">${sinCoords}</div></div>
+      </div>
+    </div>
+    <div class="table-wrap" style="max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
+      <table><thead><tr><th>Folio</th><th>Vehículo</th><th>Cliente</th><th>Dirección</th><th>Peso</th><th>Entrega máx.</th></tr></thead>
+      <tbody>${pedidosNuevos.slice(0,50).map(p=>`<tr><td class="mono">${Util.esc(p.folio)}</td><td>${Util.esc(p.vehiculo)}</td>
+        <td>${Util.esc(p.nombreContacto)}</td><td>${Util.esc(p.direccion)}</td><td>${Util.esc(p.pesoKg)} kg</td><td>${Util.esc(p.fechaMax)}</td></tr>`).join('')}</tbody></table>
+    </div>
+    <button class="btn primary block" style="margin-top:14px" id="btnGenerar">Generar rutas optimizadas para ${vehiculos.length} vehículo(s)</button>
+  `;
+  document.getElementById('btnGenerar').onclick = ()=>generarRutas(el);
+}
+
+function generarRutas(el){
+  const fecha = document.getElementById('fFecha').value || Util.todayISO();
+  const centroId = document.getElementById('fCentro').value;
+  const centro = DB.find('centros', centroId);
+  const unidades = DB.get('unidades'), choferes = DB.get('choferes');
+
+  const porVehiculo = {};
+  _importState.forEach(p=>{ (porVehiculo[p.vehiculo]=porVehiculo[p.vehiculo]||[]).push(p); });
+
+  const pedidosDB = DB.get('pedidos'), rutasDB = DB.get('rutas');
+  let rutasCreadas=0, pedidosCreados=0;
+
+  Object.keys(porVehiculo).forEach(placa=>{
+    const unidad = unidades.find(u=>u.placa.toLowerCase()===String(placa).toLowerCase());
+    const chofer = unidad ? choferes.find(c=>c.id===unidad.choferId) : null;
+    const stops = porVehiculo[placa].filter(p=>p.lat!=null && p.lng!=null);
+    const sinGeo = porVehiculo[placa].filter(p=>p.lat==null || p.lng==null);
+
+    const orden = optimizarRuta(centro, stops.map(s=>({id:s.folio,lat:s.lat,lng:s.lng})));
+    const rutaId = Util.uid('r');
+    const pedidoIdsRuta = [];
+
+    [...orden.map(o=>stops.find(s=>s.folio===o.id)), ...sinGeo].forEach((p,idx)=>{
+      const pid = Util.uid('p');
+      pedidosDB.push(Object.assign({}, p, {
+        id:pid, fecha, centroId, rutaId, ordenEnRuta: idx<orden.length?idx+1:null, estatus:'pendiente'
+      }));
+      pedidoIdsRuta.push(pid);
+      pedidosCreados++;
+    });
+
+    rutasDB.push({
+      id:rutaId, fecha, choferId: chofer?chofer.id:null, unidadId: unidad?unidad.id:null, centroId,
+      estatus:'pendiente', pedidoIds:pedidoIdsRuta, ordenOptimizado: pedidoIdsRuta.slice(0,orden.length),
+      horaInicio:null, horaFin:null, vehiculoTexto:placa
+    });
+    rutasCreadas++;
+  });
+
+  DB.set('pedidos',pedidosDB); DB.set('rutas',rutasDB);
+  _importState=null;
+  Util.toast(`Se generaron ${rutasCreadas} rutas con ${pedidosCreados} pedidos`,'ok');
+  el.innerHTML = `<div class="panel"><div class="panel-b" style="text-align:center;padding:40px">
+    <h2 style="font-size:22px">✅ Rutas generadas</h2>
+    <p class="muted">${rutasCreadas} rutas · ${pedidosCreados} pedidos · Fecha: ${Util.fmtDate(fecha)}</p>
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:16px">
+      <a class="btn primary" href="#/monitoreo">Ver en monitoreo</a>
+      <a class="btn" href="#/cargar-rutas" onclick="location.reload()">Cargar otro archivo</a>
+    </div>
+  </div></div>`;
+}
+
+/* ============================================================
+   15. VISTA: MONITOREO EN VIVO
+   ============================================================ */
+const DRIVER_COLORS = ['#2563eb','#16a34a','#d97706','#dc2626','#7c3aed','#0891b2','#db2777','#65a30d'];
+function colorForChofer(id, list){ const idx=list.findIndex(c=>c.id===id); return DRIVER_COLORS[idx % DRIVER_COLORS.length]; }
+
+function viewMonitoreo(el){
+  let filtros = {fecha:Util.todayISO(), choferId:'', unidadId:'', centroId:'', estatus:''};
+  function draw(){
+    const choferes=DB.get('choferes'), unidades=DB.get('unidades'), centros=DB.get('centros');
+    el.innerHTML = `
+    <div class="panel">
+      <div class="filters">
+        <input type="date" id="ffFecha" value="${filtros.fecha}">
+        <select id="ffChofer"><option value="">Todos los choferes</option>${choferes.map(c=>`<option value="${c.id}">${Util.esc(c.nombre)}</option>`).join('')}</select>
+        <select id="ffUnidad"><option value="">Todas las unidades</option>${unidades.map(u=>`<option value="${u.id}">${Util.esc(u.placa)}</option>`).join('')}</select>
+        <select id="ffCentro"><option value="">Todos los centros</option>${centros.map(c=>`<option value="${c.id}">${Util.esc(c.nombre)}</option>`).join('')}</select>
+        <select id="ffEstatus"><option value="">Todos los estatus</option><option value="pendiente">Pendiente</option><option value="en_curso">En curso</option><option value="concluida">Concluida</option></select>
+        <button class="btn sm" id="ffReset">Limpiar</button>
+      </div>
+      <div style="padding:16px">
+        <canvas id="mapCanvas" class="mapcanvas"></canvas>
+      </div>
+      <div class="legend" id="legend"></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Chofer</th><th>Unidad</th><th>Centro</th><th>Paradas</th><th>Progreso</th><th>Estatus</th><th>Inicio</th><th>Último evento</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table></div>
+    </div>`;
+    ['ffFecha','ffChofer','ffUnidad','ffCentro','ffEstatus'].forEach(id=>{
+      el.querySelector('#'+id).onchange = e=>{
+        filtros = {fecha:el.querySelector('#ffFecha').value, choferId:el.querySelector('#ffChofer').value,
+          unidadId:el.querySelector('#ffUnidad').value, centroId:el.querySelector('#ffCentro').value, estatus:el.querySelector('#ffEstatus').value};
+        refresh();
+      };
+    });
+    el.querySelector('#ffReset').onclick=()=>{ filtros={fecha:Util.todayISO(),choferId:'',unidadId:'',centroId:'',estatus:''}; draw(); };
+    refresh();
+  }
+  function refresh(){
+    const choferes=DB.get('choferes'), unidades=DB.get('unidades'), centros=DB.get('centros'), pedidos=DB.get('pedidos'), entregas=DB.get('entregas');
+    let rutas = DB.query('rutas', r=>r.fecha===filtros.fecha);
+    if(filtros.choferId) rutas=rutas.filter(r=>r.choferId===filtros.choferId);
+    if(filtros.unidadId) rutas=rutas.filter(r=>r.unidadId===filtros.unidadId);
+    if(filtros.centroId) rutas=rutas.filter(r=>r.centroId===filtros.centroId);
+    if(filtros.estatus) rutas=rutas.filter(r=>r.estatus===filtros.estatus);
+
+    el.querySelector('#tbody').innerHTML = rutas.length ? rutas.map(r=>{
+      const ch=choferes.find(c=>c.id===r.choferId), un=unidades.find(u=>u.id===r.unidadId), ce=centros.find(c=>c.id===r.centroId);
+      const total=r.pedidoIds.length;
+      const done=r.pedidoIds.filter(pid=>{ const p=pedidos.find(x=>x.id===pid); return p && (p.estatus==='entregado'||p.estatus==='fallido'); }).length;
+      const ultimasEntregas = entregas.filter(e=>e.rutaId===r.id).sort((a,b)=>new Date(b.horaEntrega)-new Date(a.horaEntrega));
+      const color = colorForChofer(r.choferId, choferes);
+      return `<tr>
+        <td><span class="dot" style="background:${color}"></span> ${Util.esc(ch?.nombre||'—')}</td>
+        <td class="mono">${Util.esc(un?.placa||r.vehiculoTexto||'—')}</td><td>${Util.esc(ce?.nombre||'—')}</td>
+        <td>${total}</td>
+        <td><div style="background:var(--border);border-radius:99px;height:6px;width:90px;overflow:hidden"><div style="background:${color};height:100%;width:${total?done/total*100:0}%"></div></div>
+        <span class="small muted">${done}/${total}</span></td>
+        <td>${estatusBadge(r.estatus)}</td><td>${Util.fmtTime(r.horaInicio)}</td>
+        <td class="small">${ultimasEntregas[0]?('Folio '+Util.esc(pedidos.find(p=>p.id===ultimasEntregas[0].pedidoId)?.folio||'')+' · '+Util.fmtTime(ultimasEntregas[0].horaEntrega)):'—'}</td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="8" class="empty">No hay rutas que coincidan con los filtros.</td></tr>`;
+
+    el.querySelector('#legend').innerHTML = rutas.map(r=>{
+      const ch=choferes.find(c=>c.id===r.choferId);
+      return `<div class="li"><span class="sw" style="background:${colorForChofer(r.choferId,choferes)}"></span>${Util.esc(ch?.nombre||'—')}</div>`;
+    }).join('') || '<span class="mute2 small">Sin rutas para mostrar</span>';
+
+    drawMap(el.querySelector('#mapCanvas'), rutas, pedidos, centros, choferes);
+  }
+  draw();
+}
+
+function drawMap(canvas, rutas, pedidos, centros, choferes){
+  const dpr=window.devicePixelRatio||1;
+  const rect=canvas.getBoundingClientRect();
+  canvas.width=rect.width*dpr; canvas.height=380*dpr;
+  const ctx=canvas.getContext('2d'); ctx.scale(dpr,dpr);
+  const W=rect.width, H=380;
+  ctx.clearRect(0,0,W,H);
+  const pts=[];
+  rutas.forEach(r=>{
+    const ce=centros.find(c=>c.id===r.centroId); if(ce&&ce.lat!=null) pts.push({lat:ce.lat,lng:ce.lng});
+    r.pedidoIds.forEach(pid=>{ const p=pedidos.find(x=>x.id===pid); if(p&&p.lat!=null) pts.push({lat:p.lat,lng:p.lng}); });
+  });
+  if(!pts.length){ ctx.fillStyle='#94a3b8'; ctx.font='13px sans-serif'; ctx.fillText('Sin datos geográficos para mostrar', 16, 30); return; }
+  const lats=pts.map(p=>p.lat), lngs=pts.map(p=>p.lng);
+  const minLat=Math.min(...lats), maxLat=Math.max(...lats), minLng=Math.min(...lngs), maxLng=Math.max(...lngs);
+  const pad=30;
+  function project(p){
+    const x = pad + (maxLng>minLng ? (p.lng-minLng)/(maxLng-minLng) : 0.5) * (W-2*pad);
+    const y = H-pad - (maxLat>minLat ? (p.lat-minLat)/(maxLat-minLat) : 0.5) * (H-2*pad);
+    return {x,y};
+  }
+  rutas.forEach(r=>{
+    const ce=centros.find(c=>c.id===r.centroId);
+    const color=colorForChofer(r.choferId,choferes);
+    const seq=[]; if(ce&&ce.lat!=null) seq.push({lat:ce.lat,lng:ce.lng});
+    (r.ordenOptimizado&&r.ordenOptimizado.length?r.ordenOptimizado:r.pedidoIds).forEach(pid=>{
+      const p=pedidos.find(x=>x.id===pid); if(p&&p.lat!=null) seq.push(p);
+    });
+    ctx.strokeStyle=color; ctx.lineWidth=2.5; ctx.beginPath();
+    seq.forEach((p,i)=>{ const {x,y}=project(p); if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); });
+    ctx.stroke();
+    seq.forEach((p,i)=>{
+      const {x,y}=project(p);
+      const entregado = i>0 && p.estatus==='entregado';
+      const fallido = i>0 && p.estatus==='fallido';
+      ctx.beginPath(); ctx.arc(x,y,i===0?6:4.5,0,7);
+      ctx.fillStyle = i===0 ? '#0f172a' : (entregado?'#16a34a':fallido?'#dc2626':color);
+      ctx.fill(); ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke();
+    });
+  });
+}
+
+/* ============================================================
+   16. VISTA: HISTÓRICO Y ESTADÍSTICAS
+   ============================================================ */
+function viewHistorico(el){
+  let filtros={desde:Util.todayISO(new Date(Date.now()-7*86400000)), hasta:Util.todayISO(), choferId:'', unidadId:'', centroId:'', folio:''};
+  filtros.desde = new Date(Date.now()-7*86400000).toISOString().slice(0,10);
+  function draw(){
+    const choferes=DB.get('choferes'), unidades=DB.get('unidades'), centros=DB.get('centros');
+    el.innerHTML = `
+    <div class="panel">
+      <div class="filters">
+        <input type="date" id="hDesde" value="${filtros.desde}"> <span class="small muted" style="align-self:center">a</span> <input type="date" id="hHasta" value="${filtros.hasta}">
+        <select id="hChofer"><option value="">Todos los choferes</option>${choferes.map(c=>`<option value="${c.id}">${Util.esc(c.nombre)}</option>`).join('')}</select>
+        <select id="hUnidad"><option value="">Todas las unidades</option>${unidades.map(u=>`<option value="${u.id}">${Util.esc(u.placa)}</option>`).join('')}</select>
+        <select id="hCentro"><option value="">Todos los centros</option>${centros.map(c=>`<option value="${c.id}">${Util.esc(c.nombre)}</option>`).join('')}</select>
+        <input placeholder="Buscar folio…" id="hFolio">
+        <button class="btn sm" id="hBuscar">Filtrar</button>
+      </div>
+      <div class="panel-b"><div class="grid cols-4" id="hStats"></div></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Fecha</th><th>Chofer</th><th>Unidad</th><th>Centro</th><th>Paradas</th><th>Éxito</th><th>Duración</th><th>Prom./parada</th><th>Estatus</th></tr></thead>
+        <tbody id="hBody"></tbody>
+      </table></div>
+    </div>`;
+    el.querySelector('#hBuscar').onclick=()=>{
+      filtros={desde:el.querySelector('#hDesde').value, hasta:el.querySelector('#hHasta').value, choferId:el.querySelector('#hChofer').value,
+        unidadId:el.querySelector('#hUnidad').value, centroId:el.querySelector('#hCentro').value, folio:el.querySelector('#hFolio').value.trim()};
+      refresh();
+    };
+    refresh();
+  }
+  function refresh(){
+    const choferes=DB.get('choferes'), unidades=DB.get('unidades'), centros=DB.get('centros'), pedidos=DB.get('pedidos');
+    let rutas = DB.get('rutas').filter(r=> r.fecha>=filtros.desde && r.fecha<=filtros.hasta );
+    if(filtros.choferId) rutas=rutas.filter(r=>r.choferId===filtros.choferId);
+    if(filtros.unidadId) rutas=rutas.filter(r=>r.unidadId===filtros.unidadId);
+    if(filtros.centroId) rutas=rutas.filter(r=>r.centroId===filtros.centroId);
+    if(filtros.folio) rutas=rutas.filter(r=>r.pedidoIds.some(pid=>{ const p=pedidos.find(x=>x.id===pid); return p && p.folio && p.folio.toLowerCase().includes(filtros.folio.toLowerCase()); }));
+
+    const concluidas = rutas.filter(r=>r.estatus==='concluida');
+    const totalParadas = rutas.reduce((s,r)=>s+r.pedidoIds.length,0);
+    const totalExitosas = rutas.reduce((s,r)=>s+r.pedidoIds.filter(pid=>pedidos.find(p=>p.id===pid)?.estatus==='entregado').length,0);
+    const duraciones = concluidas.filter(r=>r.horaInicio&&r.horaFin).map(r=>Util.minsBetween(r.horaInicio,r.horaFin));
+    const promDuracion = duraciones.length ? Math.round(duraciones.reduce((a,b)=>a+b,0)/duraciones.length) : null;
+
+    el.querySelector('#hStats').innerHTML = `
+      <div class="card"><h3>Rutas en periodo</h3><div class="stat">${rutas.length}</div></div>
+      <div class="card"><h3>Paradas totales</h3><div class="stat">${totalParadas}</div></div>
+      <div class="card"><h3>% Entregas exitosas</h3><div class="stat" style="color:var(--success)">${totalParadas?Math.round(totalExitosas/totalParadas*100):0}%</div></div>
+      <div class="card"><h3>Duración promedio</h3><div class="stat small-stat">${Util.fmtMins(promDuracion)}</div></div>`;
+
+    el.querySelector('#hBody').innerHTML = rutas.length ? rutas.sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(r=>{
+      const ch=choferes.find(c=>c.id===r.choferId), un=unidades.find(u=>u.id===r.unidadId), ce=centros.find(c=>c.id===r.centroId);
+      const exitosas=r.pedidoIds.filter(pid=>pedidos.find(p=>p.id===pid)?.estatus==='entregado').length;
+      const dur = r.horaInicio&&r.horaFin ? Util.minsBetween(r.horaInicio,r.horaFin) : null;
+      const prom = dur && r.pedidoIds.length ? Math.round(dur/r.pedidoIds.length) : null;
+      return `<tr>
+        <td>${Util.fmtDate(r.fecha)}</td><td>${Util.esc(ch?.nombre||'—')}</td><td class="mono">${Util.esc(un?.placa||'—')}</td>
+        <td>${Util.esc(ce?.nombre||'—')}</td><td>${r.pedidoIds.length}</td>
+        <td>${exitosas}/${r.pedidoIds.length}</td><td>${Util.fmtMins(dur)}</td><td>${Util.fmtMins(prom)}</td>
+        <td>${estatusBadge(r.estatus)}</td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="9" class="empty">No hay rutas en ese periodo/filtros.</td></tr>`;
+  }
+  draw();
+}
+
+/* ============================================================
+   17. VISTA: APP DEL CHOFER (móvil)
+   ============================================================ */
+function renderChoferShell(user){
+  const app=document.getElementById('app');
+  const chofer = DB.find('choferes', user.choferId);
+  const hoy = Util.todayISO();
+  const ruta = DB.get('rutas').find(r=>r.choferId===user.choferId && r.fecha===hoy);
+
+  app.innerHTML = `
+  <div class="chofer-shell">
+    <div class="chofer-top">
+      <div><b>${Util.esc(chofer?.nombre||user.nombre)}</b><br><span>${Util.esc(chofer?.telefono||'')}</span></div>
+      <button class="btn-logout" style="width:auto;padding:7px 12px" id="btnLogout">Salir</button>
+    </div>
+    <div class="chofer-body" id="choferBody"></div>
+  </div>`;
+  app.querySelector('#btnLogout').onclick=()=>{ Auth.logout(); location.hash='#/login'; };
+
+  const body = document.getElementById('choferBody');
+  if(!ruta){
+    body.innerHTML = `<div class="empty" style="padding-top:60px">📭<br><br>No tienes una ruta asignada para hoy (${Util.fmtDate(hoy)}).<br><span class="small">Consulta con tráfico/logística.</span></div>`;
+    return;
+  }
+  renderChoferRuta(body, ruta, chofer);
+}
+
+function renderChoferRuta(body, ruta, chofer){
+  const pedidos = DB.get('pedidos');
+  const orden = (ruta.ordenOptimizado&&ruta.ordenOptimizado.length?ruta.ordenOptimizado:ruta.pedidoIds).map(pid=>pedidos.find(p=>p.id===pid)).filter(Boolean);
+  const centro = DB.find('centros', ruta.centroId);
+  const pendientesIdx = orden.findIndex(p=>p.estatus==='pendiente'||p.estatus==='en_ruta');
+  const todasCerradas = pendientesIdx===-1;
+
+  if(ruta.estatus==='pendiente' && !ruta.horaInicio){
+    body.innerHTML = `
+      <div class="stop-card current" style="text-align:center">
+        <h3>Ruta lista para iniciar</h3>
+        <p class="muted">${orden.length} paradas · Saliendo de ${Util.esc(centro?.nombre||'centro')}</p>
+        <button class="btn primary block" id="btnIniciar">🚀 Iniciar ruta</button>
+      </div>`;
+    body.querySelector('#btnIniciar').onclick=()=>{
+      DB.update('rutas', ruta.id, {estatus:'en_curso', horaInicio:Util.nowISO()});
+      renderChoferRuta(body, DB.find('rutas',ruta.id), chofer);
+    };
+    return;
+  }
+
+  if(todasCerradas){
+    renderFinalizarRuta(body, ruta, chofer, orden);
+    return;
+  }
+
+  body.innerHTML = `<div style="margin-bottom:10px" class="small muted">Progreso: ${pendientesIdx}/${orden.length} paradas completadas</div>` +
+    orden.map((p,idx)=>{
+      const isCurrent = idx===pendientesIdx;
+      const isDone = idx<pendientesIdx;
+      if(isCurrent) return `<div id="currentStop"></div>`;
+      return `<div class="stop-card ${isDone?'':''}">
+        <span class="stop-num">${idx+1}</span><b>${Util.esc(p.nombreContacto||p.folio)}</b>
+        <div class="small muted" style="margin-left:34px">${Util.esc(p.direccion||'')}</div>
+        <div style="margin-left:34px;margin-top:4px">${isDone?estatusBadge(p.estatus):'<span class="badge b-gray">En espera</span>'}</div>
+      </div>`;
+    }).join('');
+
+  const cur = orden[pendientesIdx];
+  const mapsUrl = cur.lat!=null ? `https://www.google.com/maps/dir/?api=1&destination=${cur.lat},${cur.lng}` : '#';
+  document.getElementById('currentStop').outerHTML = `
+    <div class="stop-card current">
+      <span class="stop-num">${pendientesIdx+1}</span><b>${Util.esc(cur.nombreContacto||cur.folio)}</b>
+      <div class="small muted" style="margin-left:34px">${Util.esc(cur.direccion||'')}, ${Util.esc(cur.colonia||'')} · C.P. ${Util.esc(cur.cp||'—')}</div>
+      <div class="small" style="margin-left:34px;margin-top:6px">📦 Folio: <b class="mono">${Util.esc(cur.folio)}</b> · Tel: ${Util.esc(cur.telefono||'—')}</div>
+      ${cur.comentarios?`<div class="small muted" style="margin-left:34px;margin-top:4px">📝 ${Util.esc(cur.comentarios)}</div>`:''}
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <a class="btn ${cur.lat!=null?'primary':''}" href="${mapsUrl}" target="_blank" style="flex:1;justify-content:center" ${cur.lat==null?'aria-disabled="true" onclick="return false;"':''}>🧭 Navegar</a>
+        <button class="btn success" style="flex:1" id="btnEntregar">✅ Registrar entrega</button>
+      </div>
+    </div>`;
+  document.getElementById('btnEntregar').onclick=()=>openEntregaForm(body, ruta, cur, orden, chofer);
+}
+
+function openEntregaForm(body, ruta, pedido, orden, chofer){
+  let fotos=[];
+  const container=document.createElement('div');
+  container.className='modal-bg';
+  container.innerHTML = `
+    <div class="modal wide">
+      <div class="modal-h"><b>Registrar entrega — Folio ${Util.esc(pedido.folio)}</b><button class="icon-btn" id="mClose">✕</button></div>
+      <div class="modal-b">
+        <div class="field"><label>Resultado</label>
+          <select id="eResultado"><option value="entregado">Entregado correctamente</option><option value="fallido">No se pudo entregar</option></select>
+        </div>
+        <div class="field" id="eMotivoWrap" style="display:none"><label>Motivo</label><input id="eMotivo" placeholder="Cliente ausente, dirección incorrecta, etc."></div>
+        <div class="field">
+          <label>Fotos de evidencia (hasta 10)</label>
+          <input type="file" accept="image/*" capture="environment" multiple id="eFotos">
+          <div class="thumbs" id="eThumbs"></div>
+        </div>
+        <div class="field">
+          <label>Firma del cliente</label>
+          <canvas class="sigpad" id="eSig"></canvas>
+          <div style="margin-top:6px"><button class="btn sm" id="eSigClear">Limpiar firma</button></div>
+        </div>
+        <div class="field">
+          <label>Documentos (opcional — remisión, factura, etc.)</label>
+          <input type="file" accept="image/*,.pdf" multiple id="eDocs">
+        </div>
+        <div class="field"><label>Comentarios</label><textarea id="eComentarios" rows="2"></textarea></div>
+      </div>
+      <div class="modal-f"><button class="btn" id="mCancel">Cancelar</button><button class="btn success" id="mGuardar">Cerrar entrega y continuar</button></div>
+    </div>`;
+  document.body.appendChild(container);
+  container.querySelector('#mClose').onclick = container.querySelector('#mCancel').onclick = ()=>container.remove();
+
+  container.querySelector('#eResultado').onchange=(e)=>{ container.querySelector('#eMotivoWrap').style.display = e.target.value==='fallido'?'block':'none'; };
+
+  const thumbs=container.querySelector('#eThumbs');
+  container.querySelector('#eFotos').onchange = async (e)=>{
+    const files=Array.from(e.target.files).slice(0, 10-fotos.length);
+    for(const f of files){
+      try{ const data=await Util.resizeImage(f,900,0.6); fotos.push(data); }catch(err){}
+    }
+    e.target.value='';
+    renderThumbs();
+  };
+  function renderThumbs(){
+    thumbs.innerHTML = fotos.map((f,i)=>`<div class="thumb"><img src="${f}"><button class="rm" data-i="${i}">✕</button></div>`).join('') +
+      (fotos.length<10?'':'');
+    thumbs.querySelectorAll('.rm').forEach(b=>b.onclick=()=>{ fotos.splice(Number(b.dataset.i),1); renderThumbs(); });
+    const label = container.querySelector('#eFotos');
+    label.disabled = fotos.length>=10;
+  }
+
+  // Firma
+  const cv=container.querySelector('#eSig'); const ctx=cv.getContext('2d');
+  function fitCanvas(){ const r=cv.getBoundingClientRect(); cv.width=r.width; cv.height=150; ctx.lineWidth=2; ctx.lineCap='round'; ctx.strokeStyle='#0f172a'; }
+  fitCanvas();
+  let drawing=false;
+  function pos(e){ const r=cv.getBoundingClientRect(); const t=e.touches?e.touches[0]:e; return {x:t.clientX-r.left,y:t.clientY-r.top}; }
+  function start(e){ drawing=true; const p=pos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); e.preventDefault(); }
+  function move(e){ if(!drawing) return; const p=pos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); e.preventDefault(); }
+  function end(){ drawing=false; }
+  cv.addEventListener('mousedown',start); cv.addEventListener('mousemove',move); window.addEventListener('mouseup',end);
+  cv.addEventListener('touchstart',start,{passive:false}); cv.addEventListener('touchmove',move,{passive:false}); cv.addEventListener('touchend',end);
+  container.querySelector('#eSigClear').onclick=()=>ctx.clearRect(0,0,cv.width,cv.height);
+
+  let docs=[];
+  container.querySelector('#eDocs').onchange=(e)=>{ docs = Array.from(e.target.files).map(f=>f.name); };
+
+  container.querySelector('#mGuardar').onclick=()=>{
+    const resultado=container.querySelector('#eResultado').value;
+    const motivo=container.querySelector('#eMotivo')?.value||'';
+    const comentarios=container.querySelector('#eComentarios').value;
+    const firma = cv.toDataURL('image/png');
+
+    DB.insert('entregas', {pedidoId:pedido.id, rutaId:ruta.id, horaEntrega:Util.nowISO(), fotos, firma, documentos:docs, comentarios, motivo, resultado});
+    DB.update('pedidos', pedido.id, {estatus:resultado});
+    container.remove();
+    Util.toast(resultado==='entregado'?'Entrega registrada ✅':'Entrega marcada como fallida','ok');
+    renderChoferRuta(body, DB.find('rutas',ruta.id), chofer);
+  };
+}
+
+function renderFinalizarRuta(body, ruta, chofer, orden){
+  const centro = DB.find('centros', ruta.centroId);
+  body.innerHTML = `
+    <div class="stop-card current" style="text-align:center">
+      <h3>🏁 Todas las paradas completadas</h3>
+      <p class="muted">Regresa al centro (${Util.esc(centro?.nombre||'—')}) para concluir la ruta.</p>
+      <div id="geoStatus" class="small muted" style="margin:10px 0">Verificando ubicación…</div>
+      <button class="btn success block" id="btnConcluir">Concluir ruta</button>
+    </div>`;
+  const geoBox = document.getElementById('geoStatus');
+  if(navigator.geolocation && centro && centro.lat!=null){
+    navigator.geolocation.getCurrentPosition(pos=>{
+      const d = Util.distKm({lat:pos.coords.latitude,lng:pos.coords.longitude},centro);
+      geoBox.textContent = d<0.5 ? '📍 Ubicación confirmada en el centro de retorno.' : `📍 Estás a ${d.toFixed(1)} km del centro de retorno.`;
+    }, ()=>{ geoBox.textContent='No se pudo obtener tu ubicación (puedes concluir manualmente).'; }, {timeout:6000});
+  } else {
+    geoBox.textContent='Geolocalización no disponible en este dispositivo (modo demo).';
+  }
+  document.getElementById('btnConcluir').onclick=()=>{
+    const horaFin=Util.nowISO();
+    DB.update('rutas', ruta.id, {estatus:'concluida', horaFin});
+    const dur=Util.minsBetween(ruta.horaInicio, horaFin);
+    const exitosas = orden.filter(p=>p.estatus==='entregado').length;
+    body.innerHTML = `<div class="stop-card current" style="text-align:center">
+      <h3>✅ Ruta concluida</h3>
+      <div class="grid cols-2" style="margin-top:14px;text-align:left">
+        <div class="card"><h3>Duración total</h3><div class="stat small-stat">${Util.fmtMins(dur)}</div></div>
+        <div class="card"><h3>Prom. por parada</h3><div class="stat small-stat">${Util.fmtMins(orden.length?Math.round(dur/orden.length):0)}</div></div>
+        <div class="card"><h3>Entregas exitosas</h3><div class="stat small-stat" style="color:var(--success)">${exitosas}/${orden.length}</div></div>
+        <div class="card"><h3>Eficiencia</h3><div class="stat small-stat">${orden.length?Math.round(exitosas/orden.length*100):0}%</div></div>
+      </div>
+      <p class="muted" style="margin-top:14px">Gracias, ${Util.esc(chofer?.nombre||'')}. Puedes cerrar la app.</p>
+    </div>`;
+    Util.toast('Ruta concluida — estadísticas calculadas','ok');
+  };
+}
+
+/* ============================================================
+   18. VISTA: TRACKING PÚBLICO DEL CLIENTE
+   ============================================================ */
+function renderTracking(){
+  const app=document.getElementById('app');
+  app.innerHTML = `
+  <div class="track-wrap"><div class="track-shell">
+    <div class="auth-card">
+      <div class="auth-logo"><div class="logo">MR</div><div><b>MapRoad</b><span>Rastreo de pedido</span></div></div>
+      <div id="tErr"></div>
+      <form id="tForm">
+        <div class="field"><label>Folio de pedido</label><input name="folio" placeholder="Ej. F1000" required></div>
+        <div class="field"><label>Teléfono o C.P. registrado</label><input name="verif" placeholder="Para validar tu identidad" required></div>
+        <button class="btn primary block" type="submit">Rastrear pedido</button>
+      </form>
+      <div class="auth-links"><a href="#/login">← Volver al inicio de sesión</a></div>
+    </div>
+    <div id="tResult"></div>
+  </div></div>`;
+  document.getElementById('tForm').addEventListener('submit', e=>{
+    e.preventDefault();
+    const f=new FormData(e.target);
+    const folio=f.get('folio').trim(), verif=f.get('verif').trim();
+    const pedido = DB.get('pedidos').find(p=>p.folio && p.folio.toLowerCase()===folio.toLowerCase() &&
+      ((p.telefono&&p.telefono.includes(verif)) || (p.cp&&p.cp===verif)));
+    if(!pedido){ document.getElementById('tErr').innerHTML='<div class="errbox">No encontramos un pedido con esos datos. Verifica el folio y el teléfono/C.P.</div>'; document.getElementById('tResult').innerHTML=''; return; }
+    document.getElementById('tErr').innerHTML='';
+    renderTrackingResult(pedido);
+  });
+}
+
+function renderTrackingResult(pedido){
+  const ruta = DB.find('rutas', pedido.rutaId);
+  const centro = ruta ? DB.find('centros', ruta.centroId) : null;
+  const chofer = ruta ? DB.find('choferes', ruta.choferId) : null;
+  const orden = ruta ? (ruta.ordenOptimizado&&ruta.ordenOptimizado.length?ruta.ordenOptimizado:ruta.pedidoIds) : [];
+  const idx = orden.indexOf(pedido.id);
+  const pedidosRuta = DB.get('pedidos');
+  const entregadasAntes = orden.slice(0, idx).filter(pid=>pedidosRuta.find(p=>p.id===pid)?.estatus==='entregado').length;
+
+  let estadoTxt, pasos;
+  if(pedido.estatus==='entregado'){ estadoTxt='Entregado'; }
+  else if(pedido.estatus==='fallido'){ estadoTxt='Entrega no completada'; }
+  else if(ruta && ruta.estatus==='en_curso'){ estadoTxt='En camino'; }
+  else if(ruta && ruta.estatus==='pendiente'){ estadoTxt='Programado para hoy'; }
+  else { estadoTxt='Pendiente de asignación de ruta'; }
+
+  pasos = [
+    {label:'Pedido registrado', done:true},
+    {label:'Salió del centro de distribución', done: !!(ruta&&ruta.horaInicio)},
+    {label: idx>-1 ? `En ruta (${entregadasAntes} entregas antes de la tuya)` : 'En ruta hacia tu domicilio', done: ruta&&ruta.estatus!=='pendiente', current: ruta&&ruta.estatus==='en_curso'&&pedido.estatus==='pendiente' },
+    {label:'Entregado', done: pedido.estatus==='entregado'},
+  ];
+
+  // ETA basado en tiempos históricos del chofer para posiciones similares en ruta
+  let etaTxt='—';
+  if(ruta && ruta.estatus==='en_curso' && pedido.estatus==='pendiente' && idx>-1){
+    const histEntregas = DB.get('entregas');
+    const histRutas = DB.get('rutas').filter(r=>r.choferId===ruta.choferId && r.estatus==='concluida');
+    const tiemposPorParada=[];
+    histRutas.forEach(hr=>{
+      const ords = hr.ordenOptimizado&&hr.ordenOptimizado.length?hr.ordenOptimizado:hr.pedidoIds;
+      let prev=hr.horaInicio;
+      ords.forEach(pid=>{
+        const ent = histEntregas.find(e=>e.pedidoId===pid);
+        if(ent && prev){ tiemposPorParada.push(Util.minsBetween(prev, ent.horaEntrega)); prev=ent.horaEntrega; }
+      });
+    });
+    const promParada = tiemposPorParada.length ? tiemposPorParada.reduce((a,b)=>a+b,0)/tiemposPorParada.length : 28;
+    const paradasRestantes = idx - entregadasAntes + 1;
+    const minsRestantes = Math.max(5, Math.round(promParada*paradasRestantes));
+    const eta = new Date(Date.now()+minsRestantes*60000);
+    etaTxt = eta.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+  } else if(pedido.estatus==='entregado'){
+    etaTxt = 'Entregado';
+  }
+
+  // Ubicación difuminada (no exacta) — solo una zona aproximada, no el punto anterior real
+  const box = document.getElementById('tResult');
+  const puedeMostrarMapa = ruta && ruta.estatus==='en_curso' && pedido.lat!=null && centro && centro.lat!=null;
+  let blipStyle='';
+  if(puedeMostrarMapa){
+    const avance = orden.length ? Math.min(1,(entregadasAntes+0.5)/orden.length) : 0.5;
+    const approx = { lat: centro.lat + (pedido.lat-centro.lat)*avance, lng: centro.lng + (pedido.lng-centro.lng)*avance };
+    const fuzzed = Util.jitter(approx, 1.2); // se difumina para no revelar el punto exacto anterior
+    const left = 20 + Math.random()*60, top = 25 + Math.random()*50; // representación abstracta, no coordenada real en pantalla
+    blipStyle = `left:${left}%;top:${top}%`;
+  }
+
+  box.innerHTML = `
+    <div class="auth-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div><b style="font-size:16px">Folio ${Util.esc(pedido.folio)}</b><div class="small muted">${Util.esc(pedido.nombreContacto||'')}</div></div>
+        <span class="badge ${pedido.estatus==='entregado'?'b-green':pedido.estatus==='fallido'?'b-red':'b-blue'}">${Util.esc(estadoTxt)}</span>
+      </div>
+      ${puedeMostrarMapa?`<div class="trackmap" style="margin-top:14px"><div class="blip" style="${blipStyle}"></div></div>
+      <div class="small mute2" style="margin-top:6px">📍 Ubicación aproximada — por seguridad no se muestra el punto exacto de la unidad.</div>`:''}
+      ${etaTxt!=='—'?`<div class="eta-box"><div><div class="small muted">Entrega estimada</div><b>${Util.esc(etaTxt)}</b></div><div style="font-size:26px">🚚</div></div>`:''}
+      <div class="progress-track">
+        ${pasos.map(p=>`<div class="p-step ${p.done?'done':''} ${p.current?'current':''}"><div class="p-dot"></div><b class="small">${Util.esc(p.label)}</b></div>`).join('')}
+      </div>
+      <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
+      <div class="small muted"><b>Dirección de entrega:</b> ${Util.esc(pedido.direccion||'')}, ${Util.esc(pedido.colonia||'')}</div>
+      <div class="small muted" style="margin-top:4px"><b>Chofer:</b> ${chofer?Util.esc(chofer.nombre):'Por asignar'}</div>
+    </div>`;
+}
+
+/* ============================================================
+   19. MODAL GENÉRICO
+   ============================================================ */
+function openModal(title, bodyHtml, onSave){
+  const bg=document.createElement('div');
+  bg.className='modal-bg';
+  bg.id='genericModal';
+  bg.innerHTML = `<div class="modal">
+    <div class="modal-h"><b>${Util.esc(title)}</b><button class="icon-btn" id="mXClose">✕</button></div>
+    <form id="mForm"><div class="modal-b">${bodyHtml}</div>
+    <div class="modal-f"><button type="button" class="btn" id="mXCancel">Cancelar</button><button type="submit" class="btn primary">Guardar</button></div></form>
+  </div>`;
+  document.body.appendChild(bg);
+  bg.querySelector('#mXClose').onclick = bg.querySelector('#mXCancel').onclick = closeModal;
+  bg.addEventListener('click', e=>{ if(e.target===bg) closeModal(); });
+  bg.querySelector('#mForm').addEventListener('submit', e=>{
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target).entries());
+    onSave(data);
+  });
+}
+function closeModal(){ const m=document.getElementById('genericModal'); if(m) m.remove(); }
+
+/* ============================================================
+   20. BOOTSTRAP
+   ============================================================ */
+DB.seedIfEmpty();
+route();
+</script>
+</body>
+</html>
