@@ -222,9 +222,10 @@ begin
     'resultado', v_entrega.resultado,
     'motivo', v_entrega.motivo,
     'comentarios', v_entrega.comentarios,
-    'fotos', coalesce(to_jsonb(v_entrega.fotos), '[]'::jsonb),
-    'firma_url', v_entrega.firma_url,
-    'documentos', coalesce(to_jsonb(v_entrega.documentos), '[]'::jsonb)
+    'fotos', coalesce(to_jsonb(v_entrega.fotos), '[]'::jsonb)
+    -- Por seguridad, la firma y los documentos internos NUNCA se exponen en esta
+    -- consulta pública — solo las fotos tomadas durante la entrega. Si se necesitan,
+    -- deben consultarse desde el panel admin/tráfico autenticado, no desde aquí.
   );
 end;
 $$;

@@ -1897,11 +1897,10 @@ function renderTrackingResult(pedido){
       <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
       <div class="small muted"><b>Dirección de entrega:</b> ${Util.esc(pedido.direccion||'')}, ${Util.esc(pedido.colonia||'')}</div>
       <div class="small muted" style="margin-top:4px"><b>Chofer:</b> ${chofer?Util.esc(chofer.nombre):'Por asignar'}</div>
-      ${entrega && ((entrega.fotos&&entrega.fotos.length) || entrega.firma) ? `
+      ${entrega && entrega.fotos && entrega.fotos.length ? `
         <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
         <div class="small" style="margin-bottom:8px"><b>Evidencia de entrega</b></div>
-        ${entrega.fotos&&entrega.fotos.length?`<div class="thumbs">${entrega.fotos.map(f=>`<div class="thumb"><img src="${f}"></div>`).join('')}</div>`:''}
-        ${entrega.firma?`<div class="small muted" style="margin-top:10px">Firma de recepción</div><img src="${entrega.firma}" style="max-width:100%;border:1px solid var(--border);border-radius:8px;background:#fff;margin-top:4px">`:''}
+        <div class="thumbs">${entrega.fotos.map(f=>`<div class="thumb"><img src="${f}"></div>`).join('')}</div>
       `:''}
     </div>`;
 

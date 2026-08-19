@@ -44,8 +44,12 @@ curl -X POST 'https://xxxxxxxx.supabase.co/rest/v1/rpc/get_informe_por_folio' \
 
 Responde un JSON con los mismos campos que ves en el "Informe por Folio de
 Pedido" del panel admin de MapRoad (cliente, dirección, chofer, ruta, hora de
-llegada/entrega, fotos, firma, documentos), o `{"encontrado": false, ...}` si
-el folio no existe.
+llegada/entrega, fotos), o `{"encontrado": false, ...}` si el folio no existe.
+
+**Por seguridad, esta consulta nunca incluye la firma del cliente ni los
+documentos internos (remisión, factura) — solo las fotos tomadas en la
+entrega.** Es la misma regla que aplica el tracking público de `index.html`.
+La firma solo es visible dentro del panel admin/tráfico autenticado.
 
 ## Por qué es seguro exponer la anon key
 
