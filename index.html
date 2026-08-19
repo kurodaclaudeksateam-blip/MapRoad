@@ -386,14 +386,17 @@ function seedHistorico(centros,unidades,choferes,tiendas){
         fechaMin:ayer, fechaMax:ayer, controlDestino:'', oficinaVentas:'OV-01', sucursalSolicita:centro.nombre,
         nombreVendedor:'Vendedor Demo', comentarios:'', folioFactura:'FA-'+(2000+idx), pesoKg:(Math.random()*80+5).toFixed(1),
         volumenM3:(Math.random()*1.2+0.1).toFixed(2), importeTotal:(Math.random()*8000+300).toFixed(2),
-        fecha:ayer, centroId:centro.id, rutaId, ordenEnRuta:idx+1, estatus:'entregado'
+        fecha:ayer, centroId:centro.id, rutaId, ordenEnRuta:idx+1, estatus:'entregado',
+        creado:t0.toISOString(), horaLlegada:new Date(horaEntrega.getTime()-4*60000).toISOString()
       });
-      entregas.push({id:Util.uid('e'),pedidoId:pid,rutaId,horaEntrega:horaEntrega.toISOString(),fotos:[],firma:'',documentos:[],comentarios:'Entrega OK (demo)',resultado:'entregado'});
+      const demoFoto = "data:image/svg+xml;utf8,"+encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><rect width='300' height='300' fill='#dbeafe'/><text x='50%' y='50%' font-size='20' text-anchor='middle' fill='#1e40af' dy='.3em'>Foto demo</text></svg>`);
+      const demoFirma = "data:image/svg+xml;utf8,"+encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='300' height='120'><rect width='300' height='120' fill='#fff'/><path d='M20 80 Q 60 20 100 80 T 180 80 T 260 60' stroke='#0f172a' fill='none' stroke-width='2'/></svg>`);
+      entregas.push({id:Util.uid('e'),pedidoId:pid,rutaId,horaEntrega:horaEntrega.toISOString(),fotos:[demoFoto],firma:demoFirma,documentos:[],comentarios:'Entrega OK (demo)',resultado:'entregado'});
       pedidoIds.push(pid);
     });
     const horaFin=new Date(t0.getTime() + (orden.length+1)*30*60000);
     rutas.push({id:rutaId,fecha:ayer,choferId:ch.id,unidadId:unidades.find(u=>u.choferId===ch.id).id,centroId:centro.id,
-      estatus:'concluida',pedidoIds,ordenOptimizado:orden.map(o=>o.id),horaInicio:t0.toISOString(),horaFin:horaFin.toISOString()});
+      estatus:'concluida',pedidoIds,ordenOptimizado:pedidoIds.slice(),horaInicio:t0.toISOString(),horaFin:horaFin.toISOString()});
   });
   DB.set('pedidos',pedidos.concat(DB.get('pedidos')));
   DB.set('rutas',rutas.concat(DB.get('rutas')));
@@ -1143,7 +1146,7 @@ function generarRutas(el){
       const pid = Util.uid('p');
       const {_tmpId, ...pClean} = p;
       pedidosDB.push(Object.assign({}, pClean, {
-        id:pid, fecha, centroId, rutaId, ordenEnRuta: idx<orden.length?idx+1:null, estatus:'pendiente'
+        id:pid, fecha, centroId, rutaId, ordenEnRuta: idx<orden.length?idx+1:null, estatus:'pendiente', creado:Util.nowISO()
       }));
       pedidoIdsRuta.push(pid);
       pedidosCreados++;
@@ -1823,6 +1826,8 @@ function renderTrackingResult(pedido){
   const idx = orden.indexOf(pedido.id);
   const pedidosRuta = DB.get('pedidos');
   const entregadasAntes = orden.slice(0, idx).filter(pid=>pedidosRuta.find(p=>p.id===pid)?.estatus==='entregado').length;
+  const entrega = DB.get('entregas').find(e=>e.pedidoId===pedido.id);
+  const yaCerrado = pedido.estatus==='entregado' || pedido.estatus==='fallido';
 
   let estadoTxt, pasos;
   if(pedido.estatus==='entregado'){ estadoTxt='Entregado'; }
@@ -1831,11 +1836,16 @@ function renderTrackingResult(pedido){
   else if(ruta && ruta.estatus==='pendiente'){ estadoTxt='Programado para hoy'; }
   else { estadoTxt='Pendiente de asignación de ruta'; }
 
+  // El conteo de "entregas antes de la tuya" solo tiene sentido mientras va en camino;
+  // una vez entregado/fallido ya no aporta información y se omite.
+  const conteoTxt = (!yaCerrado && idx>-1) ? ` (${entregadasAntes} entregas antes de la tuya)` : '';
+
   pasos = [
-    {label:'Pedido registrado', done:true},
-    {label:'Salió del centro de distribución', done: !!(ruta&&ruta.horaInicio)},
-    {label: idx>-1 ? `En ruta (${entregadasAntes} entregas antes de la tuya)` : 'En ruta hacia tu domicilio', done: ruta&&ruta.estatus!=='pendiente', current: ruta&&ruta.estatus==='en_curso'&&pedido.estatus==='pendiente' },
-    {label:'Entregado', done: pedido.estatus==='entregado'},
+    {label:'Pedido registrado', done:true, hora:pedido.creado},
+    {label:'Salió del centro de distribución', done: !!(ruta&&ruta.horaInicio), hora: ruta?.horaInicio},
+    {label: pedido.horaLlegada ? 'El repartidor llegó a tu domicilio' : ('En ruta hacia tu domicilio'+conteoTxt),
+      done: ruta&&ruta.estatus!=='pendiente', current: ruta&&ruta.estatus==='en_curso'&&pedido.estatus==='pendiente', hora: pedido.horaLlegada},
+    {label: pedido.estatus==='fallido' ? 'Intento de entrega' : 'Entregado', done: yaCerrado, hora: entrega?.horaEntrega},
   ];
 
   // ETA basado en tiempos históricos del chofer para posiciones similares en ruta
@@ -1882,11 +1892,17 @@ function renderTrackingResult(pedido){
       <div class="small mute2" style="margin-top:6px">📍 Zona aproximada — por seguridad no se muestra el punto exacto de la unidad.</div>`:''}
       ${etaTxt!=='—'?`<div class="eta-box"><div><div class="small muted">Entrega estimada</div><b>${Util.esc(etaTxt)}</b></div><div style="font-size:26px">🚚</div></div>`:''}
       <div class="progress-track">
-        ${pasos.map(p=>`<div class="p-step ${p.done?'done':''} ${p.current?'current':''}"><div class="p-dot"></div><b class="small">${Util.esc(p.label)}</b></div>`).join('')}
+        ${pasos.map(p=>`<div class="p-step ${p.done?'done':''} ${p.current?'current':''}"><div class="p-dot"></div><b class="small">${Util.esc(p.label)}</b>${p.hora?`<div class="small mute2">${Util.fmtDateTime(p.hora)}</div>`:''}</div>`).join('')}
       </div>
       <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
       <div class="small muted"><b>Dirección de entrega:</b> ${Util.esc(pedido.direccion||'')}, ${Util.esc(pedido.colonia||'')}</div>
       <div class="small muted" style="margin-top:4px"><b>Chofer:</b> ${chofer?Util.esc(chofer.nombre):'Por asignar'}</div>
+      ${entrega && ((entrega.fotos&&entrega.fotos.length) || entrega.firma) ? `
+        <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
+        <div class="small" style="margin-bottom:8px"><b>Evidencia de entrega</b></div>
+        ${entrega.fotos&&entrega.fotos.length?`<div class="thumbs">${entrega.fotos.map(f=>`<div class="thumb"><img src="${f}"></div>`).join('')}</div>`:''}
+        ${entrega.firma?`<div class="small muted" style="margin-top:10px">Firma de recepción</div><img src="${entrega.firma}" style="max-width:100%;border:1px solid var(--border);border-radius:8px;background:#fff;margin-top:4px">`:''}
+      `:''}
     </div>`;
 
   if(puedeMostrarMapa && fuzzed){
