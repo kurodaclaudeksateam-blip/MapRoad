@@ -34,11 +34,11 @@ También hay un enlace público **"Rastrear un pedido"** (sin login) para el tra
 2. **Control de choferes** — CRUD de choferes + alta de su acceso a la app móvil.
 3. **Asignación de tiendas por chofer** — tabla de puntos de entrega con asignación por dropdown, filtrable por centro.
 4. **Centros / razón social** — administra depósitos (con lat/lng de origen) y su razón social.
-5. **Cargar rutas del día** — importa un `.xlsx`/`.csv` con las columnas del pedido (Folio, Vehículo, Cliente, dirección, coordenadas, pesos, fechas de entrega, etc.), agrupa por Folio (multi-artículo) y por Vehículo, y genera una ruta optimizada por vehículo/chofer.
+5. **Cargar rutas del día** — importa un `.xlsx`/`.csv` con las columnas del pedido (Folio, Vehículo, Cliente, dirección, coordenadas, pesos, fechas de entrega, etc.), agrupa por Folio (multi-artículo) y por Vehículo, y genera una ruta optimizada por vehículo/chofer. Antes de generar, muestra una tabla de **verificación**: qué vehículo del archivo se mapea a qué unidad/chofer registrado (editable si no hubo match automático) y qué pedidos tienen datos faltantes (ej. coordenadas), con un botón ✎ para corregirlos ahí mismo. Ya generada, cada ruta se puede volver a abrir desde **Monitoreo** (✎ "Editar ruta") para reasignar chofer/unidad, corregir dirección/teléfono/coordenadas de un pedido, o recalcular el orden óptimo.
 6. **Optimización de ruta** — heurística de vecino más cercano que penaliza giros a la derecha (aprox. al enfoque de Amazon de preferir seguir de frente / girar a la izquierda), usando el rumbo (bearing) entre paradas consecutivas. No usa red vial real, solo geometría de línea recta — para producción se recomienda un motor de ruteo real (OSRM, Google Routes API, etc.).
 7. **App del chofer (móvil)** — login exclusivo, ve su ruta del día en orden optimizado, botón "Navegar" que abre Google Maps con el destino, registra cada entrega (hasta 10 fotos, firma en canvas, documentos, resultado/motivo), avanza automáticamente a la siguiente parada, y al terminar solicita concluir la ruta (con validación opcional de geolocalización contra el centro de retorno) calculando duración total, promedio por parada y % de eficiencia.
 8. **Tracking del cliente** — acceso público con Folio + teléfono/C.P. (para no exponer el pedido a cualquiera). Muestra el progreso como pasos (sin coordenadas exactas — se difumina la posición para no revelar el punto anterior real de la unidad) y una hora estimada de entrega calculada a partir del tiempo histórico promedio por parada de ese chofer.
-9. **Monitoreo en tiempo real** — mapa abstracto (canvas) con la ruta de cada chofer en un color distinto, tabla de estatus con filtros por chofer/unidad/centro/estatus/fecha. Se actualiza entre pestañas del mismo navegador vía el evento `storage`.
+9. **Monitoreo en tiempo real** — mapa real (Leaflet + tiles de OpenStreetMap, gratuito, sin API key) con la ruta de cada chofer en un color distinto sobre el mapa de México, tabla de estatus con filtros por chofer/unidad/centro/estatus/fecha. Se actualiza entre pestañas del mismo navegador vía el evento `storage`.
 10. **Histórico y estadísticas** — rutas de días anteriores con filtros por cualquier campo, duración, % de éxito y tiempo promedio por parada.
 11. **Usuarios y accesos** (solo admin) — alta de usuarios y su rol.
 
@@ -59,8 +59,8 @@ Las tablas usadas hoy en `localStorage` (`maproad_*`) son: `usuarios`, `unidades
 - Crear estas tablas en Postgres (mismos campos).
 - Reemplazar la implementación de `DB` por llamadas async al cliente `@supabase/supabase-js`.
 - Mover fotos/firmas/documentos de *dataURL en localStorage* a **Supabase Storage** (el prototipo ya comprime las fotos a JPEG antes de guardarlas, pero `localStorage` tiene un límite de ~5-10MB).
-- Sustituir el mapa abstracto (canvas) por un mapa real (Google Maps / Mapbox / Leaflet) usando las mismas coordenadas.
-- Sustituir el algoritmo de optimización por uno basado en una API de ruteo real si se requiere precisión en calles/tráfico.
+- El mapa ya usa Leaflet + OpenStreetMap (gratuito); si se requiere navegación/tráfico en vivo se puede cambiar a Google Maps/Mapbox sin tocar el resto de la app (mismas coordenadas).
+- Sustituir el algoritmo de optimización por uno basado en una API de ruteo real (OSRM, Google Routes API) si se requiere precisión en calles/tráfico.
 
 ## Columnas esperadas en el archivo de rutas
 
@@ -76,7 +76,7 @@ Filas con el mismo "Folio de Pedido" se agrupan como una sola parada con varios 
 
 ## Dependencias
 
-Un único recurso externo por CDN: [SheetJS](https://sheetjs.com/) (`xlsx.full.min.js`), necesario para leer archivos `.xlsx` binarios en el navegador sin backend. Los `.csv` se parsean sin dependencias.
+Dos recursos externos por CDN, ambos gratuitos y sin API key: [SheetJS](https://sheetjs.com/) (`xlsx.full.min.js`, para leer `.xlsx` en el navegador — los `.csv` se parsean sin dependencias) y [Leaflet](https://leafletjs.com/) con tiles de [OpenStreetMap](https://www.openstreetmap.org/copyright) para los mapas (monitoreo y tracking).
 
 ## Estado del prototipo
 

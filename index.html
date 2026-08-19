@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
 <title>MapRoad · Control de Rutas y Entregas</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 /* ============================================================
    MapRoad — Prototipo funcional (localStorage)
@@ -153,7 +155,6 @@ tr:hover td{background:#f8fafc;}
 .p-step.done .p-dot{background:var(--success);box-shadow:0 0 0 2px var(--success);}
 .p-step.current .p-dot{background:var(--primary);box-shadow:0 0 0 4px var(--primary-soft);}
 .trackmap{height:150px;border-radius:10px;background:linear-gradient(135deg,#e0f2fe,#eef2ff);position:relative;overflow:hidden;border:1px solid var(--border);}
-.trackmap .blip{position:absolute;width:14px;height:14px;border-radius:50%;background:var(--primary);box-shadow:0 0 0 6px rgba(37,99,235,.25);transform:translate(-50%,-50%);}
 .eta-box{display:flex;align-items:center;justify-content:space-between;background:var(--primary-soft);border-radius:10px;padding:12px 14px;margin-top:10px;}
 .eta-box b{font-size:20px;color:var(--primary-dark);}
 
@@ -174,7 +175,9 @@ tr:hover td{background:#f8fafc;}
 .sigpad{border:1px dashed var(--border);border-radius:8px;background:#fff;touch-action:none;width:100%;height:150px;}
 .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--border);padding:10px 14px;display:flex;gap:8px;max-width:520px;margin:0 auto;}
 
-.mapcanvas{width:100%;height:380px;border-radius:10px;background:#f1f5f9;border:1px solid var(--border);}
+.mapcanvas{width:100%;height:380px;border-radius:10px;background:#f1f5f9;border:1px solid var(--border);overflow:hidden;}
+.map-empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-mute);font-size:13px;}
+.leaflet-popup-content{font-family:var(--font);font-size:12.5px;}
 .legend{display:flex;flex-wrap:wrap;gap:10px;padding:10px 18px;font-size:12px;border-top:1px solid var(--border);}
 .legend .li{display:flex;align-items:center;gap:6px;}
 .legend .sw{width:12px;height:4px;border-radius:2px;}
@@ -976,6 +979,8 @@ function normalizeRow(raw){
   return out;
 }
 
+let _vehiculoAsign = {};
+
 function procesarImportacion(el, rawRows){
   const rows = rawRows.map(normalizeRow).filter(r=>r.folio);
   // Agrupar por folio (una fila = un artículo; un folio = una parada)
@@ -984,18 +989,32 @@ function procesarImportacion(el, rawRows){
     if(!porFolio[r.folio]) porFolio[r.folio]={...r, items:[]};
     porFolio[r.folio].items.push({nombre:r.nombreItem, cantidad:Number(r.cantidad)||0, codigo:r.codigoItem});
   });
-  const pedidosNuevos = Object.values(porFolio).map(p=>({
-    folio:p.folio, vehiculo:p.vehiculo, items:p.items, numeroCliente:p.numeroCliente, nombreContacto:p.nombreContacto,
+  const pedidosNuevos = Object.values(porFolio).map((p,idx)=>({
+    _tmpId:idx, folio:p.folio, vehiculo:p.vehiculo, items:p.items, numeroCliente:p.numeroCliente, nombreContacto:p.nombreContacto,
     telefono:p.telefono, emailContacto:p.emailContacto, direccion:p.direccion, colonia:p.colonia, cp:p.cp,
     lat:p.lat?Number(p.lat):null, lng:p.lng?Number(p.lng):null, fechaMin:p.fechaMin, fechaMax:p.fechaMax,
     controlDestino:p.controlDestino, oficinaVentas:p.oficinaVentas, sucursalSolicita:p.sucursalSolicita,
     nombreVendedor:p.nombreVendedor, comentarios:p.comentarios, folioFactura:p.folioFactura,
     pesoKg:p.pesoKg, volumenM3:p.volumenM3, importeTotal:p.importeTotal
   }));
-  const sinCoords = pedidosNuevos.filter(p=>p.lat==null||p.lng==null).length;
-  const vehiculos = [...new Set(pedidosNuevos.map(p=>p.vehiculo).filter(Boolean))];
 
   _importState = pedidosNuevos;
+  _vehiculoAsign = {};
+  const unidades = DB.get('unidades');
+  [...new Set(pedidosNuevos.map(p=>p.vehiculo).filter(Boolean))].forEach(v=>{
+    const match = unidades.find(u=>u.placa.toLowerCase()===String(v).toLowerCase());
+    _vehiculoAsign[v] = match ? match.id : '';
+  });
+
+  renderImportPreview(el);
+}
+
+function renderImportPreview(el){
+  const pedidosNuevos = _importState;
+  const unidades = DB.get('unidades'), choferes = DB.get('choferes');
+  const sinCoords = pedidosNuevos.filter(p=>p.lat==null||p.lng==null).length;
+  const vehiculos = [...new Set(pedidosNuevos.map(p=>p.vehiculo).filter(Boolean))];
+  const sinUnidad = vehiculos.filter(v=>!_vehiculoAsign[v]).length;
 
   const box = document.getElementById('importResult');
   box.innerHTML = `
@@ -1006,14 +1025,79 @@ function procesarImportacion(el, rawRows){
         <div><h3>Sin coordenadas</h3><div class="stat small-stat" style="color:${sinCoords?'var(--danger)':'inherit'}">${sinCoords}</div></div>
       </div>
     </div>
-    <div class="table-wrap" style="max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
-      <table><thead><tr><th>Folio</th><th>Vehículo</th><th>Cliente</th><th>Dirección</th><th>Peso</th><th>Entrega máx.</th></tr></thead>
-      <tbody>${pedidosNuevos.slice(0,50).map(p=>`<tr><td class="mono">${Util.esc(p.folio)}</td><td>${Util.esc(p.vehiculo)}</td>
-        <td>${Util.esc(p.nombreContacto)}</td><td>${Util.esc(p.direccion)}</td><td>${Util.esc(p.pesoKg)} kg</td><td>${Util.esc(p.fechaMax)}</td></tr>`).join('')}</tbody></table>
+    <div class="panel" style="margin-bottom:14px">
+      <div class="panel-h"><b>Verifica la asignación de chofer por vehículo</b>${sinUnidad?`<span class="badge b-amber">${sinUnidad} sin unidad registrada</span>`:`<span class="badge b-green">Todo asignado</span>`}</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Vehículo (archivo)</th><th>Unidad / chofer</th><th>Paradas</th><th></th></tr></thead>
+        <tbody>${vehiculos.map(v=>{
+          const n = pedidosNuevos.filter(p=>p.vehiculo===v).length;
+          const unidadId = _vehiculoAsign[v];
+          const un = unidades.find(u=>u.id===unidadId);
+          const ch = un ? choferes.find(c=>c.id===un.choferId) : null;
+          return `<tr>
+            <td class="mono">${Util.esc(v)}</td>
+            <td><select data-vasign="${Util.esc(v)}" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;min-width:220px">
+              <option value="">Sin asignar (no se generará ruta)</option>
+              ${unidades.map(u=>{
+                const c=choferes.find(x=>x.id===u.choferId);
+                return `<option value="${u.id}" ${unidadId===u.id?'selected':''}>${Util.esc(u.placa)} — ${Util.esc(c?c.nombre:'sin chofer')}</option>`;
+              }).join('')}
+            </select></td>
+            <td>${n}</td>
+            <td>${un && !ch ? '<span class="badge b-amber">Unidad sin chofer</span>' : (un?'<span class="badge b-green">OK</span>':'<span class="badge b-gray">Pendiente</span>')}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table></div>
     </div>
-    <button class="btn primary block" style="margin-top:14px" id="btnGenerar">Generar rutas optimizadas para ${vehiculos.length} vehículo(s)</button>
+    <div class="panel">
+      <div class="panel-h"><b>Pedidos detectados (${pedidosNuevos.length})</b><span class="small muted">Corrige los que falten datos antes de generar</span></div>
+      <div class="table-wrap" style="max-height:300px;overflow-y:auto">
+        <table><thead><tr><th>Folio</th><th>Vehículo</th><th>Cliente</th><th>Dirección</th><th>Coordenadas</th><th>Entrega máx.</th><th></th></tr></thead>
+        <tbody>${pedidosNuevos.map(p=>`<tr>
+          <td class="mono">${Util.esc(p.folio)}</td><td>${Util.esc(p.vehiculo||'—')}</td>
+          <td>${Util.esc(p.nombreContacto||'—')}</td><td>${Util.esc(p.direccion||'—')}</td>
+          <td>${p.lat!=null&&p.lng!=null?`<span class="badge b-green">${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}</span>`:'<span class="badge b-red">Faltan</span>'}</td>
+          <td>${Util.esc(p.fechaMax||'—')}</td>
+          <td><button class="icon-btn" data-editpedido="${p._tmpId}">✎</button></td>
+        </tr>`).join('')}</tbody></table>
+      </div>
+    </div>
+    <button class="btn primary block" style="margin-top:14px" id="btnGenerar" ${vehiculos.every(v=>!_vehiculoAsign[v])?'disabled':''}>Generar rutas optimizadas para ${vehiculos.filter(v=>_vehiculoAsign[v]).length} vehículo(s)</button>
   `;
-  document.getElementById('btnGenerar').onclick = ()=>generarRutas(el);
+  box.querySelectorAll('[data-vasign]').forEach(s=>s.onchange=()=>{
+    _vehiculoAsign[s.dataset.vasign] = s.value;
+    renderImportPreview(el);
+  });
+  box.querySelectorAll('[data-editpedido]').forEach(b=>b.onclick=()=>openEditarPedidoImportado(el, Number(b.dataset.editpedido)));
+  const btnGenerar = document.getElementById('btnGenerar');
+  if(btnGenerar) btnGenerar.onclick = ()=>generarRutas(el);
+}
+
+function openEditarPedidoImportado(el, tmpId){
+  const p = _importState.find(x=>x._tmpId===tmpId);
+  if(!p) return;
+  openModal('Corregir pedido — Folio '+p.folio, `
+    <div class="field-row"><div class="field"><label>Vehículo</label><input name="vehiculo" value="${Util.esc(p.vehiculo||'')}"></div>
+    <div class="field"><label>Cliente / contacto</label><input name="nombreContacto" value="${Util.esc(p.nombreContacto||'')}"></div></div>
+    <div class="field"><label>Dirección</label><input name="direccion" value="${Util.esc(p.direccion||'')}"></div>
+    <div class="field-row"><div class="field"><label>Colonia</label><input name="colonia" value="${Util.esc(p.colonia||'')}"></div>
+    <div class="field"><label>C.P.</label><input name="cp" value="${Util.esc(p.cp||'')}"></div></div>
+    <div class="field-row"><div class="field"><label>Teléfono</label><input name="telefono" value="${Util.esc(p.telefono||'')}"></div>
+    <div class="field"><label>Email contacto</label><input name="emailContacto" value="${Util.esc(p.emailContacto||'')}"></div></div>
+    <div class="field-row"><div class="field"><label>Latitud</label><input type="number" step="any" name="lat" value="${p.lat!=null?p.lat:''}"></div>
+    <div class="field"><label>Longitud</label><input type="number" step="any" name="lng" value="${p.lng!=null?p.lng:''}"></div></div>
+    <div class="small muted">Tip: pega las coordenadas de Google Maps (clic derecho en el mapa → copiar lo que hay aquí).</div>
+  `, (data)=>{
+    const vehiculoAnterior = p.vehiculo;
+    Object.assign(p, data, {lat:data.lat?Number(data.lat):null, lng:data.lng?Number(data.lng):null});
+    if(p.vehiculo!==vehiculoAnterior && !(p.vehiculo in _vehiculoAsign)){
+      const un = DB.get('unidades').find(u=>u.placa.toLowerCase()===String(p.vehiculo).toLowerCase());
+      _vehiculoAsign[p.vehiculo] = un?un.id:'';
+    }
+    closeModal();
+    Util.toast('Pedido corregido','ok');
+    renderImportPreview(el);
+  });
 }
 
 function generarRutas(el){
@@ -1026,10 +1110,12 @@ function generarRutas(el){
   _importState.forEach(p=>{ (porVehiculo[p.vehiculo]=porVehiculo[p.vehiculo]||[]).push(p); });
 
   const pedidosDB = DB.get('pedidos'), rutasDB = DB.get('rutas');
-  let rutasCreadas=0, pedidosCreados=0;
+  let rutasCreadas=0, pedidosCreados=0, omitidos=0;
 
   Object.keys(porVehiculo).forEach(placa=>{
-    const unidad = unidades.find(u=>u.placa.toLowerCase()===String(placa).toLowerCase());
+    const unidadId = _vehiculoAsign[placa];
+    if(!unidadId){ omitidos += porVehiculo[placa].length; return; } // sin unidad asignada: no se genera ruta
+    const unidad = unidades.find(u=>u.id===unidadId);
     const chofer = unidad ? choferes.find(c=>c.id===unidad.choferId) : null;
     const stops = porVehiculo[placa].filter(p=>p.lat!=null && p.lng!=null);
     const sinGeo = porVehiculo[placa].filter(p=>p.lat==null || p.lng==null);
@@ -1040,7 +1126,8 @@ function generarRutas(el){
 
     [...orden.map(o=>stops.find(s=>s.folio===o.id)), ...sinGeo].forEach((p,idx)=>{
       const pid = Util.uid('p');
-      pedidosDB.push(Object.assign({}, p, {
+      const {_tmpId, ...pClean} = p;
+      pedidosDB.push(Object.assign({}, pClean, {
         id:pid, fecha, centroId, rutaId, ordenEnRuta: idx<orden.length?idx+1:null, estatus:'pendiente'
       }));
       pedidoIdsRuta.push(pid);
@@ -1056,7 +1143,8 @@ function generarRutas(el){
   });
 
   DB.set('pedidos',pedidosDB); DB.set('rutas',rutasDB);
-  _importState=null;
+  if(omitidos) Util.toast(`${omitidos} pedido(s) no se enrutaron por vehículos sin unidad asignada`,'err');
+  _importState=null; _vehiculoAsign={};
   Util.toast(`Se generaron ${rutasCreadas} rutas con ${pedidosCreados} pedidos`,'ok');
   el.innerHTML = `<div class="panel"><div class="panel-b" style="text-align:center;padding:40px">
     <h2 style="font-size:22px">✅ Rutas generadas</h2>
@@ -1076,6 +1164,7 @@ function colorForChofer(id, list){ const idx=list.findIndex(c=>c.id===id); retur
 
 function viewMonitoreo(el){
   let filtros = {fecha:Util.todayISO(), choferId:'', unidadId:'', centroId:'', estatus:''};
+  let map=null, mapLayer=null;
   function draw(){
     const choferes=DB.get('choferes'), unidades=DB.get('unidades'), centros=DB.get('centros');
     el.innerHTML = `
@@ -1089,11 +1178,11 @@ function viewMonitoreo(el){
         <button class="btn sm" id="ffReset">Limpiar</button>
       </div>
       <div style="padding:16px">
-        <canvas id="mapCanvas" class="mapcanvas"></canvas>
+        <div id="mapCanvas" class="mapcanvas"></div>
       </div>
       <div class="legend" id="legend"></div>
       <div class="table-wrap"><table>
-        <thead><tr><th>Chofer</th><th>Unidad</th><th>Centro</th><th>Paradas</th><th>Progreso</th><th>Estatus</th><th>Inicio</th><th>Último evento</th></tr></thead>
+        <thead><tr><th>Chofer</th><th>Unidad</th><th>Centro</th><th>Paradas</th><th>Progreso</th><th>Estatus</th><th>Inicio</th><th>Último evento</th><th></th></tr></thead>
         <tbody id="tbody"></tbody>
       </table></div>
     </div>`;
@@ -1105,6 +1194,12 @@ function viewMonitoreo(el){
       };
     });
     el.querySelector('#ffReset').onclick=()=>{ filtros={fecha:Util.todayISO(),choferId:'',unidadId:'',centroId:'',estatus:''}; draw(); };
+    if(map){ map.remove(); map=null; }
+    map = L.map(el.querySelector('#mapCanvas'), {scrollWheelZoom:false}).setView([23.6345,-102.5528],5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      maxZoom:19, attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+    mapLayer = L.layerGroup().addTo(map);
     refresh();
   }
   function refresh(){
@@ -1129,59 +1224,125 @@ function viewMonitoreo(el){
         <span class="small muted">${done}/${total}</span></td>
         <td>${estatusBadge(r.estatus)}</td><td>${Util.fmtTime(r.horaInicio)}</td>
         <td class="small">${ultimasEntregas[0]?('Folio '+Util.esc(pedidos.find(p=>p.id===ultimasEntregas[0].pedidoId)?.folio||'')+' · '+Util.fmtTime(ultimasEntregas[0].horaEntrega)):'—'}</td>
+        <td><button class="icon-btn" data-editruta="${r.id}" title="Editar ruta">✎</button></td>
       </tr>`;
-    }).join('') : `<tr><td colspan="8" class="empty">No hay rutas que coincidan con los filtros.</td></tr>`;
+    }).join('') : `<tr><td colspan="9" class="empty">No hay rutas que coincidan con los filtros.</td></tr>`;
+
+    el.querySelectorAll('[data-editruta]').forEach(b=>b.onclick=()=>openEditarRutaModal(b.dataset.editruta, refresh));
 
     el.querySelector('#legend').innerHTML = rutas.map(r=>{
       const ch=choferes.find(c=>c.id===r.choferId);
       return `<div class="li"><span class="sw" style="background:${colorForChofer(r.choferId,choferes)}"></span>${Util.esc(ch?.nombre||'—')}</div>`;
     }).join('') || '<span class="mute2 small">Sin rutas para mostrar</span>';
 
-    drawMap(el.querySelector('#mapCanvas'), rutas, pedidos, centros, choferes);
+    drawMap(map, mapLayer, rutas, pedidos, centros, choferes);
   }
   draw();
 }
 
-function drawMap(canvas, rutas, pedidos, centros, choferes){
-  const dpr=window.devicePixelRatio||1;
-  const rect=canvas.getBoundingClientRect();
-  canvas.width=rect.width*dpr; canvas.height=380*dpr;
-  const ctx=canvas.getContext('2d'); ctx.scale(dpr,dpr);
-  const W=rect.width, H=380;
-  ctx.clearRect(0,0,W,H);
-  const pts=[];
-  rutas.forEach(r=>{
-    const ce=centros.find(c=>c.id===r.centroId); if(ce&&ce.lat!=null) pts.push({lat:ce.lat,lng:ce.lng});
-    r.pedidoIds.forEach(pid=>{ const p=pedidos.find(x=>x.id===pid); if(p&&p.lat!=null) pts.push({lat:p.lat,lng:p.lng}); });
-  });
-  if(!pts.length){ ctx.fillStyle='#94a3b8'; ctx.font='13px sans-serif'; ctx.fillText('Sin datos geográficos para mostrar', 16, 30); return; }
-  const lats=pts.map(p=>p.lat), lngs=pts.map(p=>p.lng);
-  const minLat=Math.min(...lats), maxLat=Math.max(...lats), minLng=Math.min(...lngs), maxLng=Math.max(...lngs);
-  const pad=30;
-  function project(p){
-    const x = pad + (maxLng>minLng ? (p.lng-minLng)/(maxLng-minLng) : 0.5) * (W-2*pad);
-    const y = H-pad - (maxLat>minLat ? (p.lat-minLat)/(maxLat-minLat) : 0.5) * (H-2*pad);
-    return {x,y};
+/* ---- Edición de una ruta ya generada: reasignar chofer/unidad y corregir pedidos ---- */
+function openEditarRutaModal(rutaId, onSaved){
+  const ruta = DB.find('rutas', rutaId);
+  if(!ruta) return;
+  const unidades=DB.get('unidades'), choferes=DB.get('choferes');
+  let pedidosRuta = ruta.pedidoIds.map(pid=>DB.find('pedidos',pid)).filter(Boolean);
+
+  function render(){
+    openModalCustom('editarRutaModal', `Editar ruta — ${Util.esc(ruta.vehiculoTexto||'')}`, `
+      <div class="field-row">
+        <div class="field"><label>Chofer</label><select id="erChofer"><option value="">Sin asignar</option>${choferes.map(c=>`<option value="${c.id}" ${ruta.choferId===c.id?'selected':''}>${Util.esc(c.nombre)}</option>`).join('')}</select></div>
+        <div class="field"><label>Unidad</label><select id="erUnidad"><option value="">Sin asignar</option>${unidades.map(u=>`<option value="${u.id}" ${ruta.unidadId===u.id?'selected':''}>${Util.esc(u.placa)}</option>`).join('')}</select></div>
+      </div>
+      <div class="small muted" style="margin:4px 0 10px">Corrige los pedidos con datos faltantes o incorrectos (dirección, teléfono, coordenadas).</div>
+      <div class="table-wrap" style="max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
+        <table><thead><tr><th>Folio</th><th>Cliente</th><th>Dirección</th><th>Teléfono</th><th>Lat</th><th>Lng</th></tr></thead>
+        <tbody>${pedidosRuta.map(p=>`<tr data-pedidorow="${p.id}">
+          <td class="mono">${Util.esc(p.folio)}</td>
+          <td><input data-f="nombreContacto" value="${Util.esc(p.nombreContacto||'')}" style="width:130px"></td>
+          <td><input data-f="direccion" value="${Util.esc(p.direccion||'')}" style="width:160px"></td>
+          <td><input data-f="telefono" value="${Util.esc(p.telefono||'')}" style="width:100px"></td>
+          <td><input data-f="lat" type="number" step="any" value="${p.lat!=null?p.lat:''}" style="width:90px"></td>
+          <td><input data-f="lng" type="number" step="any" value="${p.lng!=null?p.lng:''}" style="width:90px"></td>
+        </tr>`).join('')}</tbody></table>
+      </div>
+      <div class="small muted" style="margin-top:10px">"Reoptimizar orden" recalcula el orden de paradas con las coordenadas actuales (solo aplica a paradas pendientes).</div>
+    `, [
+      {label:'Cancelar', cls:'btn', action:'cancel'},
+      {label:'Reoptimizar orden', cls:'btn', action:'reoptimizar'},
+      {label:'Guardar cambios', cls:'btn primary', action:'guardar'}
+    ], (action, modalEl)=>{
+      if(action==='cancel'){ closeCustomModal('editarRutaModal'); return; }
+      // recolectar ediciones de la tabla antes de guardar/reoptimizar
+      modalEl.querySelectorAll('[data-pedidorow]').forEach(row=>{
+        const pid=row.dataset.pedidorow;
+        const p=pedidosRuta.find(x=>x.id===pid);
+        if(!p) return;
+        row.querySelectorAll('[data-f]').forEach(inp=>{
+          const f=inp.dataset.f;
+          p[f] = (f==='lat'||f==='lng') ? (inp.value?Number(inp.value):null) : inp.value;
+        });
+      });
+      const choferId = modalEl.querySelector('#erChofer').value || null;
+      const unidadId = modalEl.querySelector('#erUnidad').value || null;
+
+      if(action==='reoptimizar'){
+        const centro = DB.find('centros', ruta.centroId);
+        const conGeo = pedidosRuta.filter(p=>p.lat!=null && p.lng!=null && p.estatus==='pendiente');
+        const yaCerrados = pedidosRuta.filter(p=>p.estatus!=='pendiente');
+        const sinGeo = pedidosRuta.filter(p=>p.estatus==='pendiente' && (p.lat==null||p.lng==null));
+        const orden = optimizarRuta(centro, conGeo.map(p=>({id:p.id,lat:p.lat,lng:p.lng})));
+        const nuevoOrden = [...yaCerrados, ...orden.map(o=>conGeo.find(p=>p.id===o.id)), ...sinGeo];
+        nuevoOrden.forEach((p,idx)=>{ p.ordenEnRuta = idx+1; });
+        pedidosRuta = nuevoOrden;
+        Util.toast('Orden recalculado','ok');
+        render();
+        return;
+      }
+
+      pedidosRuta.forEach(p=>DB.update('pedidos', p.id, {
+        nombreContacto:p.nombreContacto, direccion:p.direccion, telefono:p.telefono, lat:p.lat, lng:p.lng, ordenEnRuta:p.ordenEnRuta
+      }));
+      DB.update('rutas', ruta.id, {
+        choferId, unidadId,
+        ordenOptimizado: pedidosRuta.filter(p=>p.lat!=null&&p.lng!=null).sort((a,b)=>(a.ordenEnRuta||99)-(b.ordenEnRuta||99)).map(p=>p.id)
+      });
+      closeCustomModal('editarRutaModal');
+      Util.toast('Ruta actualizada','ok');
+      if(onSaved) onSaved();
+    });
   }
+  render();
+}
+
+function drawMap(map, mapLayer, rutas, pedidos, centros, choferes){
+  mapLayer.clearLayers();
+  const pts=[];
   rutas.forEach(r=>{
     const ce=centros.find(c=>c.id===r.centroId);
     const color=colorForChofer(r.choferId,choferes);
-    const seq=[]; if(ce&&ce.lat!=null) seq.push({lat:ce.lat,lng:ce.lng});
+    const seq=[]; if(ce&&ce.lat!=null) seq.push({lat:ce.lat,lng:ce.lng,esCentro:true});
     (r.ordenOptimizado&&r.ordenOptimizado.length?r.ordenOptimizado:r.pedidoIds).forEach(pid=>{
       const p=pedidos.find(x=>x.id===pid); if(p&&p.lat!=null) seq.push(p);
     });
-    ctx.strokeStyle=color; ctx.lineWidth=2.5; ctx.beginPath();
-    seq.forEach((p,i)=>{ const {x,y}=project(p); if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); });
-    ctx.stroke();
+    if(seq.length>1){
+      L.polyline(seq.map(p=>[p.lat,p.lng]), {color, weight:3, opacity:.85}).addTo(mapLayer);
+    }
     seq.forEach((p,i)=>{
-      const {x,y}=project(p);
-      const entregado = i>0 && p.estatus==='entregado';
-      const fallido = i>0 && p.estatus==='fallido';
-      ctx.beginPath(); ctx.arc(x,y,i===0?6:4.5,0,7);
-      ctx.fillStyle = i===0 ? '#0f172a' : (entregado?'#16a34a':fallido?'#dc2626':color);
-      ctx.fill(); ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke();
+      pts.push([p.lat,p.lng]);
+      if(p.esCentro){
+        L.circleMarker([p.lat,p.lng], {radius:7, color:'#fff', weight:2, fillColor:'#0f172a', fillOpacity:1})
+          .bindPopup(`<b>${Util.esc(ce?.nombre||'Centro')}</b><br>Punto de partida`).addTo(mapLayer);
+        return;
+      }
+      const entregado = p.estatus==='entregado', fallido = p.estatus==='fallido';
+      const fill = entregado?'#16a34a':fallido?'#dc2626':color;
+      L.circleMarker([p.lat,p.lng], {radius:5.5, color:'#fff', weight:1.5, fillColor:fill, fillOpacity:1})
+        .bindPopup(`<b>Folio ${Util.esc(p.folio)}</b><br>${Util.esc(p.nombreContacto||'')}<br>${Util.esc(p.direccion||'')}<br>${estatusBadge(p.estatus)}`)
+        .addTo(mapLayer);
     });
   });
+  if(pts.length){ map.fitBounds(L.latLngBounds(pts), {padding:[24,24], maxZoom:14}); }
+  else { map.setView([23.6345,-102.5528],5); }
 }
 
 /* ============================================================
@@ -1531,23 +1692,22 @@ function renderTrackingResult(pedido){
   // Ubicación difuminada (no exacta) — solo una zona aproximada, no el punto anterior real
   const box = document.getElementById('tResult');
   const puedeMostrarMapa = ruta && ruta.estatus==='en_curso' && pedido.lat!=null && centro && centro.lat!=null;
-  let blipStyle='';
+  let fuzzed=null;
   if(puedeMostrarMapa){
     const avance = orden.length ? Math.min(1,(entregadasAntes+0.5)/orden.length) : 0.5;
     const approx = { lat: centro.lat + (pedido.lat-centro.lat)*avance, lng: centro.lng + (pedido.lng-centro.lng)*avance };
-    const fuzzed = Util.jitter(approx, 1.2); // se difumina para no revelar el punto exacto anterior
-    const left = 20 + Math.random()*60, top = 25 + Math.random()*50; // representación abstracta, no coordenada real en pantalla
-    blipStyle = `left:${left}%;top:${top}%`;
+    fuzzed = Util.jitter(approx, 1.5); // se difumina para no revelar el punto exacto anterior
   }
 
+  if(_trackMap){ _trackMap.remove(); _trackMap=null; }
   box.innerHTML = `
     <div class="auth-card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div><b style="font-size:16px">Folio ${Util.esc(pedido.folio)}</b><div class="small muted">${Util.esc(pedido.nombreContacto||'')}</div></div>
         <span class="badge ${pedido.estatus==='entregado'?'b-green':pedido.estatus==='fallido'?'b-red':'b-blue'}">${Util.esc(estadoTxt)}</span>
       </div>
-      ${puedeMostrarMapa?`<div class="trackmap" style="margin-top:14px"><div class="blip" style="${blipStyle}"></div></div>
-      <div class="small mute2" style="margin-top:6px">📍 Ubicación aproximada — por seguridad no se muestra el punto exacto de la unidad.</div>`:''}
+      ${puedeMostrarMapa?`<div id="trackMiniMap" class="trackmap" style="margin-top:14px"></div>
+      <div class="small mute2" style="margin-top:6px">📍 Zona aproximada — por seguridad no se muestra el punto exacto de la unidad.</div>`:''}
       ${etaTxt!=='—'?`<div class="eta-box"><div><div class="small muted">Entrega estimada</div><b>${Util.esc(etaTxt)}</b></div><div style="font-size:26px">🚚</div></div>`:''}
       <div class="progress-track">
         ${pasos.map(p=>`<div class="p-step ${p.done?'done':''} ${p.current?'current':''}"><div class="p-dot"></div><b class="small">${Util.esc(p.label)}</b></div>`).join('')}
@@ -1556,7 +1716,14 @@ function renderTrackingResult(pedido){
       <div class="small muted"><b>Dirección de entrega:</b> ${Util.esc(pedido.direccion||'')}, ${Util.esc(pedido.colonia||'')}</div>
       <div class="small muted" style="margin-top:4px"><b>Chofer:</b> ${chofer?Util.esc(chofer.nombre):'Por asignar'}</div>
     </div>`;
+
+  if(puedeMostrarMapa && fuzzed){
+    _trackMap = L.map('trackMiniMap', {zoomControl:false, dragging:false, scrollWheelZoom:false, doubleClickZoom:false, attributionControl:false}).setView([fuzzed.lat,fuzzed.lng], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19}).addTo(_trackMap);
+    L.circle([fuzzed.lat,fuzzed.lng], {radius:1300, color:'#2563eb', weight:1.5, fillColor:'#2563eb', fillOpacity:.18}).addTo(_trackMap);
+  }
 }
+let _trackMap=null;
 
 /* ============================================================
    19. MODAL GENÉRICO
@@ -1580,6 +1747,24 @@ function openModal(title, bodyHtml, onSave){
   });
 }
 function closeModal(){ const m=document.getElementById('genericModal'); if(m) m.remove(); }
+
+/* Modal con múltiples botones de acción (para flujos con "Reoptimizar" + "Guardar" sin cerrar) */
+function openModalCustom(id, title, bodyHtml, buttons, onAction){
+  closeCustomModal(id);
+  const bg=document.createElement('div');
+  bg.className='modal-bg';
+  bg.id=id;
+  bg.innerHTML = `<div class="modal wide">
+    <div class="modal-h"><b>${Util.esc(title)}</b><button class="icon-btn" data-close>✕</button></div>
+    <div class="modal-b">${bodyHtml}</div>
+    <div class="modal-f">${buttons.map(b=>`<button type="button" class="${b.cls}" data-action="${b.action}">${Util.esc(b.label)}</button>`).join('')}</div>
+  </div>`;
+  document.body.appendChild(bg);
+  bg.querySelector('[data-close]').onclick=()=>closeCustomModal(id);
+  bg.addEventListener('click', e=>{ if(e.target===bg) closeCustomModal(id); });
+  bg.querySelectorAll('[data-action]').forEach(btn=>{ btn.onclick=()=>onAction(btn.dataset.action, bg); });
+}
+function closeCustomModal(id){ const m=document.getElementById(id); if(m) m.remove(); }
 
 /* ============================================================
    20. BOOTSTRAP
