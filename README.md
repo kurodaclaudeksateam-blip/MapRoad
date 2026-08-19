@@ -56,11 +56,22 @@ DB.query(tabla, fn)   // ≈ supabase.from(tabla).select('*') + filtro en client
 
 Las tablas usadas hoy en `localStorage` (`maproad_*`) son: `usuarios`, `unidades`, `choferes`, `tiendas`, `centros`, `pedidos`, `rutas`, `entregas`. Migrar a Supabase implica:
 
-- Crear estas tablas en Postgres (mismos campos).
+- Crear estas tablas en Postgres (mismos campos) — el esquema completo ya está listo en [`supabase/schema.sql`](supabase/schema.sql).
 - Reemplazar la implementación de `DB` por llamadas async al cliente `@supabase/supabase-js`.
 - Mover fotos/firmas/documentos de *dataURL en localStorage* a **Supabase Storage** (el prototipo ya comprime las fotos a JPEG antes de guardarlas, pero `localStorage` tiene un límite de ~5-10MB).
 - El mapa ya usa Leaflet + OpenStreetMap (gratuito); si se requiere navegación/tráfico en vivo se puede cambiar a Google Maps/Mapbox sin tocar el resto de la app (mismas coordenadas).
 - Sustituir el algoritmo de optimización por uno basado en una API de ruteo real (OSRM, Google Routes API) si se requiere precisión en calles/tráfico.
+
+### Consulta pública de solo lectura por Folio (para otra web)
+
+`supabase/schema.sql` incluye la función `get_informe_por_folio(folio)`: permite
+que **otra página web**, usando solo la llave pública (anon) de tu proyecto
+Supabase, consulte el mismo informe que ves en "Histórico → Informe por Folio
+de Pedido" — de solo lectura, buscando **únicamente por número de folio** (sin
+pedir teléfono/C.P. como el tracking interno). Row Level Security queda cerrado
+en todas las tablas; la función es la única puerta, y solo devuelve un folio a
+la vez, nunca una lista. Instrucciones de conexión (JS y REST puro) en
+[`supabase/README.md`](supabase/README.md).
 
 ## Columnas esperadas en el archivo de rutas
 
