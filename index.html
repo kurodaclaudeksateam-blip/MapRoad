@@ -178,6 +178,10 @@ tr:hover td{background:#f8fafc;}
 .mapcanvas{width:100%;height:380px;border-radius:10px;background:#f1f5f9;border:1px solid var(--border);overflow:hidden;}
 .map-empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-mute);font-size:13px;}
 .leaflet-popup-content{font-family:var(--font);font-size:12.5px;}
+/* Leaflet usa z-index internos de hasta 1000 (controles) que, sin esto, se escapan
+   por encima de cualquier overlay de la página (modales, etc.) porque .leaflet-container
+   no crea su propio contexto de apilamiento. Lo forzamos aquí para contenerlos. */
+.leaflet-container{z-index:0;}
 .legend{display:flex;flex-wrap:wrap;gap:10px;padding:10px 18px;font-size:12px;border-top:1px solid var(--border);}
 .legend .li{display:flex;align-items:center;gap:6px;}
 .legend .sw{width:12px;height:4px;border-radius:2px;}
@@ -205,9 +209,19 @@ tr:hover td{background:#f8fafc;}
    ============================================================ */
 const Util = {
   uid(p){ return (p||'id') + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,8); },
-  todayISO(){ return new Date().toISOString().slice(0,10); },
+  // Fecha local (YYYY-MM-DD) de un Date — NO usar toISOString().slice(0,10) para esto:
+  // eso da la fecha en UTC, que en México (UTC-6) se adelanta hasta 6h antes de medianoche real.
+  dateISO(d){ const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; },
+  todayISO(){ return Util.dateISO(new Date()); },
   nowISO(){ return new Date().toISOString(); },
-  fmtDate(iso){ if(!iso) return '—'; const d=new Date(iso); return d.toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}); },
+  fmtDate(iso){
+    if(!iso) return '—';
+    // Fechas "solo día" (YYYY-MM-DD) las interpreta el motor JS como UTC medianoche;
+    // en zonas horarias negativas (México) eso corre la fecha un día hacia atrás al
+    // mostrarla en local. Forzamos medianoche LOCAL para fechas sin hora explícita.
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(iso+'T00:00:00') : new Date(iso);
+    return d.toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'});
+  },
   fmtTime(iso){ if(!iso) return '—'; const d=new Date(iso); return d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}); },
   fmtDateTime(iso){ if(!iso) return '—'; return Util.fmtDate(iso)+' '+Util.fmtTime(iso); },
   minsBetween(a,b){ return Math.round((new Date(b)-new Date(a))/60000); },
@@ -349,7 +363,7 @@ const DB = {
 };
 
 function seedHistorico(centros,unidades,choferes,tiendas){
-  const ayer=new Date(Date.now()-86400000).toISOString().slice(0,10);
+  const ayer=Util.dateISO(new Date(Date.now()-86400000));
   const pedidos=[],rutas=[],entregas=[];
   choferes.forEach((ch,ci)=>{
     const stops=tiendas.filter(t=>t.choferId===ch.id);
@@ -610,7 +624,7 @@ function viewDashboard(el,user){
         <thead><tr><th>Chofer</th><th>Unidad</th><th>Centro</th><th>Paradas</th><th>Estatus</th><th>Inicio</th></tr></thead>
         <tbody>${rutasHoy.length? rutasHoy.map(r=>{
           const ch=DB.find('choferes',r.choferId), un=DB.find('unidades',r.unidadId), ce=DB.find('centros',r.centroId);
-          return `<tr><td>${Util.esc(ch?.nombre||'—')}</td><td class="mono">${Util.esc(un?.placa||'—')}</td><td>${Util.esc(ce?.nombre||'—')}</td>
+          return `<tr data-verruta="${r.id}" style="cursor:pointer" title="Ver envíos de esta ruta"><td>${Util.esc(ch?.nombre||'—')}</td><td class="mono">${Util.esc(un?.placa||'—')}</td><td>${Util.esc(ce?.nombre||'—')}</td>
           <td>${r.pedidoIds.length}</td><td>${estatusBadge(r.estatus)}</td><td>${Util.fmtTime(r.horaInicio)}</td></tr>`;
         }).join('') : `<tr><td colspan="6" class="empty">Aún no se han cargado rutas para hoy. <a href="#/cargar-rutas">Cargar ahora →</a></td></tr>`}</tbody>
       </table></div>
@@ -628,6 +642,7 @@ function viewDashboard(el,user){
       </div>
     </div>
   </div>`;
+  el.querySelectorAll('[data-verruta]').forEach(tr=>tr.onclick=()=>openDetalleRutaModal(tr.dataset.verruta));
 }
 
 function estatusBadge(estatus){
@@ -1216,7 +1231,7 @@ function viewMonitoreo(el){
       const done=r.pedidoIds.filter(pid=>{ const p=pedidos.find(x=>x.id===pid); return p && (p.estatus==='entregado'||p.estatus==='fallido'); }).length;
       const ultimasEntregas = entregas.filter(e=>e.rutaId===r.id).sort((a,b)=>new Date(b.horaEntrega)-new Date(a.horaEntrega));
       const color = colorForChofer(r.choferId, choferes);
-      return `<tr>
+      return `<tr data-verruta="${r.id}" style="cursor:pointer" title="Ver envíos de esta ruta">
         <td><span class="dot" style="background:${color}"></span> ${Util.esc(ch?.nombre||'—')}</td>
         <td class="mono">${Util.esc(un?.placa||r.vehiculoTexto||'—')}</td><td>${Util.esc(ce?.nombre||'—')}</td>
         <td>${total}</td>
@@ -1228,7 +1243,11 @@ function viewMonitoreo(el){
       </tr>`;
     }).join('') : `<tr><td colspan="9" class="empty">No hay rutas que coincidan con los filtros.</td></tr>`;
 
-    el.querySelectorAll('[data-editruta]').forEach(b=>b.onclick=()=>openEditarRutaModal(b.dataset.editruta, refresh));
+    el.querySelectorAll('[data-verruta]').forEach(tr=>tr.onclick=(e)=>{
+      if(e.target.closest('[data-editruta]')) return;
+      openDetalleRutaModal(tr.dataset.verruta);
+    });
+    el.querySelectorAll('[data-editruta]').forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); openEditarRutaModal(b.dataset.editruta, refresh); });
 
     el.querySelector('#legend').innerHTML = rutas.map(r=>{
       const ch=choferes.find(c=>c.id===r.choferId);
@@ -1314,6 +1333,105 @@ function openEditarRutaModal(rutaId, onSaved){
   render();
 }
 
+/* ---- Detalle de una ruta: lista de envíos (pedidos) y su evidencia de entrega ---- */
+function openDetalleRutaModal(rutaId){
+  const ruta = DB.find('rutas', rutaId);
+  if(!ruta) return;
+  const choferes=DB.get('choferes'), unidades=DB.get('unidades'), centros=DB.get('centros'), entregas=DB.get('entregas');
+  const ch=choferes.find(c=>c.id===ruta.choferId), un=unidades.find(u=>u.id===ruta.unidadId), ce=centros.find(c=>c.id===ruta.centroId);
+  const ordenIds = (ruta.ordenOptimizado&&ruta.ordenOptimizado.length?ruta.ordenOptimizado:ruta.pedidoIds);
+  const pedidos = ordenIds.map(pid=>DB.find('pedidos',pid)).filter(Boolean);
+  const entregadas = pedidos.filter(p=>p.estatus==='entregado').length;
+  const fallidas = pedidos.filter(p=>p.estatus==='fallido').length;
+
+  const tituloRuta = ch ? ch.nombre : (un ? un.placa : (ruta.vehiculoTexto || 'sin asignar'));
+  openModalCustom('detalleRutaModal', `Envíos de la ruta — ${Util.esc(tituloRuta)}`, `
+    <div class="small muted" style="margin-bottom:10px">
+      <b>${Util.esc(ch?.nombre||'Sin chofer asignado')}</b> · ${Util.esc(un?.placa||ruta.vehiculoTexto||'—')} · ${Util.esc(ce?.nombre||'—')} · ${Util.fmtDate(ruta.fecha)}
+      ${ruta.horaInicio?(' · Inicio '+Util.fmtTime(ruta.horaInicio)):''}${ruta.horaFin?(' · Fin '+Util.fmtTime(ruta.horaFin)):''}
+    </div>
+    <div class="grid cols-4" style="margin-bottom:14px">
+      <div class="card"><h3>Paradas</h3><div class="stat small-stat">${pedidos.length}</div></div>
+      <div class="card"><h3>Entregadas</h3><div class="stat small-stat" style="color:var(--success)">${entregadas}</div></div>
+      <div class="card"><h3>Fallidas</h3><div class="stat small-stat" style="color:var(--danger)">${fallidas}</div></div>
+      <div class="card"><h3>Estatus ruta</h3><div style="margin-top:4px">${estatusBadge(ruta.estatus)}</div></div>
+    </div>
+    <div class="table-wrap" style="max-height:360px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
+      <table><thead><tr><th>#</th><th>Folio</th><th>Cliente</th><th>Dirección</th><th>Estatus</th><th>Hora</th><th></th></tr></thead>
+      <tbody>${pedidos.length?pedidos.map((p,i)=>{
+        const ent = entregas.find(e=>e.pedidoId===p.id);
+        return `<tr>
+          <td>${p.ordenEnRuta||i+1}</td><td class="mono">${Util.esc(p.folio)}</td><td>${Util.esc(p.nombreContacto||'—')}</td>
+          <td>${Util.esc(p.direccion||'—')}</td><td>${estatusBadge(p.estatus)}</td>
+          <td class="small">${ent?Util.fmtTime(ent.horaEntrega):'—'}</td>
+          <td><button class="btn sm" data-verfolio="${Util.esc(p.folio)}">Ver informe</button></td>
+        </tr>`;
+      }).join(''):`<tr><td colspan="7" class="empty">Esta ruta no tiene envíos.</td></tr>`}</tbody></table>
+    </div>
+  `, [{label:'Cerrar', cls:'btn primary', action:'cerrar'}], (action)=>{
+    if(action==='cerrar') closeCustomModal('detalleRutaModal');
+  });
+  document.getElementById('detalleRutaModal').querySelectorAll('[data-verfolio]').forEach(b=>b.onclick=()=>openInformeFolioModal(b.dataset.verfolio));
+}
+
+/* ---- Informe completo de un pedido (folio): datos, ruta y evidencia de entrega ---- */
+function openInformeFolioModal(folioQuery){
+  const pedido = DB.get('pedidos').find(p=>p.folio && p.folio.toLowerCase()===String(folioQuery).trim().toLowerCase());
+  if(!pedido){ Util.toast('No se encontró ningún pedido con ese folio','err'); return; }
+  const ruta = pedido.rutaId ? DB.find('rutas', pedido.rutaId) : null;
+  const choferes=DB.get('choferes'), unidades=DB.get('unidades'), centros=DB.get('centros');
+  const ch = ruta ? choferes.find(c=>c.id===ruta.choferId) : null;
+  const un = ruta ? unidades.find(u=>u.id===ruta.unidadId) : null;
+  const ce = ruta ? centros.find(c=>c.id===ruta.centroId) : null;
+  const ent = DB.get('entregas').find(e=>e.pedidoId===pedido.id);
+
+  openModalCustom('informeFolioModal', `Informe de entrega — Folio ${Util.esc(pedido.folio)}`, `
+    <div class="grid cols-2" style="margin-bottom:14px">
+      <div class="card">
+        <h3>Pedido</h3>
+        <div class="small" style="margin-top:8px;line-height:1.8">
+          <div><b>Cliente:</b> ${Util.esc(pedido.nombreContacto||'—')}</div>
+          <div><b>Teléfono:</b> ${Util.esc(pedido.telefono||'—')}</div>
+          <div><b>Dirección:</b> ${Util.esc(pedido.direccion||'—')}${pedido.colonia?', '+Util.esc(pedido.colonia):''}${pedido.cp?' · C.P. '+Util.esc(pedido.cp):''}</div>
+          <div><b>Ventana de entrega:</b> ${Util.fmtDate(pedido.fechaMin)} — ${Util.fmtDate(pedido.fechaMax)}</div>
+          <div><b>Peso / Volumen:</b> ${Util.esc(pedido.pesoKg||'—')} kg / ${Util.esc(pedido.volumenM3||'—')} m³</div>
+          <div><b>Importe factura:</b> ${pedido.importeTotal?Util.money(pedido.importeTotal):'—'}</div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Ruta</h3>
+        <div class="small" style="margin-top:8px;line-height:1.8">
+          <div><b>Fecha:</b> ${Util.fmtDate(pedido.fecha||ruta?.fecha)}</div>
+          <div><b>Chofer:</b> ${Util.esc(ch?.nombre||'Sin asignar')}</div>
+          <div><b>Unidad:</b> ${Util.esc(un?.placa||ruta?.vehiculoTexto||'—')}</div>
+          <div><b>Centro:</b> ${Util.esc(ce?.nombre||'—')}</div>
+          <div><b>Estatus ruta:</b> ${ruta?estatusBadge(ruta.estatus):'—'}</div>
+          <div><b>Orden en ruta:</b> ${pedido.ordenEnRuta||'—'}</div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><b>Resultado de entrega</b>${estatusBadge(pedido.estatus)}</div>
+      <div class="panel-b">
+        ${ent ? `
+          <div class="small muted" style="margin-bottom:10px">${Util.fmtDateTime(ent.horaEntrega)}</div>
+          ${ent.motivo?`<div class="small" style="margin-bottom:8px"><b>Motivo:</b> ${Util.esc(ent.motivo)}</div>`:''}
+          ${ent.comentarios?`<div class="small" style="margin-bottom:8px"><b>Comentarios:</b> ${Util.esc(ent.comentarios)}</div>`:''}
+          <div class="field"><label>Fotos (${ent.fotos.length})</label>
+            <div class="thumbs">${ent.fotos.length?ent.fotos.map(f=>`<div class="thumb"><img src="${f}"></div>`).join(''):'<span class="small mute2">Sin fotos</span>'}</div>
+          </div>
+          <div class="field"><label>Firma del cliente</label>
+            ${ent.firma?`<img src="${ent.firma}" style="max-width:100%;border:1px solid var(--border);border-radius:8px;background:#fff">`:'<span class="small mute2">Sin firma</span>'}
+          </div>
+          ${ent.documentos&&ent.documentos.length?`<div class="field"><label>Documentos</label><div class="small">${ent.documentos.map(d=>Util.esc(d)).join(', ')}</div></div>`:''}
+        ` : `<div class="empty">Este pedido aún no ha sido entregado.</div>`}
+      </div>
+    </div>
+  `, [{label:'Cerrar', cls:'btn primary', action:'cerrar'}], (action)=>{
+    if(action==='cerrar') closeCustomModal('informeFolioModal');
+  });
+}
+
 function drawMap(map, mapLayer, rutas, pedidos, centros, choferes){
   mapLayer.clearLayers();
   const pts=[];
@@ -1349,11 +1467,20 @@ function drawMap(map, mapLayer, rutas, pedidos, centros, choferes){
    16. VISTA: HISTÓRICO Y ESTADÍSTICAS
    ============================================================ */
 function viewHistorico(el){
-  let filtros={desde:Util.todayISO(new Date(Date.now()-7*86400000)), hasta:Util.todayISO(), choferId:'', unidadId:'', centroId:'', folio:''};
-  filtros.desde = new Date(Date.now()-7*86400000).toISOString().slice(0,10);
+  let filtros={desde:Util.dateISO(new Date(Date.now()-7*86400000)), hasta:Util.todayISO(), choferId:'', unidadId:'', centroId:'', folio:''};
   function draw(){
     const choferes=DB.get('choferes'), unidades=DB.get('unidades'), centros=DB.get('centros');
     el.innerHTML = `
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-h"><b>📄 Informe de entrega por Folio de Pedido</b></div>
+      <div class="panel-b">
+        <div class="small muted" style="margin-bottom:8px">Busca un pedido específico para ver su detalle completo y la evidencia de entrega (fotos, firma, documentos).</div>
+        <div style="display:flex;gap:8px">
+          <input id="hInformeFolio" placeholder="Ej. F1000" style="flex:1;padding:9px 10px;border:1px solid var(--border);border-radius:8px">
+          <button class="btn primary" id="hVerInforme">Ver informe</button>
+        </div>
+      </div>
+    </div>
     <div class="panel">
       <div class="filters">
         <input type="date" id="hDesde" value="${filtros.desde}"> <span class="small muted" style="align-self:center">a</span> <input type="date" id="hHasta" value="${filtros.hasta}">
@@ -1374,6 +1501,13 @@ function viewHistorico(el){
         unidadId:el.querySelector('#hUnidad').value, centroId:el.querySelector('#hCentro').value, folio:el.querySelector('#hFolio').value.trim()};
       refresh();
     };
+    function buscarInforme(){
+      const v = el.querySelector('#hInformeFolio').value.trim();
+      if(!v){ Util.toast('Escribe un folio de pedido','err'); return; }
+      openInformeFolioModal(v);
+    }
+    el.querySelector('#hVerInforme').onclick = buscarInforme;
+    el.querySelector('#hInformeFolio').addEventListener('keydown', e=>{ if(e.key==='Enter') buscarInforme(); });
     refresh();
   }
   function refresh(){
@@ -1401,13 +1535,14 @@ function viewHistorico(el){
       const exitosas=r.pedidoIds.filter(pid=>pedidos.find(p=>p.id===pid)?.estatus==='entregado').length;
       const dur = r.horaInicio&&r.horaFin ? Util.minsBetween(r.horaInicio,r.horaFin) : null;
       const prom = dur && r.pedidoIds.length ? Math.round(dur/r.pedidoIds.length) : null;
-      return `<tr>
+      return `<tr data-verruta="${r.id}" style="cursor:pointer" title="Ver envíos de esta ruta">
         <td>${Util.fmtDate(r.fecha)}</td><td>${Util.esc(ch?.nombre||'—')}</td><td class="mono">${Util.esc(un?.placa||'—')}</td>
         <td>${Util.esc(ce?.nombre||'—')}</td><td>${r.pedidoIds.length}</td>
         <td>${exitosas}/${r.pedidoIds.length}</td><td>${Util.fmtMins(dur)}</td><td>${Util.fmtMins(prom)}</td>
         <td>${estatusBadge(r.estatus)}</td>
       </tr>`;
     }).join('') : `<tr><td colspan="9" class="empty">No hay rutas en ese periodo/filtros.</td></tr>`;
+    el.querySelectorAll('[data-verruta]').forEach(tr=>tr.onclick=()=>openDetalleRutaModal(tr.dataset.verruta));
   }
   draw();
 }
