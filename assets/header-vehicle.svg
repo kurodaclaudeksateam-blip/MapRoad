@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 260" width="440" height="260">
+  <defs>
+    <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#dfe7f5"/>
+    </linearGradient>
+    <linearGradient id="cargoGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#11cdef"/>
+      <stop offset="100%" stop-color="#0da5c0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- sombra de piso -->
+  <ellipse cx="230" cy="228" rx="170" ry="14" fill="#0b1730" opacity=".18"/>
+
+  <!-- caja de carga -->
+  <rect x="70" y="70" width="230" height="110" rx="14" fill="url(#cargoGrad)"/>
+  <rect x="70" y="70" width="230" height="30" rx="14" fill="#ffffff" opacity=".12"/>
+  <text x="185" y="132" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="1">MapRoad</text>
+
+  <!-- puertas traseras -->
+  <line x1="300" y1="80" x2="300" y2="170" stroke="#0a8aa3" stroke-width="3"/>
+
+  <!-- cabina -->
+  <path d="M300 180 L300 110 Q300 96 314 96 L360 96 Q378 96 388 112 L412 150 Q416 158 416 168 L416 180 Z" fill="url(#bodyGrad)" stroke="#c7d2e6" stroke-width="2"/>
+  <!-- parabrisas -->
+  <path d="M362 108 L384 108 Q392 108 398 118 L408 138 L358 138 L358 118 Q358 108 362 108 Z" fill="#344767" opacity=".85"/>
+  <!-- manija -->
+  <rect x="394" y="150" width="14" height="5" rx="2" fill="#8392ab"/>
+
+  <!-- chasis -->
+  <rect x="60" y="176" width="366" height="14" rx="7" fill="#344767"/>
+
+  <!-- llantas -->
+  <circle cx="140" cy="204" r="26" fill="#252f40"/>
+  <circle cx="140" cy="204" r="11" fill="#ced7e6"/>
+  <circle cx="356" cy="204" r="26" fill="#252f40"/>
+  <circle cx="356" cy="204" r="11" fill="#ced7e6"/>
+
+  <!-- faro -->
+  <circle cx="410" cy="168" r="6" fill="#ffd166"/>
+
+  <!-- líneas de movimiento -->
+  <line x1="10" y1="120" x2="46" y2="120" stroke="#11cdef" stroke-width="6" stroke-linecap="round" opacity=".55"/>
+  <line x1="0" y1="146" x2="40" y2="146" stroke="#11cdef" stroke-width="6" stroke-linecap="round" opacity=".35"/>
+  <line x1="14" y1="172" x2="44" y2="172" stroke="#11cdef" stroke-width="6" stroke-linecap="round" opacity=".2"/>
+</svg>

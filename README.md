@@ -18,6 +18,20 @@ powershell -File MapRoad/serve.ps1 -Port 8766
 
 Luego abre `http://localhost:8766`.
 
+## Diseño visual
+
+La paleta, tipografía (Open Sans) y estilo de tarjetas/sidebar/botones están
+adaptados del look de [Argon Dashboard PRO (Material UI)](https://demos.creative-tim.com/argon-dashboard-pro-material-ui/)
+— solo el estilo/UX (colores, radios, sombras, layout), sin usar ningún asset
+ni código de ese sitio.
+
+**Imagen del encabezado (banner de bienvenida del Dashboard):** vive en
+[`assets/header-vehicle.svg`](assets/header-vehicle.svg) — es una ilustración
+propia (no la del sitio de referencia). Para cambiarla, sube tu propia imagen
+a esa misma ruta desde GitHub (mismo nombre de archivo, o cambia la ruta en el
+`<img>` dentro de `viewDashboard()` en `index.html`). Se muestra a la mitad
+(50%) de su ancho natural y es responsiva (se reduce más en móvil).
+
 ## Accesos de prueba
 
 | Usuario   | Contraseña  | Rol      | Vista |
