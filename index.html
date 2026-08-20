@@ -267,6 +267,16 @@ const Util = {
     return {lat:point.lat+dLat,lng:point.lng+dLng};
   },
   esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); },
+  // Limpia una coordenada capturada desde Excel/formulario. Corrige el caso más común:
+  // pegar "lat, lng" desde Google Maps y dejar una coma sobrante ("24.7530,") al separar
+  // en dos columnas — sin esto, Number() da NaN y la coordenada "pasa" como válida (NaN!=null).
+  parseCoord(raw){
+    if(raw==null || raw==='') return null;
+    const cleaned = String(raw).trim().replace(/^,+/,'').replace(/,+$/,'').trim();
+    if(cleaned==='') return null;
+    const n = Number(cleaned);
+    return isNaN(n) ? null : n;
+  },
   money(n){ n=Number(n||0); return '$'+n.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}); },
   num(n,d){ n=Number(n||0); return n.toLocaleString('es-MX',{maximumFractionDigits:d==null?2:d}); },
   parseCSV(text){
@@ -341,8 +351,8 @@ const DB = {
   seedIfEmpty(){
     if(localStorage.getItem('maproad_seeded')) return;
     const centros=[
-      {id:'c1',nombre:'CEDIS Norte',razonSocial:'Distribuidora del Norte S.A. de C.V.',direccion:'Av. Industrias 450, Monterrey',lat:25.6866,lng:-100.3161},
-      {id:'c2',nombre:'CEDIS Bajío',razonSocial:'Comercializadora Bajío S.A. de C.V.',direccion:'Blvd. Logístico 120, León',lat:21.1250,lng:-101.6860},
+      {id:'c1',nombre:'CEDIS Norte',razonSocial:'Distribuidora del Norte S.A. de C.V.',direccion:'Av. Industrias 450, Monterrey',lat:null,lng:null},
+      {id:'c2',nombre:'CEDIS Bajío',razonSocial:'Comercializadora Bajío S.A. de C.V.',direccion:'Blvd. Logístico 120, León',lat:null,lng:null},
     ];
     const unidades=[
       {id:'u1',placa:'MR-101-A',modelo:'Nissan NP300',capacidadKg:1200,capacidadM3:6,estatus:'disponible',centroId:'c1'},
@@ -356,6 +366,8 @@ const DB = {
     ];
     unidades[0].choferId='d1'; unidades[1].choferId='d2'; unidades[2].choferId='d3';
     const tiendas=[
+      {id:'t0-c1',nombre:'CEDIS Norte — Tienda de origen',direccion:'Av. Industrias 450, Monterrey',colonia:'',cp:'',lat:25.6866,lng:-100.3161,centroId:'c1',choferId:'',esOrigen:true},
+      {id:'t0-c2',nombre:'CEDIS Bajío — Tienda de origen',direccion:'Blvd. Logístico 120, León',colonia:'',cp:'',lat:21.1250,lng:-101.6860,centroId:'c2',choferId:'',esOrigen:true},
       {id:'t1',nombre:'Súper Centro Cumbres',direccion:'Av. Cumbres 800',colonia:'Cumbres',cp:'64610',lat:25.7220,lng:-100.3660,centroId:'c1',choferId:'d1'},
       {id:'t2',nombre:'Comercial San Jerónimo',direccion:'Calz. San Jerónimo 220',colonia:'San Jerónimo',cp:'64640',lat:25.6390,lng:-100.3800,centroId:'c1',choferId:'d1'},
       {id:'t3',nombre:'Plaza Contry',direccion:'Av. Real 45',colonia:'Contry',cp:'64860',lat:25.6280,lng:-100.2890,centroId:'c1',choferId:'d2'},
@@ -385,7 +397,8 @@ function seedHistorico(centros,unidades,choferes,tiendas){
     const stops=tiendas.filter(t=>t.choferId===ch.id);
     if(!stops.length) return;
     const centro=centros.find(c=>c.id===ch.centroId);
-    const orden=optimizarRuta(centro,stops.map(s=>({id:s.id,lat:s.lat,lng:s.lng})));
+    const origenTienda=tiendas.find(t=>t.centroId===ch.centroId && t.esOrigen);
+    const orden=optimizarRuta(origenTienda,stops.map(s=>({id:s.id,lat:s.lat,lng:s.lng})));
     const rutaId=Util.uid('r');
     let t0=new Date(ayer+'T08:00:00');
     const pedidoIds=[];
@@ -411,7 +424,7 @@ function seedHistorico(centros,unidades,choferes,tiendas){
       pedidoIds.push(pid);
     });
     const horaFin=new Date(t0.getTime() + (orden.length+1)*30*60000);
-    rutas.push({id:rutaId,fecha:ayer,choferId:ch.id,unidadId:unidades.find(u=>u.choferId===ch.id).id,centroId:centro.id,
+    rutas.push({id:rutaId,fecha:ayer,choferId:ch.id,unidadId:unidades.find(u=>u.choferId===ch.id).id,centroId:centro.id,origenTiendaId:origenTienda?origenTienda.id:null,
       estatus:'concluida',pedidoIds,ordenOptimizado:pedidoIds.slice(),horaInicio:t0.toISOString(),horaFin:horaFin.toISOString()});
   });
   DB.set('pedidos',pedidos.concat(DB.get('pedidos')));
@@ -899,13 +912,13 @@ function viewAsignacionCentros(el){
       <div class="field"><label>Nombre del centro</label><input name="nombre" value="${Util.esc(c.nombre||'')}" required></div>
       <div class="field"><label>Razón social</label><input name="razonSocial" value="${Util.esc(c.razonSocial||'')}"></div>
       <div class="field"><label>Dirección</label><input name="direccion" value="${Util.esc(c.direccion||'')}"></div>
-      <div class="field-row"><div class="field"><label>Latitud (depósito) <span style="color:var(--danger)">*</span></label><input type="number" step="any" min="-90" max="90" name="lat" value="${c.lat||''}" required></div>
-      <div class="field"><label>Longitud (depósito) <span style="color:var(--danger)">*</span></label><input type="number" step="any" min="-180" max="180" name="lng" value="${c.lng||''}" required></div></div>
-      <div class="small muted" style="margin-top:-6px">Obligatorias: es el punto de partida real desde el que se calcula la ruta óptima de cada chofer.</div>
+      <div class="field-row"><div class="field"><label>Latitud (opcional)</label><input type="number" step="any" min="-90" max="90" name="lat" value="${c.lat||''}"></div>
+      <div class="field"><label>Longitud (opcional)</label><input type="number" step="any" min="-180" max="180" name="lng" value="${c.lng||''}"></div></div>
+      <div class="small muted" style="margin-top:-6px">El centro es la razón social/agrupador administrativo — no necesita coordenadas. El punto real de partida de cada ruta se define con la <b>tienda de origen</b> en "Cargar rutas del día".</div>
     `, (data)=>{
-      const lat=Number(data.lat), lng=Number(data.lng);
-      if(data.lat===''||data.lng===''||isNaN(lat)||isNaN(lng)||lat<-90||lat>90||lng<-180||lng>180){
-        Util.toast('Latitud/Longitud inválidas o vacías','err'); return;
+      const lat=Util.parseCoord(data.lat), lng=Util.parseCoord(data.lng);
+      if((data.lat&&lat==null)||(data.lng&&lng==null)||(lat!=null&&(lat<-90||lat>90))||(lng!=null&&(lng<-180||lng>180))){
+        Util.toast('Latitud/Longitud inválidas','err'); return;
       }
       data.lat=lat; data.lng=lng;
       if(id) DB.update('centros',id,data); else DB.insert('centros',data);
@@ -975,30 +988,39 @@ let _importState = null;
 
 function viewCargarRutas(el){
   const centros = DB.get('centros');
+  const tiendas = DB.get('tiendas');
   el.innerHTML = `
   <div class="panel">
     <div class="panel-h"><b>1. Selecciona el archivo de rutas (.xlsx o .csv)</b></div>
     <div class="panel-b">
       <div class="field-row">
         <div class="field"><label>Fecha de la ruta</label><input type="date" id="fFecha" value="${Util.todayISO()}"></div>
-        <div class="field"><label>Centro de origen (depósito)</label><select id="fCentro">${centros.map(c=>`<option value="${c.id}">${Util.esc(c.nombre)}</option>`).join('')}</select></div>
+        <div class="field"><label>Centro / razón social</label><select id="fCentro">${centros.map(c=>`<option value="${c.id}">${Util.esc(c.nombre)}</option>`).join('')}</select></div>
       </div>
-      <div id="fCentroWarn"></div>
+      <div class="field"><label>Tienda de origen (punto de salida) <span style="color:var(--danger)">*</span></label>
+        <select id="fTiendaOrigen"><option value="">— Selecciona la tienda de salida —</option>${tiendas.map(t=>{
+          const ce=centros.find(c=>c.id===t.centroId);
+          return `<option value="${t.id}">${Util.esc(t.nombre)}${ce?' — '+Util.esc(ce.nombre):''}</option>`;
+        }).join('')}</select>
+      </div>
+      <div class="small muted" style="margin:-6px 0 10px">El centro es solo la razón social (no tiene coordenadas). La <b>tienda de origen</b> es el punto real desde el que se calcula la ruta óptima — usa sus coordenadas configuradas.</div>
+      <div id="fTiendaWarn"></div>
       <div class="field"><label>Archivo</label><input type="file" id="fFile" accept=".xlsx,.xls,.csv"></div>
       <div class="small muted">Columnas esperadas: ${XLS_COLS.join(', ')}</div>
       <div id="importResult" style="margin-top:14px"></div>
     </div>
   </div>`;
-  function checkCentroCoords(){
-    const c = DB.find('centros', el.querySelector('#fCentro').value);
-    const warnBox = el.querySelector('#fCentroWarn');
-    warnBox.innerHTML = (c && (c.lat==null||c.lng==null))
-      ? `<div class="small" style="margin:-6px 0 14px;padding:8px 10px;background:var(--warning-soft);border-radius:8px;color:#c94a2c">⚠️ "${Util.esc(c.nombre)}" no tiene coordenadas configuradas — la ruta óptima no podrá calcularse desde un punto de partida real hasta que las configures en <a href="#/asignacion-centros">Centros y razón social</a>.</div>`
+  function checkTiendaCoords(){
+    const t = DB.find('tiendas', el.querySelector('#fTiendaOrigen').value);
+    const warnBox = el.querySelector('#fTiendaWarn');
+    warnBox.innerHTML = (t && (t.lat==null||t.lng==null))
+      ? `<div class="small" style="margin:-6px 0 14px;padding:8px 10px;background:var(--warning-soft);border-radius:8px;color:#c94a2c">⚠️ "${Util.esc(t.nombre)}" no tiene coordenadas configuradas — corrígelo en <a href="#/asignacion-tiendas">Asignación de tiendas</a> antes de generar la ruta.</div>`
       : '';
   }
-  checkCentroCoords();
-  el.querySelector('#fCentro').addEventListener('change', checkCentroCoords);
+  checkTiendaCoords();
+  el.querySelector('#fTiendaOrigen').addEventListener('change', checkTiendaCoords);
   el.querySelector('#fFile').addEventListener('change', async (e)=>{
+    if(!el.querySelector('#fTiendaOrigen').value){ Util.toast('Selecciona primero la tienda de origen','err'); e.target.value=''; return; }
     const file=e.target.files[0]; if(!file) return;
     try{
       const rows = await readImportFile(file);
@@ -1056,7 +1078,7 @@ function procesarImportacion(el, rawRows){
   const pedidosNuevos = Object.values(porFolio).map((p,idx)=>({
     _tmpId:idx, folio:p.folio, vehiculo:p.vehiculo, items:p.items, numeroCliente:p.numeroCliente, nombreContacto:p.nombreContacto,
     telefono:p.telefono, emailContacto:p.emailContacto, direccion:p.direccion, colonia:p.colonia, cp:p.cp,
-    lat:p.lat?Number(p.lat):null, lng:p.lng?Number(p.lng):null, fechaMin:p.fechaMin, fechaMax:p.fechaMax,
+    lat:Util.parseCoord(p.lat), lng:Util.parseCoord(p.lng), fechaMin:p.fechaMin, fechaMax:p.fechaMax,
     controlDestino:p.controlDestino, oficinaVentas:p.oficinaVentas, sucursalSolicita:p.sucursalSolicita,
     nombreVendedor:p.nombreVendedor, comentarios:p.comentarios, folioFactura:p.folioFactura,
     pesoKg:p.pesoKg, volumenM3:p.volumenM3, importeTotal:p.importeTotal
@@ -1153,7 +1175,7 @@ function openEditarPedidoImportado(el, tmpId){
     <div class="small muted">Tip: pega las coordenadas de Google Maps (clic derecho en el mapa → copiar lo que hay aquí).</div>
   `, (data)=>{
     const vehiculoAnterior = p.vehiculo;
-    Object.assign(p, data, {lat:data.lat?Number(data.lat):null, lng:data.lng?Number(data.lng):null});
+    Object.assign(p, data, {lat:Util.parseCoord(data.lat), lng:Util.parseCoord(data.lng)});
     if(p.vehiculo!==vehiculoAnterior && !(p.vehiculo in _vehiculoAsign)){
       const un = DB.get('unidades').find(u=>u.placa.toLowerCase()===String(p.vehiculo).toLowerCase());
       _vehiculoAsign[p.vehiculo] = un?un.id:'';
@@ -1167,7 +1189,9 @@ function openEditarPedidoImportado(el, tmpId){
 function generarRutas(el){
   const fecha = document.getElementById('fFecha').value || Util.todayISO();
   const centroId = document.getElementById('fCentro').value;
-  const centro = DB.find('centros', centroId);
+  const origenTiendaId = document.getElementById('fTiendaOrigen').value;
+  const origenTienda = DB.find('tiendas', origenTiendaId);
+  if(!origenTienda){ Util.toast('Selecciona la tienda de origen antes de generar','err'); return; }
   const unidades = DB.get('unidades'), choferes = DB.get('choferes');
 
   const porVehiculo = {};
@@ -1184,7 +1208,7 @@ function generarRutas(el){
     const stops = porVehiculo[placa].filter(p=>p.lat!=null && p.lng!=null);
     const sinGeo = porVehiculo[placa].filter(p=>p.lat==null || p.lng==null);
 
-    const orden = optimizarRuta(centro, stops.map(s=>({id:s.folio,lat:s.lat,lng:s.lng})));
+    const orden = optimizarRuta(origenTienda, stops.map(s=>({id:s.folio,lat:s.lat,lng:s.lng})));
     const rutaId = Util.uid('r');
     const pedidoIdsRuta = [];
 
@@ -1199,7 +1223,7 @@ function generarRutas(el){
     });
 
     rutasDB.push({
-      id:rutaId, fecha, choferId: chofer?chofer.id:null, unidadId: unidad?unidad.id:null, centroId,
+      id:rutaId, fecha, choferId: chofer?chofer.id:null, unidadId: unidad?unidad.id:null, centroId, origenTiendaId,
       estatus:'pendiente', pedidoIds:pedidoIdsRuta, ordenOptimizado: pedidoIdsRuta.slice(0,orden.length),
       horaInicio:null, horaFin:null, vehiculoTexto:placa
     });
@@ -1288,15 +1312,16 @@ function viewMonitoreo(el){
         <span class="small muted">${done}/${total}</span></td>
         <td>${estatusBadge(r.estatus)}</td><td>${Util.fmtTime(r.horaInicio)}</td>
         <td class="small">${ultimasEntregas[0]?('Folio '+Util.esc(pedidos.find(p=>p.id===ultimasEntregas[0].pedidoId)?.folio||'')+' · '+Util.fmtTime(ultimasEntregas[0].horaEntrega)):'—'}</td>
-        <td><button class="icon-btn" data-editruta="${r.id}" title="Editar ruta">✎</button></td>
+        <td><button class="icon-btn" data-editruta="${r.id}" title="Editar ruta">✎</button> <button class="icon-btn" data-delruta="${r.id}" title="Eliminar ruta">🗑</button></td>
       </tr>`;
     }).join('') : `<tr><td colspan="9" class="empty">No hay rutas que coincidan con los filtros.</td></tr>`;
 
     el.querySelectorAll('[data-verruta]').forEach(tr=>tr.onclick=(e)=>{
-      if(e.target.closest('[data-editruta]')) return;
+      if(e.target.closest('[data-editruta]')||e.target.closest('[data-delruta]')) return;
       openDetalleRutaModal(tr.dataset.verruta);
     });
     el.querySelectorAll('[data-editruta]').forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); openEditarRutaModal(b.dataset.editruta, refresh); });
+    el.querySelectorAll('[data-delruta]').forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); eliminarRuta(b.dataset.delruta, refresh); });
 
     el.querySelector('#legend').innerHTML = rutas.map(r=>{
       const ch=choferes.find(c=>c.id===r.choferId);
@@ -1309,6 +1334,21 @@ function viewMonitoreo(el){
 }
 
 /* ---- Edición de una ruta ya generada: reasignar chofer/unidad y corregir pedidos ---- */
+/* Elimina una ruta cargada por error, junto con sus pedidos y entregas asociadas. */
+function eliminarRuta(rutaId, onDeleted){
+  const ruta = DB.find('rutas', rutaId);
+  if(!ruta) return;
+  const pedidos = DB.get('pedidos').filter(p=>p.rutaId===rutaId);
+  const totalEntregas = DB.get('entregas').filter(e=>e.rutaId===rutaId).length;
+  const msg = `¿Eliminar esta ruta? Se borrarán ${pedidos.length} pedido(s)${totalEntregas?` y ${totalEntregas} entrega(s) ya registradas`:''}. Esta acción no se puede deshacer.`;
+  if(!confirm(msg)) return;
+  DB.set('pedidos', DB.get('pedidos').filter(p=>p.rutaId!==rutaId));
+  DB.set('entregas', DB.get('entregas').filter(e=>e.rutaId!==rutaId));
+  DB.remove('rutas', rutaId);
+  Util.toast('Ruta eliminada','ok');
+  if(onDeleted) onDeleted();
+}
+
 function openEditarRutaModal(rutaId, onSaved){
   const ruta = DB.find('rutas', rutaId);
   if(!ruta) return;
@@ -1336,10 +1376,16 @@ function openEditarRutaModal(rutaId, onSaved){
       <div class="small muted" style="margin-top:10px">"Reoptimizar orden" recalcula el orden de paradas con las coordenadas actuales (solo aplica a paradas pendientes).</div>
     `, [
       {label:'Cancelar', cls:'btn', action:'cancel'},
+      {label:'🗑 Eliminar ruta', cls:'btn danger', action:'eliminar'},
       {label:'Reoptimizar orden', cls:'btn', action:'reoptimizar'},
       {label:'Guardar cambios', cls:'btn primary', action:'guardar'}
     ], (action, modalEl)=>{
       if(action==='cancel'){ closeCustomModal('editarRutaModal'); return; }
+      if(action==='eliminar'){
+        closeCustomModal('editarRutaModal');
+        eliminarRuta(ruta.id, onSaved);
+        return;
+      }
       // recolectar ediciones de la tabla antes de guardar/reoptimizar
       modalEl.querySelectorAll('[data-pedidorow]').forEach(row=>{
         const pid=row.dataset.pedidorow;
@@ -1347,18 +1393,18 @@ function openEditarRutaModal(rutaId, onSaved){
         if(!p) return;
         row.querySelectorAll('[data-f]').forEach(inp=>{
           const f=inp.dataset.f;
-          p[f] = (f==='lat'||f==='lng') ? (inp.value?Number(inp.value):null) : inp.value;
+          p[f] = (f==='lat'||f==='lng') ? Util.parseCoord(inp.value) : inp.value;
         });
       });
       const choferId = modalEl.querySelector('#erChofer').value || null;
       const unidadId = modalEl.querySelector('#erUnidad').value || null;
 
       if(action==='reoptimizar'){
-        const centro = DB.find('centros', ruta.centroId);
+        const origen = resolverOrigenRuta(ruta);
         const conGeo = pedidosRuta.filter(p=>p.lat!=null && p.lng!=null && p.estatus==='pendiente');
         const yaCerrados = pedidosRuta.filter(p=>p.estatus!=='pendiente');
         const sinGeo = pedidosRuta.filter(p=>p.estatus==='pendiente' && (p.lat==null||p.lng==null));
-        const orden = optimizarRuta(centro, conGeo.map(p=>({id:p.id,lat:p.lat,lng:p.lng})));
+        const orden = optimizarRuta(origen, conGeo.map(p=>({id:p.id,lat:p.lat,lng:p.lng})));
         const nuevoOrden = [...yaCerrados, ...orden.map(o=>conGeo.find(p=>p.id===o.id)), ...sinGeo];
         nuevoOrden.forEach((p,idx)=>{ p.ordenEnRuta = idx+1; });
         pedidosRuta = nuevoOrden;
@@ -1388,6 +1434,7 @@ function openDetalleRutaModal(rutaId){
   if(!ruta) return;
   const choferes=DB.get('choferes'), unidades=DB.get('unidades'), centros=DB.get('centros'), entregas=DB.get('entregas');
   const ch=choferes.find(c=>c.id===ruta.choferId), un=unidades.find(u=>u.id===ruta.unidadId), ce=centros.find(c=>c.id===ruta.centroId);
+  const origenRuta = resolverOrigenRuta(ruta);
   const ordenIds = (ruta.ordenOptimizado&&ruta.ordenOptimizado.length?ruta.ordenOptimizado:ruta.pedidoIds);
   const pedidos = ordenIds.map(pid=>DB.find('pedidos',pid)).filter(Boolean);
   const entregadas = pedidos.filter(p=>p.estatus==='entregado').length;
@@ -1408,8 +1455,8 @@ function openDetalleRutaModal(rutaId){
     <div class="table-wrap" style="max-height:360px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
       <table><thead><tr><th>#</th><th>Folio</th><th>Cliente</th><th>Estatus</th><th>Llegada</th><th>Salida</th><th>En sitio</th><th></th></tr></thead>
       <tbody>
-        ${ce&&ce.lat!=null?`<tr style="background:var(--success-soft)">
-          <td>🟢</td><td><b>Salida</b></td><td>${Util.esc(ce.nombre)}</td>
+        ${origenRuta?`<tr style="background:var(--success-soft)">
+          <td>🟢</td><td><b>Salida</b></td><td>${Util.esc(origenRuta.nombre)}</td>
           <td><span class="badge b-green">Punto de partida</span></td>
           <td class="small">—</td><td class="small">${ruta.horaInicio?Util.fmtTime(ruta.horaInicio):'—'}</td><td class="small">—</td><td></td>
         </tr>`:''}
@@ -1425,8 +1472,8 @@ function openDetalleRutaModal(rutaId){
           <td><button class="btn sm" data-verfolio="${Util.esc(p.folio)}">Ver informe</button></td>
         </tr>`;
       }).join(''):`<tr><td colspan="8" class="empty">Esta ruta no tiene envíos.</td></tr>`}
-        ${ce&&ce.lat!=null?`<tr style="background:var(--danger-soft)">
-          <td>🔴</td><td><b>Regreso</b></td><td>${Util.esc(ce.nombre)}</td>
+        ${origenRuta?`<tr style="background:var(--danger-soft)">
+          <td>🔴</td><td><b>Regreso</b></td><td>${Util.esc(origenRuta.nombre)}</td>
           <td><span class="badge b-red">Fin de ruta</span></td>
           <td class="small">${ruta.horaFin?Util.fmtTime(ruta.horaFin):'—'}</td><td class="small">—</td><td class="small">—</td><td></td>
         </tr>`:''}
@@ -1505,9 +1552,8 @@ function drawMap(map, mapLayer, rutas, pedidos, centros, choferes){
   mapLayer.clearLayers();
   const pts=[];
   rutas.forEach(r=>{
-    const ce=centros.find(c=>c.id===r.centroId);
     const color=colorForChofer(r.choferId,choferes);
-    const seq = construirSecuenciaConSalidaRegreso(r, ce, pedidos);
+    const seq = construirSecuenciaConSalidaRegreso(r, pedidos);
     if(seq.length>1){
       L.polyline(seq.map(p=>[p.lat,p.lng]), {color, weight:3, opacity:.85}).addTo(mapLayer);
     }
@@ -1515,12 +1561,12 @@ function drawMap(map, mapLayer, rutas, pedidos, centros, choferes){
       pts.push([p.lat,p.lng]);
       if(p.esSalida){
         L.circleMarker([p.lat,p.lng], {radius:7, color:'#fff', weight:2, fillColor:'#2dce89', fillOpacity:1})
-          .bindPopup(`<b>${Util.esc(ce?.nombre||'Centro')}</b><br>🟢 Salida de sucursal${p.hora?' · '+Util.fmtTime(p.hora):''}`).addTo(mapLayer);
+          .bindPopup(`<b>${Util.esc(p.nombre||'Tienda de origen')}</b><br>🟢 Salida de sucursal${p.hora?' · '+Util.fmtTime(p.hora):''}`).addTo(mapLayer);
         return;
       }
       if(p.esRegreso){
         L.circleMarker([p.lat,p.lng], {radius:7, color:'#fff', weight:2, fillColor:'#f5365c', fillOpacity:1})
-          .bindPopup(`<b>${Util.esc(ce?.nombre||'Centro')}</b><br>🔴 Regreso / fin de ruta${p.hora?' · '+Util.fmtTime(p.hora):''}`).addTo(mapLayer);
+          .bindPopup(`<b>${Util.esc(p.nombre||'Tienda de origen')}</b><br>🔴 Regreso / fin de ruta${p.hora?' · '+Util.fmtTime(p.hora):''}`).addTo(mapLayer);
         return;
       }
       const entregado = p.estatus==='entregado', fallido = p.estatus==='fallido';
@@ -1534,18 +1580,31 @@ function drawMap(map, mapLayer, rutas, pedidos, centros, choferes){
   else { map.setView([23.6345,-102.5528],5); }
 }
 
-/* Arma la secuencia completa de una ruta: salida de sucursal (verde) + paradas
-   reales en orden óptimo + regreso a sucursal (rojo) — para mapa y detalle.
-   Usa siempre las coordenadas configuradas del centro (mismo punto de ida y vuelta). */
-function construirSecuenciaConSalidaRegreso(ruta, centro, pedidosDB){
+/* Resuelve el punto real de origen/regreso de una ruta: la tienda de origen
+   configurada (ruta.origenTiendaId) — las que llevan coordenadas. El centro
+   (razón social) es solo agrupador administrativo y NO se usa para esto; se
+   deja como respaldo únicamente para rutas antiguas que aún no tenían tienda
+   de origen y sí tenían coordenadas cargadas directamente en el centro. */
+function resolverOrigenRuta(ruta){
+  const t = ruta.origenTiendaId ? DB.find('tiendas', ruta.origenTiendaId) : null;
+  if(t && t.lat!=null && t.lng!=null) return {lat:t.lat, lng:t.lng, nombre:t.nombre};
+  const c = ruta.centroId ? DB.find('centros', ruta.centroId) : null;
+  if(c && c.lat!=null && c.lng!=null) return {lat:c.lat, lng:c.lng, nombre:c.nombre};
+  return null;
+}
+
+/* Arma la secuencia completa de una ruta: salida de la tienda de origen (verde)
+   + paradas reales en orden óptimo + regreso a la misma tienda (rojo) — para
+   mapa y detalle. */
+function construirSecuenciaConSalidaRegreso(ruta, pedidosDB){
   const seq=[];
-  const tieneCentro = centro && centro.lat!=null && centro.lng!=null;
-  if(tieneCentro) seq.push({lat:centro.lat, lng:centro.lng, esSalida:true, hora:ruta.horaInicio});
+  const origen = resolverOrigenRuta(ruta);
+  if(origen) seq.push({lat:origen.lat, lng:origen.lng, esSalida:true, hora:ruta.horaInicio, nombre:origen.nombre});
   (ruta.ordenOptimizado&&ruta.ordenOptimizado.length?ruta.ordenOptimizado:ruta.pedidoIds).forEach(pid=>{
     const p = pedidosDB.find(x=>x.id===pid);
     if(p&&p.lat!=null) seq.push(p);
   });
-  if(tieneCentro) seq.push({lat:centro.lat, lng:centro.lng, esRegreso:true, hora:ruta.horaFin});
+  if(origen) seq.push({lat:origen.lat, lng:origen.lng, esRegreso:true, hora:ruta.horaFin, nombre:origen.nombre});
   return seq;
 }
 
@@ -1663,20 +1722,18 @@ function renderChoferShell(user){
 function renderChoferRuta(body, ruta, chofer){
   const pedidos = DB.get('pedidos');
   const orden = (ruta.ordenOptimizado&&ruta.ordenOptimizado.length?ruta.ordenOptimizado:ruta.pedidoIds).map(pid=>pedidos.find(p=>p.id===pid)).filter(Boolean);
-  const centro = DB.find('centros', ruta.centroId);
+  const origen = resolverOrigenRuta(ruta);
   const pendientesIdx = orden.findIndex(p=>p.estatus==='pendiente'||p.estatus==='en_ruta');
   const todasCerradas = pendientesIdx===-1;
 
   if(ruta.estatus==='pendiente' && !ruta.horaInicio){
-    const tieneCoords = centro && centro.lat!=null && centro.lng!=null;
     body.innerHTML = `
       <div class="stop-card current" style="text-align:center">
         <h3>Ruta lista para iniciar</h3>
-        <p class="muted">${orden.length} paradas · Saliendo de <b>${Util.esc(centro?.nombre||'centro')}</b></p>
-        ${centro?.direccion?`<p class="small muted" style="margin-top:-8px">${Util.esc(centro.direccion)}</p>`:''}
-        ${tieneCoords
-          ? `<div class="small" style="margin:10px 0;padding:8px 10px;background:var(--success-soft);border-radius:8px;color:#1a9c6b">📍 Ubicación de la sucursal configurada — se usará como punto de partida de la ruta óptima</div>`
-          : `<div class="small" style="margin:10px 0;padding:8px 10px;background:var(--warning-soft);border-radius:8px;color:#c94a2c">⚠️ Esta sucursal no tiene coordenadas configuradas — avisa a tráfico/logística para configurarla en "Centros y razón social"</div>`}
+        <p class="muted">${orden.length} paradas · Saliendo de <b>${Util.esc(origen?.nombre||'tienda de origen')}</b></p>
+        ${origen
+          ? `<div class="small" style="margin:10px 0;padding:8px 10px;background:var(--success-soft);border-radius:8px;color:#1a9c6b">📍 Ubicación de la tienda de origen configurada — se usará como punto de partida de la ruta óptima</div>`
+          : `<div class="small" style="margin:10px 0;padding:8px 10px;background:var(--warning-soft);border-radius:8px;color:#c94a2c">⚠️ Esta ruta no tiene una tienda de origen con coordenadas — avisa a tráfico/logística</div>`}
         <button class="btn primary block" id="btnIniciar">🚀 Salir de la sucursal e iniciar ruta</button>
       </div>`;
     body.querySelector('#btnIniciar').onclick=()=>{
@@ -1693,7 +1750,7 @@ function renderChoferRuta(body, ruta, chofer){
   }
 
   body.innerHTML = `
-    <div class="small" style="margin-bottom:10px;padding:8px 10px;background:var(--success-soft);border-radius:8px;color:#1a9c6b">🚚 Salida de ${Util.esc(centro?.nombre||'sucursal')} registrada — ${Util.fmtDateTime(ruta.horaInicio)}</div>
+    <div class="small" style="margin-bottom:10px;padding:8px 10px;background:var(--success-soft);border-radius:8px;color:#1a9c6b">🚚 Salida de ${Util.esc(origen?.nombre||'sucursal')} registrada — ${Util.fmtDateTime(ruta.horaInicio)}</div>
     <div style="margin-bottom:10px" class="small muted">Progreso: ${pendientesIdx}/${orden.length} paradas completadas</div>` +
     orden.map((p,idx)=>{
       const isCurrent = idx===pendientesIdx;
@@ -1821,19 +1878,19 @@ function openEntregaForm(body, ruta, pedido, orden, chofer){
 }
 
 function renderFinalizarRuta(body, ruta, chofer, orden){
-  const centro = DB.find('centros', ruta.centroId);
+  const origen = resolverOrigenRuta(ruta);
   body.innerHTML = `
     <div class="stop-card current" style="text-align:center">
       <h3>🏁 Todas las paradas completadas</h3>
-      <p class="muted">Regresa al centro (${Util.esc(centro?.nombre||'—')}) para concluir la ruta.</p>
+      <p class="muted">Regresa a la sucursal (${Util.esc(origen?.nombre||'—')}) para concluir la ruta.</p>
       <div id="geoStatus" class="small muted" style="margin:10px 0">Verificando ubicación…</div>
       <button class="btn success block" id="btnConcluir">Concluir ruta</button>
     </div>`;
   const geoBox = document.getElementById('geoStatus');
-  if(navigator.geolocation && centro && centro.lat!=null){
+  if(navigator.geolocation && origen){
     navigator.geolocation.getCurrentPosition(pos=>{
-      const d = Util.distKm({lat:pos.coords.latitude,lng:pos.coords.longitude},centro);
-      geoBox.textContent = d<0.5 ? '📍 Ubicación confirmada en el centro de retorno.' : `📍 Estás a ${d.toFixed(1)} km del centro de retorno.`;
+      const d = Util.distKm({lat:pos.coords.latitude,lng:pos.coords.longitude},origen);
+      geoBox.textContent = d<0.5 ? '📍 Ubicación confirmada en el punto de retorno.' : `📍 Estás a ${d.toFixed(1)} km del punto de retorno.`;
     }, ()=>{ geoBox.textContent='No se pudo obtener tu ubicación (puedes concluir manualmente).'; }, {timeout:6000});
   } else {
     geoBox.textContent='Geolocalización no disponible en este dispositivo (modo demo).';
@@ -1903,7 +1960,7 @@ function renderTracking(){
 
 function renderTrackingResult(pedido){
   const ruta = DB.find('rutas', pedido.rutaId);
-  const centro = ruta ? DB.find('centros', ruta.centroId) : null;
+  const origenRuta = ruta ? resolverOrigenRuta(ruta) : null;
   const chofer = ruta ? DB.find('choferes', ruta.choferId) : null;
   const orden = ruta ? (ruta.ordenOptimizado&&ruta.ordenOptimizado.length?ruta.ordenOptimizado:ruta.pedidoIds) : [];
   const idx = orden.indexOf(pedido.id);
@@ -1956,11 +2013,11 @@ function renderTrackingResult(pedido){
 
   // Ubicación difuminada (no exacta) — solo una zona aproximada, no el punto anterior real
   const box = document.getElementById('tResult');
-  const puedeMostrarMapa = ruta && ruta.estatus==='en_curso' && pedido.lat!=null && centro && centro.lat!=null;
+  const puedeMostrarMapa = ruta && ruta.estatus==='en_curso' && pedido.lat!=null && origenRuta;
   let fuzzed=null;
   if(puedeMostrarMapa){
     const avance = orden.length ? Math.min(1,(entregadasAntes+0.5)/orden.length) : 0.5;
-    const approx = { lat: centro.lat + (pedido.lat-centro.lat)*avance, lng: centro.lng + (pedido.lng-centro.lng)*avance };
+    const approx = { lat: origenRuta.lat + (pedido.lat-origenRuta.lat)*avance, lng: origenRuta.lng + (pedido.lng-origenRuta.lng)*avance };
     fuzzed = Util.jitter(approx, 1.5); // se difumina para no revelar el punto exacto anterior
   }
 
