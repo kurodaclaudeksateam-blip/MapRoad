@@ -267,16 +267,22 @@ const Util = {
     return {lat:point.lat+dLat,lng:point.lng+dLng};
   },
   esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); },
-  // Limpia una coordenada capturada desde Excel/formulario. Corrige el caso más común:
-  // pegar "lat, lng" desde Google Maps y dejar una coma sobrante ("24.7530,") al separar
-  // en dos columnas — sin esto, Number() da NaN y la coordenada "pasa" como válida (NaN!=null).
+  // Limpia una coordenada capturada desde Excel/formulario. Corrige los casos más comunes
+  // al pegar "lat, lng" desde Google Maps y separar en dos columnas a mano: comas, comillas
+  // o espacios sobrantes al inicio/fin (ej. "24.7530,", '-107.6995"'). Sin esto, Number()
+  // da NaN y la coordenada "pasa" como válida en checks tipo `!= null` (NaN != null).
   parseCoord(raw){
     if(raw==null || raw==='') return null;
-    const cleaned = String(raw).trim().replace(/^,+/,'').replace(/,+$/,'').trim();
-    if(cleaned==='') return null;
+    const cleaned = String(raw).trim().replace(/^[^0-9\-]+/,'').replace(/[^0-9]+$/,'').trim();
+    if(cleaned==='' || cleaned==='-') return null;
     const n = Number(cleaned);
     return isNaN(n) ? null : n;
   },
+  // Coordenada + rango geográfico válido. Atrapa datos corruptos que SÍ parsean como número
+  // pero son imposibles (ej. "-10744389" por un punto decimal perdido al capturar el dato:
+  // debía ser "-107.44389") — sin este límite, ese valor rompe el mapa igual que un NaN.
+  parseLat(raw){ const n=Util.parseCoord(raw); return (n==null||n<-90||n>90) ? null : n; },
+  parseLng(raw){ const n=Util.parseCoord(raw); return (n==null||n<-180||n>180) ? null : n; },
   money(n){ n=Number(n||0); return '$'+n.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}); },
   num(n,d){ n=Number(n||0); return n.toLocaleString('es-MX',{maximumFractionDigits:d==null?2:d}); },
   parseCSV(text){
@@ -1078,7 +1084,7 @@ function procesarImportacion(el, rawRows){
   const pedidosNuevos = Object.values(porFolio).map((p,idx)=>({
     _tmpId:idx, folio:p.folio, vehiculo:p.vehiculo, items:p.items, numeroCliente:p.numeroCliente, nombreContacto:p.nombreContacto,
     telefono:p.telefono, emailContacto:p.emailContacto, direccion:p.direccion, colonia:p.colonia, cp:p.cp,
-    lat:Util.parseCoord(p.lat), lng:Util.parseCoord(p.lng), fechaMin:p.fechaMin, fechaMax:p.fechaMax,
+    lat:Util.parseLat(p.lat), lng:Util.parseLng(p.lng), fechaMin:p.fechaMin, fechaMax:p.fechaMax,
     controlDestino:p.controlDestino, oficinaVentas:p.oficinaVentas, sucursalSolicita:p.sucursalSolicita,
     nombreVendedor:p.nombreVendedor, comentarios:p.comentarios, folioFactura:p.folioFactura,
     pesoKg:p.pesoKg, volumenM3:p.volumenM3, importeTotal:p.importeTotal
@@ -1175,7 +1181,7 @@ function openEditarPedidoImportado(el, tmpId){
     <div class="small muted">Tip: pega las coordenadas de Google Maps (clic derecho en el mapa → copiar lo que hay aquí).</div>
   `, (data)=>{
     const vehiculoAnterior = p.vehiculo;
-    Object.assign(p, data, {lat:Util.parseCoord(data.lat), lng:Util.parseCoord(data.lng)});
+    Object.assign(p, data, {lat:Util.parseLat(data.lat), lng:Util.parseLng(data.lng)});
     if(p.vehiculo!==vehiculoAnterior && !(p.vehiculo in _vehiculoAsign)){
       const un = DB.get('unidades').find(u=>u.placa.toLowerCase()===String(p.vehiculo).toLowerCase());
       _vehiculoAsign[p.vehiculo] = un?un.id:'';
@@ -1393,7 +1399,7 @@ function openEditarRutaModal(rutaId, onSaved){
         if(!p) return;
         row.querySelectorAll('[data-f]').forEach(inp=>{
           const f=inp.dataset.f;
-          p[f] = (f==='lat'||f==='lng') ? Util.parseCoord(inp.value) : inp.value;
+          p[f] = f==='lat' ? Util.parseLat(inp.value) : f==='lng' ? Util.parseLng(inp.value) : inp.value;
         });
       });
       const choferId = modalEl.querySelector('#erChofer').value || null;
