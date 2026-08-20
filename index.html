@@ -1407,7 +1407,13 @@ function openDetalleRutaModal(rutaId){
     </div>
     <div class="table-wrap" style="max-height:360px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
       <table><thead><tr><th>#</th><th>Folio</th><th>Cliente</th><th>Estatus</th><th>Llegada</th><th>Salida</th><th>En sitio</th><th></th></tr></thead>
-      <tbody>${pedidos.length?pedidos.map((p,i)=>{
+      <tbody>
+        ${ce&&ce.lat!=null?`<tr style="background:var(--success-soft)">
+          <td>🟢</td><td><b>Salida</b></td><td>${Util.esc(ce.nombre)}</td>
+          <td><span class="badge b-green">Punto de partida</span></td>
+          <td class="small">—</td><td class="small">${ruta.horaInicio?Util.fmtTime(ruta.horaInicio):'—'}</td><td class="small">—</td><td></td>
+        </tr>`:''}
+        ${pedidos.length?pedidos.map((p,i)=>{
         const ent = entregas.find(e=>e.pedidoId===p.id);
         const enSitio = p.horaLlegada && ent ? Util.minsBetween(p.horaLlegada, ent.horaEntrega) : null;
         return `<tr>
@@ -1418,7 +1424,13 @@ function openDetalleRutaModal(rutaId){
           <td class="small">${enSitio!=null?Util.fmtMins(enSitio):'—'}</td>
           <td><button class="btn sm" data-verfolio="${Util.esc(p.folio)}">Ver informe</button></td>
         </tr>`;
-      }).join(''):`<tr><td colspan="8" class="empty">Esta ruta no tiene envíos.</td></tr>`}</tbody></table>
+      }).join(''):`<tr><td colspan="8" class="empty">Esta ruta no tiene envíos.</td></tr>`}
+        ${ce&&ce.lat!=null?`<tr style="background:var(--danger-soft)">
+          <td>🔴</td><td><b>Regreso</b></td><td>${Util.esc(ce.nombre)}</td>
+          <td><span class="badge b-red">Fin de ruta</span></td>
+          <td class="small">${ruta.horaFin?Util.fmtTime(ruta.horaFin):'—'}</td><td class="small">—</td><td class="small">—</td><td></td>
+        </tr>`:''}
+      </tbody></table>
     </div>
   `, [{label:'Cerrar', cls:'btn primary', action:'cerrar'}], (action)=>{
     if(action==='cerrar') closeCustomModal('detalleRutaModal');
@@ -1495,18 +1507,20 @@ function drawMap(map, mapLayer, rutas, pedidos, centros, choferes){
   rutas.forEach(r=>{
     const ce=centros.find(c=>c.id===r.centroId);
     const color=colorForChofer(r.choferId,choferes);
-    const seq=[]; if(ce&&ce.lat!=null) seq.push({lat:ce.lat,lng:ce.lng,esCentro:true});
-    (r.ordenOptimizado&&r.ordenOptimizado.length?r.ordenOptimizado:r.pedidoIds).forEach(pid=>{
-      const p=pedidos.find(x=>x.id===pid); if(p&&p.lat!=null) seq.push(p);
-    });
+    const seq = construirSecuenciaConSalidaRegreso(r, ce, pedidos);
     if(seq.length>1){
       L.polyline(seq.map(p=>[p.lat,p.lng]), {color, weight:3, opacity:.85}).addTo(mapLayer);
     }
-    seq.forEach((p,i)=>{
+    seq.forEach(p=>{
       pts.push([p.lat,p.lng]);
-      if(p.esCentro){
-        L.circleMarker([p.lat,p.lng], {radius:7, color:'#fff', weight:2, fillColor:'#0f172a', fillOpacity:1})
-          .bindPopup(`<b>${Util.esc(ce?.nombre||'Centro')}</b><br>Punto de partida`).addTo(mapLayer);
+      if(p.esSalida){
+        L.circleMarker([p.lat,p.lng], {radius:7, color:'#fff', weight:2, fillColor:'#2dce89', fillOpacity:1})
+          .bindPopup(`<b>${Util.esc(ce?.nombre||'Centro')}</b><br>🟢 Salida de sucursal${p.hora?' · '+Util.fmtTime(p.hora):''}`).addTo(mapLayer);
+        return;
+      }
+      if(p.esRegreso){
+        L.circleMarker([p.lat,p.lng], {radius:7, color:'#fff', weight:2, fillColor:'#f5365c', fillOpacity:1})
+          .bindPopup(`<b>${Util.esc(ce?.nombre||'Centro')}</b><br>🔴 Regreso / fin de ruta${p.hora?' · '+Util.fmtTime(p.hora):''}`).addTo(mapLayer);
         return;
       }
       const entregado = p.estatus==='entregado', fallido = p.estatus==='fallido';
@@ -1518,6 +1532,21 @@ function drawMap(map, mapLayer, rutas, pedidos, centros, choferes){
   });
   if(pts.length){ map.fitBounds(L.latLngBounds(pts), {padding:[24,24], maxZoom:14}); }
   else { map.setView([23.6345,-102.5528],5); }
+}
+
+/* Arma la secuencia completa de una ruta: salida de sucursal (verde) + paradas
+   reales en orden óptimo + regreso a sucursal (rojo) — para mapa y detalle.
+   Usa siempre las coordenadas configuradas del centro (mismo punto de ida y vuelta). */
+function construirSecuenciaConSalidaRegreso(ruta, centro, pedidosDB){
+  const seq=[];
+  const tieneCentro = centro && centro.lat!=null && centro.lng!=null;
+  if(tieneCentro) seq.push({lat:centro.lat, lng:centro.lng, esSalida:true, hora:ruta.horaInicio});
+  (ruta.ordenOptimizado&&ruta.ordenOptimizado.length?ruta.ordenOptimizado:ruta.pedidoIds).forEach(pid=>{
+    const p = pedidosDB.find(x=>x.id===pid);
+    if(p&&p.lat!=null) seq.push(p);
+  });
+  if(tieneCentro) seq.push({lat:centro.lat, lng:centro.lng, esRegreso:true, hora:ruta.horaFin});
+  return seq;
 }
 
 /* ============================================================
