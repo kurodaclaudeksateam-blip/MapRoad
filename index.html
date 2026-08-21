@@ -642,7 +642,7 @@ function viewDashboard(el,user){
   const rutasHoy = DB.query('rutas', r=>r.fecha===hoy);
   const pedidosHoy = DB.query('pedidos', p=>p.fecha===hoy);
   const entregados = pedidosHoy.filter(p=>p.estatus==='entregado').length;
-  const fallidos = pedidosHoy.filter(p=>p.estatus==='fallido').length;
+  const fallidos = pedidosHoy.filter(p=>ESTATUS_NO_EXITOSOS.includes(p.estatus)).length;
   const pendientes = pedidosHoy.length - entregados - fallidos;
   const enRuta = rutasHoy.filter(r=>r.estatus==='en_curso').length;
   const choferes = DB.get('choferes');
@@ -663,7 +663,7 @@ function viewDashboard(el,user){
     <div class="card"><h3>Rutas de hoy</h3><div class="stat">${rutasHoy.length}</div><div class="trend muted">${enRuta} en curso</div></div>
     <div class="card"><h3>Pedidos de hoy</h3><div class="stat">${pedidosHoy.length}</div><div class="trend muted">${pendientes} pendientes</div></div>
     <div class="card"><h3>Entregados</h3><div class="stat" style="color:var(--success)">${entregados}</div><div class="trend up">${pedidosHoy.length?Math.round(entregados/pedidosHoy.length*100):0}% del total</div></div>
-    <div class="card"><h3>Fallidos</h3><div class="stat" style="color:var(--danger)">${fallidos}</div><div class="trend ${fallidos?'down':''}">requieren seguimiento</div></div>
+    <div class="card"><h3>Con incidencia</h3><div class="stat" style="color:var(--danger)">${fallidos}</div><div class="trend ${fallidos?'down':''}">ausente, reprogramado, cancelado o fallido</div></div>
   </div>
   <div class="grid cols-2" style="grid-template-columns:1.3fr .7fr;">
     <div class="panel">
@@ -697,7 +697,8 @@ function estatusBadge(estatus){
   const map={
     pendiente:['b-gray','Pendiente'], en_curso:['b-blue','En curso'], concluida:['b-green','Concluida'],
     disponible:['b-green','Disponible'], en_ruta:['b-blue','En ruta'], mantenimiento:['b-amber','Mantenimiento'],
-    entregado:['b-green','Entregado'], fallido:['b-red','Fallido'], activo:['b-green','Activo'], inactivo:['b-gray','Inactivo']
+    entregado:['b-green','Entregado'], fallido:['b-red','Fallido'], activo:['b-green','Activo'], inactivo:['b-gray','Inactivo'],
+    cliente_ausente:['b-amber','Cliente ausente'], reprogramado:['b-amber','Reprogramado'], cancelado_sucursal:['b-gray','Recoge en sucursal']
   };
   const [cls,label]=map[estatus]||['b-gray',estatus||'—'];
   return `<span class="badge ${cls}">${label}</span>`;
@@ -997,7 +998,7 @@ function viewCargarRutas(el){
   const tiendas = DB.get('tiendas');
   el.innerHTML = `
   <div class="panel">
-    <div class="panel-h"><b>1. Selecciona el archivo de rutas (.xlsx o .csv)</b></div>
+    <div class="panel-h"><b>1. Selecciona el archivo de rutas (.xlsx o .csv)</b><button class="btn sm" id="btnPlantilla">📥 Descargar plantilla</button></div>
     <div class="panel-b">
       <div class="field-row">
         <div class="field"><label>Fecha de la ruta</label><input type="date" id="fFecha" value="${Util.todayISO()}"></div>
@@ -1012,10 +1013,11 @@ function viewCargarRutas(el){
       <div class="small muted" style="margin:-6px 0 10px">El centro es solo la razón social (no tiene coordenadas). La <b>tienda de origen</b> es el punto real desde el que se calcula la ruta óptima — usa sus coordenadas configuradas.</div>
       <div id="fTiendaWarn"></div>
       <div class="field"><label>Archivo</label><input type="file" id="fFile" accept=".xlsx,.xls,.csv"></div>
-      <div class="small muted">Columnas esperadas: ${XLS_COLS.join(', ')}</div>
+      <div class="small muted">Columnas esperadas: ${XLS_COLS.join(', ')}. Agrega una hoja llamada <b>"Detalle"</b> (Folio de Pedido, Nombre de Item, Cantidad) para el checklist de artículos que el chofer marca al entregar — o descarga la plantilla, que ya trae ambas hojas de ejemplo.</div>
       <div id="importResult" style="margin-top:14px"></div>
     </div>
   </div>`;
+  el.querySelector('#btnPlantilla').onclick = descargarPlantillaRutas;
   function checkTiendaCoords(){
     const t = DB.find('tiendas', el.querySelector('#fTiendaOrigen').value);
     const warnBox = el.querySelector('#fTiendaWarn');
@@ -1029,11 +1031,42 @@ function viewCargarRutas(el){
     if(!el.querySelector('#fTiendaOrigen').value){ Util.toast('Selecciona primero la tienda de origen','err'); e.target.value=''; return; }
     const file=e.target.files[0]; if(!file) return;
     try{
-      const rows = await readImportFile(file);
+      const {rows, detalleRows} = await readImportFile(file);
       if(!rows.length){ Util.toast('El archivo no tiene datos','err'); return; }
-      procesarImportacion(el, rows);
+      procesarImportacion(el, rows, detalleRows);
     }catch(err){ console.error(err); Util.toast('No se pudo leer el archivo: '+err.message,'err'); }
   });
+}
+
+/* Devuelve {rows, detalleRows}. "rows" = filas de la hoja principal (pedidos).
+   "detalleRows" = filas de la hoja "Detalle" (Folio de Pedido, Nombre de Item,
+   Cantidad) si el archivo la trae — solo aplica a .xlsx (un .csv es una sola hoja). */
+/* Genera y descarga una plantilla .xlsx con la hoja principal de pedidos y la
+   hoja "Detalle" (checklist de artículos), ambas con filas de ejemplo. */
+function descargarPlantillaRutas(){
+  const ejemplo1 = {
+    'Folio de Pedido':'F1000','Vehiculo':'MR-101-A','Nombre de Item':'','Cantidad':'','Codigo de Item':'',
+    'Numero del Cliente':'CLI-001','Nombre del Contacto':'Juan Pérez','Telefono':'8112345678','Email del Contacto':'juan@correo.com',
+    'Dirección':'Av. Ejemplo 123','Colonia':'Centro','C.P.':'64000','Latitud':'25.6866','Longitud':'-100.3161',
+    'Fecha Minima Entrega':Util.todayISO(),'Fecha Maxima Entrega':Util.todayISO(),'Control de Destino':'',
+    'Oficina de Ventas':'OV1','Sucursal que Solicita':'CEDIS Norte','Nombre del Vendedor':'Vendedor Ejemplo','Comentarios':'',
+    'Folio de Factura':'FA-1000','Peso Total en KG':'25.5','Volumen Total en M3':'0.5','Importe Total Factura':'1500.00'
+  };
+  const ejemplo2 = {...ejemplo1, 'Folio de Pedido':'F1001','Nombre del Contacto':'María López','Numero del Cliente':'CLI-002',
+    'Dirección':'Calle Ejemplo 456','Latitud':'25.7220','Longitud':'-100.3660','Folio de Factura':'FA-1001'};
+  const wsRutas = XLSX.utils.json_to_sheet([ejemplo1, ejemplo2], {header: XLS_COLS});
+
+  const detalle = [
+    {'Folio de Pedido':'F1000','Nombre de Item':'Refrescos 600ml (caja)','Cantidad':10},
+    {'Folio de Pedido':'F1000','Nombre de Item':'Galletas surtidas','Cantidad':5},
+    {'Folio de Pedido':'F1001','Nombre de Item':'Aceite comestible 1L','Cantidad':12},
+  ];
+  const wsDetalle = XLSX.utils.json_to_sheet(detalle, {header:['Folio de Pedido','Nombre de Item','Cantidad']});
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, wsRutas, 'Rutas');
+  XLSX.utils.book_append_sheet(wb, wsDetalle, 'Detalle');
+  XLSX.writeFile(wb, 'MapRoad_plantilla_rutas.xlsx');
 }
 
 function readImportFile(file){
@@ -1044,7 +1077,7 @@ function readImportFile(file){
       r.onload=e=>{
         const rows=Util.parseCSV(e.target.result);
         const headers=rows[0].map(h=>h.trim());
-        resolve(rows.slice(1).map(row=>{ const o={}; headers.forEach((h,i)=>o[h]=row[i]); return o; }));
+        resolve({rows: rows.slice(1).map(row=>{ const o={}; headers.forEach((h,i)=>o[h]=row[i]); return o; }), detalleRows:[]});
       };
       r.onerror=reject; r.readAsText(file,'UTF-8');
     } else {
@@ -1054,7 +1087,9 @@ function readImportFile(file){
           const wb=XLSX.read(e.target.result,{type:'array'});
           const sheet=wb.Sheets[wb.SheetNames[0]];
           const json=XLSX.utils.sheet_to_json(sheet,{defval:''});
-          resolve(json);
+          const nombreDetalle = wb.SheetNames.find(n=>n.trim().toLowerCase()==='detalle');
+          const detalleRows = nombreDetalle ? XLSX.utils.sheet_to_json(wb.Sheets[nombreDetalle],{defval:''}) : [];
+          resolve({rows: json, detalleRows});
         }catch(err){ reject(err); }
       };
       r.onerror=reject; r.readAsArrayBuffer(file);
@@ -1073,14 +1108,25 @@ function normalizeRow(raw){
 
 let _vehiculoAsign = {};
 
-function procesarImportacion(el, rawRows){
+function procesarImportacion(el, rawRows, detalleRows){
   const rows = rawRows.map(normalizeRow).filter(r=>r.folio);
-  // Agrupar por folio (una fila = un artículo; un folio = una parada)
+  // Artículos por folio: preferimos la hoja "Detalle" (Folio de Pedido, Nombre de
+  // Item, Cantidad) si el archivo la trae; si no, se agrupan desde la hoja principal
+  // (una fila = un artículo, mismo folio repetido = mismo pedido).
+  const itemsPorFolioDetalle = {};
+  (detalleRows||[]).map(normalizeRow).filter(r=>r.folio).forEach(r=>{
+    (itemsPorFolioDetalle[r.folio]=itemsPorFolioDetalle[r.folio]||[]).push({nombre:r.nombreItem, cantidad:Number(r.cantidad)||0});
+  });
+  const usaHojaDetalle = Object.keys(itemsPorFolioDetalle).length>0;
+
   const porFolio = {};
   rows.forEach(r=>{
     if(!porFolio[r.folio]) porFolio[r.folio]={...r, items:[]};
-    porFolio[r.folio].items.push({nombre:r.nombreItem, cantidad:Number(r.cantidad)||0, codigo:r.codigoItem});
+    if(!usaHojaDetalle) porFolio[r.folio].items.push({nombre:r.nombreItem, cantidad:Number(r.cantidad)||0, codigo:r.codigoItem});
   });
+  if(usaHojaDetalle){
+    Object.keys(porFolio).forEach(folio=>{ porFolio[folio].items = itemsPorFolioDetalle[folio] || []; });
+  }
   const pedidosNuevos = Object.values(porFolio).map((p,idx)=>({
     _tmpId:idx, folio:p.folio, vehiculo:p.vehiculo, items:p.items, numeroCliente:p.numeroCliente, nombreContacto:p.nombreContacto,
     telefono:p.telefono, emailContacto:p.emailContacto, direccion:p.direccion, colonia:p.colonia, cp:p.cp,
@@ -1107,14 +1153,17 @@ function renderImportPreview(el){
   const sinCoords = pedidosNuevos.filter(p=>p.lat==null||p.lng==null).length;
   const vehiculos = [...new Set(pedidosNuevos.map(p=>p.vehiculo).filter(Boolean))];
   const sinUnidad = vehiculos.filter(v=>!_vehiculoAsign[v]).length;
+  const totalItems = pedidosNuevos.reduce((s,p)=>s+(p.items?p.items.length:0),0);
+  const sinItems = pedidosNuevos.filter(p=>!p.items||!p.items.length).length;
 
   const box = document.getElementById('importResult');
   box.innerHTML = `
     <div class="card" style="margin-bottom:14px">
-      <div class="grid cols-3">
+      <div class="grid cols-4">
         <div><h3>Pedidos detectados</h3><div class="stat small-stat">${pedidosNuevos.length}</div></div>
         <div><h3>Vehículos / rutas</h3><div class="stat small-stat">${vehiculos.length}</div></div>
         <div><h3>Sin coordenadas</h3><div class="stat small-stat" style="color:${sinCoords?'var(--danger)':'inherit'}">${sinCoords}</div></div>
+        <div><h3>Artículos (checklist)</h3><div class="stat small-stat" style="color:${sinItems?'var(--warning)':'inherit'}">${totalItems}</div>${sinItems?`<div class="small muted">${sinItems} pedido(s) sin artículos</div>`:''}</div>
       </div>
     </div>
     <div class="panel" style="margin-bottom:14px">
@@ -1307,7 +1356,7 @@ function viewMonitoreo(el){
     el.querySelector('#tbody').innerHTML = rutas.length ? rutas.map(r=>{
       const ch=choferes.find(c=>c.id===r.choferId), un=unidades.find(u=>u.id===r.unidadId), ce=centros.find(c=>c.id===r.centroId);
       const total=r.pedidoIds.length;
-      const done=r.pedidoIds.filter(pid=>{ const p=pedidos.find(x=>x.id===pid); return p && (p.estatus==='entregado'||p.estatus==='fallido'); }).length;
+      const done=r.pedidoIds.filter(pid=>{ const p=pedidos.find(x=>x.id===pid); return p && esEstatusCerrado(p.estatus); }).length;
       const ultimasEntregas = entregas.filter(e=>e.rutaId===r.id).sort((a,b)=>new Date(b.horaEntrega)-new Date(a.horaEntrega));
       const color = colorForChofer(r.choferId, choferes);
       return `<tr data-verruta="${r.id}" style="cursor:pointer" title="Ver envíos de esta ruta">
@@ -1444,7 +1493,7 @@ function openDetalleRutaModal(rutaId){
   const ordenIds = (ruta.ordenOptimizado&&ruta.ordenOptimizado.length?ruta.ordenOptimizado:ruta.pedidoIds);
   const pedidos = ordenIds.map(pid=>DB.find('pedidos',pid)).filter(Boolean);
   const entregadas = pedidos.filter(p=>p.estatus==='entregado').length;
-  const fallidas = pedidos.filter(p=>p.estatus==='fallido').length;
+  const fallidas = pedidos.filter(p=>ESTATUS_NO_EXITOSOS.includes(p.estatus)).length;
 
   const tituloRuta = ch ? ch.nombre : (un ? un.placa : (ruta.vehiculoTexto || 'sin asignar'));
   openModalCustom('detalleRutaModal', `Envíos de la ruta — ${Util.esc(tituloRuta)}`, `
@@ -1455,7 +1504,7 @@ function openDetalleRutaModal(rutaId){
     <div class="grid cols-4" style="margin-bottom:14px">
       <div class="card"><h3>Paradas</h3><div class="stat small-stat">${pedidos.length}</div></div>
       <div class="card"><h3>Entregadas</h3><div class="stat small-stat" style="color:var(--success)">${entregadas}</div></div>
-      <div class="card"><h3>Fallidas</h3><div class="stat small-stat" style="color:var(--danger)">${fallidas}</div></div>
+      <div class="card"><h3>Con incidencia</h3><div class="stat small-stat" style="color:var(--danger)">${fallidas}</div></div>
       <div class="card"><h3>Estatus ruta</h3><div style="margin-top:4px">${estatusBadge(ruta.estatus)}</div></div>
     </div>
     <div class="table-wrap" style="max-height:360px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
@@ -1528,7 +1577,7 @@ function openInformeFolioModal(folioQuery){
       </div>
     </div>
     <div class="panel">
-      <div class="panel-h"><b>Resultado de entrega</b>${estatusBadge(pedido.estatus)}</div>
+      <div class="panel-h"><b>Resultado de entrega</b>${estatusBadge(pedido.estatus)}${ent&&ent.entregaParcial?'<span class="badge b-amber">Entrega parcial</span>':''}</div>
       <div class="panel-b">
         ${ent ? `
           <div class="small muted" style="margin-bottom:10px">${Util.fmtDateTime(ent.horaEntrega)}</div>
@@ -1538,7 +1587,16 @@ function openInformeFolioModal(folioQuery){
             <div class="card"><h3>Tiempo en sitio</h3><div class="stat small-stat">${pedido.horaLlegada?Util.fmtMins(Util.minsBetween(pedido.horaLlegada, ent.horaEntrega)):'—'}</div></div>
           </div>
           ${ent.motivo?`<div class="small" style="margin-bottom:8px"><b>Motivo:</b> ${Util.esc(ent.motivo)}</div>`:''}
+          ${ent.nuevaFecha?`<div class="small" style="margin-bottom:8px"><b>Nueva fecha propuesta:</b> ${Util.fmtDate(ent.nuevaFecha)}</div>`:''}
           ${ent.comentarios?`<div class="small" style="margin-bottom:8px"><b>Comentarios:</b> ${Util.esc(ent.comentarios)}</div>`:''}
+          ${ent.itemsEntregados&&ent.itemsEntregados.length?`
+          <div class="field"><label>Artículos ${ent.entregaParcial?'(entrega parcial)':'entregados'}</label>
+            <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+              ${ent.itemsEntregados.map(it=>`<div style="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border);font-size:13px">
+                <span>${it.entregado?'✅':'❌'} ${Util.esc(it.nombre)}</span><span class="mono small">x${Util.esc(it.cantidad!=null?it.cantidad:1)}</span>
+              </div>`).join('')}
+            </div>
+          </div>`:''}
           <div class="field"><label>Fotos (${ent.fotos.length})</label>
             <div class="thumbs">${ent.fotos.length?ent.fotos.map(f=>`<div class="thumb"><img src="${f}"></div>`).join(''):'<span class="small mute2">Sin fotos</span>'}</div>
           </div>
@@ -1575,8 +1633,8 @@ function drawMap(map, mapLayer, rutas, pedidos, centros, choferes){
           .bindPopup(`<b>${Util.esc(p.nombre||'Tienda de origen')}</b><br>🔴 Regreso / fin de ruta${p.hora?' · '+Util.fmtTime(p.hora):''}`).addTo(mapLayer);
         return;
       }
-      const entregado = p.estatus==='entregado', fallido = p.estatus==='fallido';
-      const fill = entregado?'#16a34a':fallido?'#dc2626':color;
+      const entregado = p.estatus==='entregado', noExitoso = ESTATUS_NO_EXITOSOS.includes(p.estatus);
+      const fill = entregado?'#16a34a':noExitoso?'#fb6340':color;
       L.circleMarker([p.lat,p.lng], {radius:5.5, color:'#fff', weight:1.5, fillColor:fill, fillOpacity:1})
         .bindPopup(`<b>Folio ${Util.esc(p.folio)}</b><br>${Util.esc(p.nombreContacto||'')}<br>${Util.esc(p.direccion||'')}<br>${estatusBadge(p.estatus)}`)
         .addTo(mapLayer);
@@ -1800,8 +1858,20 @@ function renderChoferRuta(body, ruta, chofer){
   }
 }
 
+const RESULTADOS_ENTREGA = {
+  entregado:{label:'Entregado correctamente', pideMotivo:false},
+  cliente_ausente:{label:'Cliente ausente / no se encontró', pideMotivo:true},
+  reprogramado:{label:'Reprogramar entrega', pideMotivo:true, pideFecha:true},
+  cancelado_sucursal:{label:'Cancelar — cliente pasará a sucursal', pideMotivo:true},
+  fallido:{label:'Otro motivo (no se pudo entregar)', pideMotivo:true},
+};
+// Estatus de pedido "cerrados" (ya no se van a reintentar en esta ruta) que no son un éxito.
+const ESTATUS_NO_EXITOSOS = ['cliente_ausente','reprogramado','cancelado_sucursal','fallido'];
+function esEstatusCerrado(estatus){ return estatus==='entregado' || ESTATUS_NO_EXITOSOS.includes(estatus); }
+
 function openEntregaForm(body, ruta, pedido, orden, chofer){
   let fotos=[];
+  const items = (pedido.items||[]).filter(it=>it && it.nombre);
   const container=document.createElement('div');
   container.className='modal-bg';
   container.innerHTML = `
@@ -1810,9 +1880,22 @@ function openEntregaForm(body, ruta, pedido, orden, chofer){
       <div class="modal-b">
         ${pedido.horaLlegada?`<div class="small muted" style="margin-bottom:12px">📍 Llegada: ${Util.fmtTime(pedido.horaLlegada)} · Tiempo en el sitio: ${Util.fmtMins(Util.minsBetween(pedido.horaLlegada, Util.nowISO()))}</div>`:''}
         <div class="field"><label>Resultado</label>
-          <select id="eResultado"><option value="entregado">Entregado correctamente</option><option value="fallido">No se pudo entregar</option></select>
+          <select id="eResultado">${Object.entries(RESULTADOS_ENTREGA).map(([v,cfg])=>`<option value="${v}">${Util.esc(cfg.label)}</option>`).join('')}</select>
         </div>
-        <div class="field" id="eMotivoWrap" style="display:none"><label>Motivo</label><input id="eMotivo" placeholder="Cliente ausente, dirección incorrecta, etc."></div>
+        <div class="field" id="eMotivoWrap" style="display:none"><label>Motivo</label><input id="eMotivo" placeholder="Detalle breve (dirección incorrecta, no contestó, etc.)"></div>
+        <div class="field" id="eFechaWrap" style="display:none"><label>Nueva fecha propuesta (opcional)</label><input type="date" id="eNuevaFecha"></div>
+        ${items.length?`
+        <div class="field" id="eItemsWrap">
+          <label>Artículos entregados</label>
+          <div class="small muted" style="margin-bottom:6px">Verifica lo que realmente se entregó — desmarca lo que falte.</div>
+          <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--panel-2);border-bottom:1px solid var(--border)">
+              <label class="small" style="display:flex;align-items:center;gap:6px;font-weight:600"><input type="checkbox" id="eItemsAll" checked> Marcar todos</label>
+              <span class="small muted" id="eItemsCount"></span>
+            </div>
+            <div id="eItemsList"></div>
+          </div>
+        </div>`:''}
         <div class="field">
           <label>Fotos de evidencia (hasta 10)</label>
           <input type="file" accept="image/*" capture="environment" multiple id="eFotos">
@@ -1834,7 +1917,40 @@ function openEntregaForm(body, ruta, pedido, orden, chofer){
   document.body.appendChild(container);
   container.querySelector('#mClose').onclick = container.querySelector('#mCancel').onclick = ()=>container.remove();
 
-  container.querySelector('#eResultado').onchange=(e)=>{ container.querySelector('#eMotivoWrap').style.display = e.target.value==='fallido'?'block':'none'; };
+  container.querySelector('#eResultado').onchange=(e)=>{
+    const cfg = RESULTADOS_ENTREGA[e.target.value];
+    container.querySelector('#eMotivoWrap').style.display = cfg.pideMotivo?'block':'none';
+    container.querySelector('#eFechaWrap').style.display = cfg.pideFecha?'block':'none';
+    const itemsWrap = container.querySelector('#eItemsWrap');
+    if(itemsWrap) itemsWrap.style.display = e.target.value==='entregado'?'block':'none';
+  };
+
+  // Checklist de artículos (viene de la hoja "Detalle" del Excel, o de las filas del pedido)
+  const itemsList = container.querySelector('#eItemsList');
+  function renderItemsChecklist(){
+    if(!itemsList) return;
+    itemsList.innerHTML = items.map((it,i)=>`
+      <label style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--border);font-size:13px">
+        <input type="checkbox" class="e-item-chk" data-i="${i}" checked>
+        <span style="flex:1">${Util.esc(it.nombre)}${it.codigo?` <span class="mute2 small">(${Util.esc(it.codigo)})</span>`:''}</span>
+        <span class="mono small">x${Util.esc(it.cantidad!=null?it.cantidad:1)}</span>
+      </label>`).join('');
+    updateItemsCount();
+    itemsList.querySelectorAll('.e-item-chk').forEach(chk=>chk.onchange=updateItemsCount);
+  }
+  function updateItemsCount(){
+    const checks = Array.from(itemsList?.querySelectorAll('.e-item-chk')||[]);
+    const total=checks.length, marcados=checks.filter(c=>c.checked).length;
+    const countEl = container.querySelector('#eItemsCount');
+    if(countEl) countEl.textContent = `${marcados}/${total} marcados`;
+  }
+  if(items.length){
+    renderItemsChecklist();
+    container.querySelector('#eItemsAll').onchange=(e)=>{
+      itemsList.querySelectorAll('.e-item-chk').forEach(chk=>chk.checked=e.target.checked);
+      updateItemsCount();
+    };
+  }
 
   const thumbs=container.querySelector('#eThumbs');
   container.querySelector('#eFotos').onchange = async (e)=>{
@@ -1872,13 +1988,22 @@ function openEntregaForm(body, ruta, pedido, orden, chofer){
   container.querySelector('#mGuardar').onclick=()=>{
     const resultado=container.querySelector('#eResultado').value;
     const motivo=container.querySelector('#eMotivo')?.value||'';
+    const nuevaFecha=container.querySelector('#eNuevaFecha')?.value||'';
     const comentarios=container.querySelector('#eComentarios').value;
     const firma = cv.toDataURL('image/png');
 
-    DB.insert('entregas', {pedidoId:pedido.id, rutaId:ruta.id, horaEntrega:Util.nowISO(), fotos, firma, documentos:docs, comentarios, motivo, resultado});
+    let itemsEntregados = null, entregaParcial = false;
+    if(items.length && resultado==='entregado'){
+      const checks = Array.from(itemsList.querySelectorAll('.e-item-chk'));
+      itemsEntregados = items.map((it,i)=>({nombre:it.nombre, cantidad:it.cantidad, codigo:it.codigo, entregado:checks[i].checked}));
+      entregaParcial = itemsEntregados.some(it=>!it.entregado);
+    }
+
+    DB.insert('entregas', {pedidoId:pedido.id, rutaId:ruta.id, horaEntrega:Util.nowISO(), fotos, firma, documentos:docs, comentarios, motivo, resultado, nuevaFecha, itemsEntregados, entregaParcial});
     DB.update('pedidos', pedido.id, {estatus:resultado});
     container.remove();
-    Util.toast(resultado==='entregado'?'Entrega registrada ✅':'Entrega marcada como fallida','ok');
+    const msg = resultado==='entregado' ? (entregaParcial?'Entrega parcial registrada ⚠️':'Entrega registrada ✅') : `Marcado: ${RESULTADOS_ENTREGA[resultado].label}`;
+    Util.toast(msg, resultado==='entregado'&&!entregaParcial?'ok':'err');
     renderChoferRuta(body, DB.find('rutas',ruta.id), chofer);
   };
 }
@@ -1971,27 +2096,35 @@ function renderTrackingResult(pedido){
   const orden = ruta ? (ruta.ordenOptimizado&&ruta.ordenOptimizado.length?ruta.ordenOptimizado:ruta.pedidoIds) : [];
   const idx = orden.indexOf(pedido.id);
   const pedidosRuta = DB.get('pedidos');
-  const entregadasAntes = orden.slice(0, idx).filter(pid=>pedidosRuta.find(p=>p.id===pid)?.estatus==='entregado').length;
+  const entregadasAntes = orden.slice(0, idx).filter(pid=>esEstatusCerrado(pedidosRuta.find(p=>p.id===pid)?.estatus)).length;
   const entrega = DB.get('entregas').find(e=>e.pedidoId===pedido.id);
-  const yaCerrado = pedido.estatus==='entregado' || pedido.estatus==='fallido';
+  const yaCerrado = esEstatusCerrado(pedido.estatus);
+
+  const ESTADO_CLIENTE_TXT = {
+    entregado:'Entregado', cliente_ausente:'No se encontró al destinatario',
+    reprogramado:'Entrega reprogramada', cancelado_sucursal:'Disponible para recoger en sucursal', fallido:'Entrega no completada'
+  };
+  const ULTIMO_PASO_TXT = {
+    entregado:'Entregado', cliente_ausente:'No se encontró al destinatario',
+    reprogramado:'Reprogramado', cancelado_sucursal:'Cancelado — recoge en sucursal', fallido:'Intento de entrega'
+  };
 
   let estadoTxt, pasos;
-  if(pedido.estatus==='entregado'){ estadoTxt='Entregado'; }
-  else if(pedido.estatus==='fallido'){ estadoTxt='Entrega no completada'; }
+  if(ESTADO_CLIENTE_TXT[pedido.estatus]){ estadoTxt=ESTADO_CLIENTE_TXT[pedido.estatus]; }
   else if(ruta && ruta.estatus==='en_curso'){ estadoTxt='En camino'; }
   else if(ruta && ruta.estatus==='pendiente'){ estadoTxt='Programado para hoy'; }
   else { estadoTxt='Pendiente de asignación de ruta'; }
 
-  // El conteo de "entregas antes de la tuya" solo tiene sentido mientras va en camino;
-  // una vez entregado/fallido ya no aporta información y se omite.
-  const conteoTxt = (!yaCerrado && idx>-1) ? ` (${entregadasAntes} entregas antes de la tuya)` : '';
+  // El conteo de "paradas antes de la tuya" solo tiene sentido mientras va en camino;
+  // una vez cerrado (entregado o con incidencia) ya no aporta información y se omite.
+  const conteoTxt = (!yaCerrado && idx>-1) ? ` (${entregadasAntes} paradas antes de la tuya)` : '';
 
   pasos = [
     {label:'Pedido registrado', done:true, hora:pedido.creado},
     {label:'Salió del centro de distribución', done: !!(ruta&&ruta.horaInicio), hora: ruta?.horaInicio},
     {label: pedido.horaLlegada ? 'El repartidor llegó a tu domicilio' : ('En ruta hacia tu domicilio'+conteoTxt),
       done: ruta&&ruta.estatus!=='pendiente', current: ruta&&ruta.estatus==='en_curso'&&pedido.estatus==='pendiente', hora: pedido.horaLlegada},
-    {label: pedido.estatus==='fallido' ? 'Intento de entrega' : 'Entregado', done: yaCerrado, hora: entrega?.horaEntrega},
+    {label: ULTIMO_PASO_TXT[pedido.estatus] || 'Entregado', done: yaCerrado, hora: entrega?.horaEntrega},
   ];
 
   // ETA basado en tiempos históricos del chofer para posiciones similares en ruta
@@ -2032,7 +2165,7 @@ function renderTrackingResult(pedido){
     <div class="auth-card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div><b style="font-size:16px">Folio ${Util.esc(pedido.folio)}</b><div class="small muted">${Util.esc(pedido.nombreContacto||'')}</div></div>
-        <span class="badge ${pedido.estatus==='entregado'?'b-green':pedido.estatus==='fallido'?'b-red':'b-blue'}">${Util.esc(estadoTxt)}</span>
+        <span class="badge ${pedido.estatus==='entregado'?'b-green':ESTATUS_NO_EXITOSOS.includes(pedido.estatus)?'b-amber':'b-blue'}">${Util.esc(estadoTxt)}</span>
       </div>
       ${puedeMostrarMapa?`<div id="trackMiniMap" class="trackmap" style="margin-top:14px"></div>
       <div class="small mute2" style="margin-top:6px">📍 Zona aproximada — por seguridad no se muestra el punto exacto de la unidad.</div>`:''}
