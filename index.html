@@ -1797,6 +1797,23 @@ function renderChoferShell(user){
   renderChoferRuta(body, ruta, chofer);
 }
 
+/* Minutos promedio por parada (traslado + entrega) de un chofer, según sus rutas
+   concluidas. Base del ETA del tracking y del correo de inicio de ruta. */
+function promedioMinsPorParada(choferId){
+  const histEntregas = DB.get('entregas');
+  const histRutas = DB.get('rutas').filter(r=>r.choferId===choferId && r.estatus==='concluida');
+  const tiemposPorParada=[];
+  histRutas.forEach(hr=>{
+    const ords = hr.ordenOptimizado&&hr.ordenOptimizado.length?hr.ordenOptimizado:hr.pedidoIds;
+    let prev=hr.horaInicio;
+    ords.forEach(pid=>{
+      const ent = histEntregas.find(e=>e.pedidoId===pid);
+      if(ent && prev){ tiemposPorParada.push(Util.minsBetween(prev, ent.horaEntrega)); prev=ent.horaEntrega; }
+    });
+  });
+  return tiemposPorParada.length ? tiemposPorParada.reduce((a,b)=>a+b,0)/tiemposPorParada.length : 28;
+}
+
 /* Avisa por correo (Resend, vía Edge Function) a cada cliente de la ruta que su
    pedido ya va en camino. Guarda el resultado en ruta.notificacionInicio para
    que tráfico lo vea en el detalle de la ruta. Nunca lanza: si falla, la ruta
@@ -1811,11 +1828,20 @@ async function notificarInicioRuta(ruta){
 
   const chofer = DB.find('choferes', ruta.choferId), unidad = DB.find('unidades', ruta.unidadId);
   const origen = resolverOrigenRuta(ruta);
+  const promParada = promedioMinsPorParada(ruta.choferId);
+  const t0 = new Date(ruta.horaInicio||Date.now()).getTime();
   const payload = {
     rutaId: ruta.id, fecha: ruta.fecha, horaInicio: ruta.horaInicio,
     origen: origen?.nombre || '', chofer: chofer?.nombre || '', unidad: unidad?.placa || ruta.vehiculoTexto || '',
+    totalParadas: orden.length,
     trackingBaseUrl: location.origin + location.pathname,
-    pedidos: orden.map((p,i)=>({folio:p.folio, email:(p.emailContacto||'').trim(), nombre:p.nombreContacto, direccion:[p.direccion,p.colonia].filter(Boolean).join(', '), parada:i+1})),
+    pedidos: orden.map((p,i)=>({
+      folio:p.folio, email:(p.emailContacto||'').trim(), nombre:p.nombreContacto,
+      direccion:[p.direccion,p.colonia,p.cp?('C.P. '+p.cp):''].filter(Boolean).join(', '),
+      parada:i+1,
+      eta:new Date(t0 + Math.round(promParada*(i+1))*60000).toISOString(),
+      items:(p.items||[]).filter(it=>it&&it.nombre).map(it=>({nombre:it.nombre, cantidad:it.cantidad})),
+    })),
   };
   try{
     const resp = await fetch(NOTIF_CONFIG.url, {
@@ -2204,18 +2230,7 @@ function renderTrackingResult(pedido){
   // ETA basado en tiempos históricos del chofer para posiciones similares en ruta
   let etaTxt='—';
   if(ruta && ruta.estatus==='en_curso' && pedido.estatus==='pendiente' && idx>-1){
-    const histEntregas = DB.get('entregas');
-    const histRutas = DB.get('rutas').filter(r=>r.choferId===ruta.choferId && r.estatus==='concluida');
-    const tiemposPorParada=[];
-    histRutas.forEach(hr=>{
-      const ords = hr.ordenOptimizado&&hr.ordenOptimizado.length?hr.ordenOptimizado:hr.pedidoIds;
-      let prev=hr.horaInicio;
-      ords.forEach(pid=>{
-        const ent = histEntregas.find(e=>e.pedidoId===pid);
-        if(ent && prev){ tiemposPorParada.push(Util.minsBetween(prev, ent.horaEntrega)); prev=ent.horaEntrega; }
-      });
-    });
-    const promParada = tiemposPorParada.length ? tiemposPorParada.reduce((a,b)=>a+b,0)/tiemposPorParada.length : 28;
+    const promParada = promedioMinsPorParada(ruta.choferId);
     const paradasRestantes = idx - entregadasAntes + 1;
     const minsRestantes = Math.max(5, Math.round(promParada*paradasRestantes));
     const eta = new Date(Date.now()+minsRestantes*60000);
