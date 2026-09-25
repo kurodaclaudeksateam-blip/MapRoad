@@ -84,12 +84,16 @@ Cuando el chofer presiona **"Salir de la sucursal e iniciar ruta"**, la app llam
 con [Resend](https://resend.com) un correo a cada cliente de la ruta (campo *Email del Contacto*) con el
 folio, dirección, chofer, unidad, hora de salida y un botón **Rastrear mi pedido** (`#/tracking?folio=...`).
 
-- La API key de Resend **nunca** está en el navegador: la función la lee de sus secrets
-  (`RESEND_API_KEY`, `RESEND_FROM`) o, si no se usa la CLI, de Supabase Vault (`resend_api_key`, `resend_from`).
+- **Proveedor de envío** (Vault `email_proveedor`): `gmail` (activo) o `resend`. Las credenciales **nunca**
+  están en el navegador: la función las lee de Supabase Vault (o de sus secrets, que tienen prioridad).
+  - **Gmail** — SMTP `smtp.gmail.com:465` (Supabase bloquea los puertos 25 y 587). Vault: `gmail_usuario`,
+    `gmail_app_password` (contraseña de aplicación de Google) y `gmail_nombre` (nombre visible, opcional).
+    Límite de Gmail: ~500 correos/día.
+  - **Resend** — Vault: `resend_api_key`, `resend_from` (requiere dominio verificado, ver abajo).
 - El envío no bloquea al chofer; el resultado queda en la ruta (`notificacionInicio`) y se ve en el detalle
   de la ruta en Monitoreo (✉️ enviados / fallidos / sin correo válido). Cada intento también se registra en la
   tabla `notificaciones_correo`.
-- Reintentos de la misma ruta no duplican correos (Idempotency-Key = id de ruta).
+- Reintentos de la misma ruta no duplican correos: a quien ya aparece como `enviado` en `notificaciones_correo` para esa ruta no se le vuelve a escribir.
 - Endpoint y llave pública se configuran en `NOTIF_CONFIG` al inicio del `<script>` de `index.html`
   (vacío = desactivado).
 - **Producción:** proyecto Supabase `jtgungaomigzfzvxwrtc`. Remitente configurado en Vault:

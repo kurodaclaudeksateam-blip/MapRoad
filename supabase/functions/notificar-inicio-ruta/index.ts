@@ -1,20 +1,28 @@
 // Supabase Edge Function: notificar-inicio-ruta
 //
 // La llama la app del chofer (index.html) cuando presiona "Salir de la sucursal e
-// iniciar ruta". Envía, vía Resend, un correo a cada cliente de la ruta avisándole
-// que su pedido ya va en camino (con hora estimada, número de parada y artículos).
+// iniciar ruta". Envía un correo a cada cliente de la ruta avisándole que su pedido
+// ya va en camino (con hora estimada, número de parada y artículos).
 //
-// La API key de Resend vive SOLO aquí (secret del proyecto), nunca en el navegador.
+// Proveedor de envío (EMAIL_PROVEEDOR / Vault email_proveedor): "gmail" o "resend" (default).
+// Las credenciales viven SOLO aquí (secrets de la función o Supabase Vault — ver
+// public.leer_secreto en schema.sql), nunca en el navegador.
 //
-// Configuración requerida — como secrets de la función (supabase secrets set ...)
-// o, si no hay CLI, en Supabase Vault (ver public.leer_secreto en schema.sql):
-//   RESEND_API_KEY   re_xxx                                  (Vault: resend_api_key)
-//   RESEND_FROM      "MapRoad <entregas@tu-dominio.com>"     (Vault: resend_from)
+//   Gmail  (SMTP smtp.gmail.com:465; Supabase bloquea 25 y 587)
+//     GMAIL_USUARIO       cuenta@gmail.com                      (Vault: gmail_usuario)
+//     GMAIL_APP_PASSWORD  contraseña de aplicación de Google    (Vault: gmail_app_password)
+//     GMAIL_NOMBRE        nombre visible del remitente, opcional (Vault: gmail_nombre; default "MapRoad")
+//   Resend
+//     RESEND_API_KEY      re_xxx                                (Vault: resend_api_key)
+//     RESEND_FROM         "MapRoad <entregas@tu-dominio.com>"   (Vault: resend_from, dominio verificado)
+//
 // Automáticos en Supabase (los inyecta la plataforma):
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY  → bitácora en la tabla notificaciones_correo
 // Opcionales:
 //   ALLOWED_ORIGINS  lista separada por comas (ej. "https://maproad.vercel.app"); vacío = cualquiera
-//   RESEND_REPLY_TO  correo al que el cliente puede responder
+//   REPLY_TO         correo al que el cliente puede responder
+
+import nodemailer from "npm:nodemailer@6.9.16";
 
 const MAX_DESTINATARIOS = 100; // límite del endpoint /emails/batch de Resend
 const MAX_ITEMS_CORREO = 25;
@@ -175,7 +183,7 @@ ${itemsExtra > 0 ? `<tr><td colspan="2" style="padding:8px 12px;border-top:1px s
 </table>`
     : "";
 
-  const preheader = `${eta ? `Llega entre ${eta.desde} y ${eta.hasta}. ` : ""}Tu pedido ${folio} ya salió de la sucursal.`;
+  const preheader = `${eta ? `Llega entre ${eta.desde} y ${eta.hasta} · ` : ""}Tu pedido ${folio} ya salió de la sucursal.`;
 
   const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(subject)}</title></head>
 <body style="margin:0;background:#f4f6fb;font-family:Arial,Helvetica,sans-serif;color:#32325d">
@@ -225,16 +233,21 @@ ${link ? `<p style="margin:26px 0 0;text-align:center"><a href="${esc(link)}" st
 
 type Bitacora = { pedido_folio: string; email: string | null; estatus: "enviado" | "fallido" | "omitido"; motivo?: string | null; resend_id?: string | null };
 
+function supabaseRest(): { url: string; key: string } | null {
+  const url = Deno.env.get("SUPABASE_URL");
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  return url && key ? { url, key } : null;
+}
+
 // Guarda un renglón por destinatario en notificaciones_correo. Si falla, solo se
 // registra en logs: nunca debe impedir que el correo al cliente salga.
 async function registrarBitacora(rutaRef: string | undefined, rows: Bitacora[]) {
-  const url = Deno.env.get("SUPABASE_URL");
-  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!url || !key || !rows.length) return;
+  const sb = supabaseRest();
+  if (!sb || !rows.length) return;
   try {
-    const r = await fetch(`${url}/rest/v1/notificaciones_correo`, {
+    const r = await fetch(`${sb.url}/rest/v1/notificaciones_correo`, {
       method: "POST",
-      headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+      headers: { apikey: sb.key, Authorization: `Bearer ${sb.key}`, "Content-Type": "application/json", Prefer: "return=minimal" },
       body: JSON.stringify(rows.map((x) => ({ tipo: "inicio_ruta", ruta_ref: rutaRef ? clip(rutaRef, 200) : null, ...x }))),
     });
     if (!r.ok) console.error("bitacora", r.status, await r.text());
@@ -243,20 +256,109 @@ async function registrarBitacora(rutaRef: string | undefined, rows: Bitacora[]) 
   }
 }
 
+// "folio|email" ya enviados para esta ruta: si el chofer reintenta (doble clic,
+// reconexión) no se le vuelve a escribir al mismo cliente.
+async function yaEnviados(rutaRef: string | undefined): Promise<Set<string>> {
+  const sb = supabaseRest();
+  if (!sb || !rutaRef) return new Set();
+  try {
+    const q = new URLSearchParams({ select: "pedido_folio,email", ruta_ref: `eq.${clip(rutaRef, 200)}`, estatus: "eq.enviado" });
+    const r = await fetch(`${sb.url}/rest/v1/notificaciones_correo?${q}`, { headers: { apikey: sb.key, Authorization: `Bearer ${sb.key}` } });
+    if (!r.ok) return new Set();
+    const rows = (await r.json()) as { pedido_folio: string; email: string }[];
+    return new Set(rows.map((x) => `${x.pedido_folio}|${(x.email || "").toLowerCase()}`));
+  } catch {
+    return new Set();
+  }
+}
+
 // Lee un secreto de Vault vía la RPC leer_secreto (solo service_role puede ejecutarla).
 // Sin caché: así un cambio en Vault (ej. nuevo remitente) aplica en el siguiente envío.
 async function secreto(envName: string, vaultName: string): Promise<string | null> {
   const env = Deno.env.get(envName);
   if (env) return env;
-  const url = Deno.env.get("SUPABASE_URL");
-  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!url || !key) return null;
-  const r = await fetch(`${url}/rest/v1/rpc/leer_secreto`, {
+  const sb = supabaseRest();
+  if (!sb) return null;
+  const r = await fetch(`${sb.url}/rest/v1/rpc/leer_secreto`, {
     method: "POST",
-    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    headers: { apikey: sb.key, Authorization: `Bearer ${sb.key}`, "Content-Type": "application/json" },
     body: JSON.stringify({ p_nombre: vaultName }),
   });
   return r.ok ? ((await r.json()) as string | null) : null;
+}
+
+type Correo = { to: string; subject: string; html: string; text: string };
+type Resultado = { ok: true; id: string | null } | { ok: false; error: string };
+type Enviador = (correos: Correo[], rutaRef: string | undefined) => Promise<Resultado[]>;
+
+// Construye el enviador según el proveedor configurado, o devuelve el error de configuración.
+async function crearEnviador(): Promise<Enviador | string> {
+  const proveedor = ((await secreto("EMAIL_PROVEEDOR", "email_proveedor")) || "resend").trim().toLowerCase();
+  const replyTo = Deno.env.get("REPLY_TO") || undefined;
+
+  if (proveedor === "gmail") {
+    const [usuario, pass, nombre] = await Promise.all([
+      secreto("GMAIL_USUARIO", "gmail_usuario"),
+      secreto("GMAIL_APP_PASSWORD", "gmail_app_password"),
+      secreto("GMAIL_NOMBRE", "gmail_nombre"),
+    ]);
+    if (!usuario || !pass) return "Falta configurar gmail_usuario / gmail_app_password";
+    // La contraseña de aplicación de Google se muestra con espacios; SMTP la necesita sin ellos.
+    const transport = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
+      auth: { user: usuario, pass: pass.replace(/\s+/g, "") },
+    });
+    const from = { name: (nombre || "MapRoad").replace(/["<>]/g, ""), address: usuario };
+    return async (correos) => {
+      // Gmail no tiene envío por lotes: uno por uno, en orden.
+      const out: Resultado[] = [];
+      for (const c of correos) {
+        try {
+          const info = await transport.sendMail({ from, to: c.to, subject: c.subject, html: c.html, text: c.text, ...(replyTo ? { replyTo } : {}) });
+          out.push({ ok: true, id: info.messageId || null });
+        } catch (e) {
+          out.push({ ok: false, error: String((e as Error)?.message || e).slice(0, 300) });
+        }
+      }
+      transport.close();
+      return out;
+    };
+  }
+
+  if (proveedor === "resend") {
+    const [apiKey, from] = await Promise.all([secreto("RESEND_API_KEY", "resend_api_key"), secreto("RESEND_FROM", "resend_from")]);
+    if (!apiKey || !from) return "Falta configurar resend_api_key / resend_from";
+    return async (correos, rutaRef) => {
+      const resp = await fetch("https://api.resend.com/emails/batch", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          ...(rutaRef ? { "Idempotency-Key": `inicio-ruta-${clip(rutaRef, 200)}` } : {}),
+        },
+        body: JSON.stringify(correos.map((c) => ({
+          from,
+          to: [c.to],
+          subject: c.subject,
+          html: c.html,
+          text: c.text,
+          ...(replyTo ? { reply_to: replyTo } : {}),
+          tags: [{ name: "tipo", value: "inicio_ruta" }],
+        }))),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        const msg = (data as { message?: string })?.message || `Resend respondió ${resp.status}`;
+        return correos.map(() => ({ ok: false as const, error: msg }));
+      }
+      const ids: { id: string }[] = (data as { data?: { id: string }[] })?.data || [];
+      return correos.map((_, i) => ({ ok: true as const, id: ids[i]?.id || null }));
+    };
+  }
+
+  return `Proveedor de correo desconocido: ${proveedor}`;
 }
 
 Deno.serve(async (req) => {
@@ -264,11 +366,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers });
   if (req.method !== "POST") return json({ error: "Método no permitido" }, 405, headers);
 
-  const [apiKey, from] = await Promise.all([
-    secreto("RESEND_API_KEY", "resend_api_key"),
-    secreto("RESEND_FROM", "resend_from"),
-  ]);
-  if (!apiKey || !from) return json({ error: "Falta configurar RESEND_API_KEY / RESEND_FROM" }, 500, headers);
+  const enviar = await crearEnviador();
+  if (typeof enviar === "string") return json({ error: enviar }, 500, headers);
 
   let body: Payload;
   try {
@@ -278,6 +377,7 @@ Deno.serve(async (req) => {
   }
 
   const pedidos = Array.isArray(body.pedidos) ? body.pedidos : [];
+  const previos = await yaEnviados(body.rutaId);
   const validos: (PedidoIn & { folio: string; email: string })[] = [];
   const omitidos: { folio: string; motivo: string }[] = [];
   const vistos = new Set<string>();
@@ -290,64 +390,34 @@ Deno.serve(async (req) => {
     const key = `${folio}|${email}`;
     if (vistos.has(key)) continue;
     vistos.add(key);
+    if (previos.has(key)) { omitidos.push({ folio, motivo: "ya_enviado" }); continue; }
     validos.push({ ...p, folio, email });
   }
   if (validos.length > MAX_DESTINATARIOS) {
     return json({ error: `Máximo ${MAX_DESTINATARIOS} destinatarios por ruta` }, 400, headers);
   }
-  const bitOmitidos: Bitacora[] = omitidos.map((o) => ({ pedido_folio: o.folio, email: null, estatus: "omitido", motivo: o.motivo }));
-  if (!validos.length) {
-    await registrarBitacora(body.rutaId, bitOmitidos);
-    return json({ enviados: [], fallidos: [], omitidos }, 200, headers);
-  }
+  // Los "ya_enviado" no se vuelven a registrar: su renglón "enviado" ya existe.
+  const bitOmitidos: Bitacora[] = omitidos
+    .filter((o) => o.motivo !== "ya_enviado")
+    .map((o) => ({ pedido_folio: o.folio, email: null, estatus: "omitido", motivo: o.motivo }));
 
-  const replyTo = Deno.env.get("RESEND_REPLY_TO");
-  const emails = validos.map((p) => {
-    const { subject, html, text } = construirCorreo(p, body);
-    return {
-      from,
-      to: [p.email],
-      subject,
-      html,
-      text,
-      ...(replyTo ? { reply_to: replyTo } : {}),
-      tags: [{ name: "tipo", value: "inicio_ruta" }],
-    };
+  const correos: Correo[] = validos.map((p) => ({ to: p.email, ...construirCorreo(p, body) }));
+  const resultados = correos.length ? await enviar(correos, body.rutaId) : [];
+
+  const enviados: { folio: string; email: string; id: string | null }[] = [];
+  const fallidos: { folio: string; email: string; error: string }[] = [];
+  resultados.forEach((r, i) => {
+    const { folio, email } = validos[i];
+    if (r.ok) enviados.push({ folio, email, id: r.id });
+    else fallidos.push({ folio, email, error: r.error });
   });
 
-  const resp = await fetch("https://api.resend.com/emails/batch", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      // Si el chofer reintenta (doble clic, reconexión), Resend no duplica los correos
-      ...(body.rutaId ? { "Idempotency-Key": `inicio-ruta-${clip(body.rutaId, 200)}` } : {}),
-    },
-    body: JSON.stringify(emails),
-  });
-  const data = await resp.json().catch(() => ({}));
-
-  if (!resp.ok) {
-    const msg = (data as { message?: string })?.message || `Resend respondió ${resp.status}`;
-    await registrarBitacora(body.rutaId, [
-      ...validos.map((p) => ({ pedido_folio: p.folio, email: p.email, estatus: "fallido" as const, motivo: msg })),
-      ...bitOmitidos,
-    ]);
-    return json({
-      enviados: [],
-      fallidos: validos.map((p) => ({ folio: p.folio, email: p.email, error: msg })),
-      omitidos,
-    }, 502, headers);
-  }
-
-  const ids: { id: string }[] = (data as { data?: { id: string }[] })?.data || [];
   await registrarBitacora(body.rutaId, [
-    ...validos.map((p, i) => ({ pedido_folio: p.folio, email: p.email, estatus: "enviado" as const, resend_id: ids[i]?.id || null })),
+    ...enviados.map((x) => ({ pedido_folio: x.folio, email: x.email, estatus: "enviado" as const, resend_id: x.id })),
+    ...fallidos.map((x) => ({ pedido_folio: x.folio, email: x.email, estatus: "fallido" as const, motivo: x.error })),
     ...bitOmitidos,
   ]);
-  return json({
-    enviados: validos.map((p, i) => ({ folio: p.folio, email: p.email, id: ids[i]?.id || null })),
-    fallidos: [],
-    omitidos,
-  }, 200, headers);
+
+  const status = fallidos.length && !enviados.length ? 502 : 200;
+  return json({ enviados, fallidos, omitidos }, status, headers);
 });
