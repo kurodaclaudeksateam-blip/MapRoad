@@ -248,7 +248,16 @@ async function registrarBitacora(rutaRef: string | undefined, rows: Bitacora[]) 
     const r = await fetch(`${sb.url}/rest/v1/notificaciones_correo`, {
       method: "POST",
       headers: { apikey: sb.key, Authorization: `Bearer ${sb.key}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-      body: JSON.stringify(rows.map((x) => ({ tipo: "inicio_ruta", ruta_ref: rutaRef ? clip(rutaRef, 200) : null, ...x }))),
+      // PostgREST exige las mismas llaves en todos los objetos de un insert múltiple.
+      body: JSON.stringify(rows.map((x) => ({
+        tipo: "inicio_ruta",
+        ruta_ref: rutaRef ? clip(rutaRef, 200) : null,
+        pedido_folio: x.pedido_folio,
+        email: x.email,
+        estatus: x.estatus,
+        motivo: x.motivo ?? null,
+        resend_id: x.resend_id ?? null,
+      }))),
     });
     if (!r.ok) console.error("bitacora", r.status, await r.text());
   } catch (e) {
