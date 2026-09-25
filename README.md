@@ -77,6 +77,46 @@ Las tablas usadas hoy en `localStorage` (`maproad_*`) son: `usuarios`, `unidades
 - El mapa ya usa Leaflet + OpenStreetMap (gratuito); si se requiere navegación/tráfico en vivo se puede cambiar a Google Maps/Mapbox sin tocar el resto de la app (mismas coordenadas).
 - Sustituir el algoritmo de optimización por uno basado en una API de ruteo real (OSRM, Google Routes API) si se requiere precisión en calles/tráfico.
 
+### Aviso por correo al cliente cuando el chofer inicia la ruta (Resend)
+
+Cuando el chofer presiona **"Salir de la sucursal e iniciar ruta"**, la app llama a la Edge Function
+[`supabase/functions/notificar-inicio-ruta`](supabase/functions/notificar-inicio-ruta/index.ts), que envía
+con [Resend](https://resend.com) un correo a cada cliente de la ruta (campo *Email del Contacto*) con el
+folio, dirección, chofer, unidad, hora de salida y un botón **Rastrear mi pedido** (`#/tracking?folio=...`).
+
+- La API key de Resend **nunca** está en el navegador: la función la lee de sus secrets
+  (`RESEND_API_KEY`, `RESEND_FROM`) o, si no se usa la CLI, de Supabase Vault (`resend_api_key`, `resend_from`).
+- El envío no bloquea al chofer; el resultado queda en la ruta (`notificacionInicio`) y se ve en el detalle
+  de la ruta en Monitoreo (✉️ enviados / fallidos / sin correo válido). Cada intento también se registra en la
+  tabla `notificaciones_correo`.
+- Reintentos de la misma ruta no duplican correos (Idempotency-Key = id de ruta).
+- Endpoint y llave pública se configuran en `NOTIF_CONFIG` al inicio del `<script>` de `index.html`
+  (vacío = desactivado).
+- **Producción:** proyecto Supabase `jtgungaomigzfzvxwrtc`. Remitente configurado en Vault:
+  `MapRoad <entregas@notificaciones.kuroda.com>`. Se usa un **subdominio** para no tocar el SPF/MX del
+  correo corporativo de `kuroda.com` (Outlook).
+
+#### Registros DNS pendientes (DomainDiscover, zona `kuroda.com`)
+
+Resend solo entrega a cualquier destinatario cuando el dominio está verificado. Agregar en el DNS de
+`kuroda.com` (ns1/ns2.domaindiscover.com):
+
+| Tipo | Nombre (host) | Valor | Prioridad |
+|------|---------------|-------|-----------|
+| TXT  | `resend._domainkey.notificaciones` | `p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDKWTw2NgRYrrrdx7OxNrZUzsk8nuAkH3c099NUkRoRkycxpX4nK2FiyDOoYlWO5xmKnG3s+RJhGcXVJ9hiVOHczVV8pe+861hfPnSR/+e/osouv7rQepklJ0oUUsmdsOuu+ei7OILP1PCzic760YSLuHkIAdV2WB6Tnb8r3lO6qwIDAQAB` | |
+| MX   | `send.notificaciones` | `feedback-smtp.us-east-1.amazonses.com` | 10 |
+| TXT  | `send.notificaciones` | `v=spf1 include:amazonses.com ~all` | |
+| CNAME| `rsend.notificaciones` | `send.forge.rmta.net` | |
+| TXT  | `_dmarc.notificaciones` *(recomendado)* | `v=DMARC1; p=none;` | |
+
+Después: Resend → Domains → `notificaciones.kuroda.com` → **Verify**. Prueba directa contra prod:
+
+```bash
+curl -X POST https://jtgungaomigzfzvxwrtc.supabase.co/functions/v1/notificar-inicio-ruta   -H "Authorization: Bearer <ANON_KEY>" -H "apikey: <ANON_KEY>" -H "Content-Type: application/json"   -d '{"rutaId":"prueba-1","chofer":"Juan Pérez","unidad":"ABC-123","origen":"CEDIS Norte","pedidos":[{"folio":"TEST-001","email":"cliente@correo.com","nombre":"Cliente"}]}'
+```
+
+Cada intento queda en la tabla `notificaciones_correo` (enviado / fallido / omitido, con el motivo).
+
 ### Consulta pública de solo lectura por Folio (para otra web)
 
 `supabase/schema.sql` incluye la función `get_informe_por_folio(folio)`: permite

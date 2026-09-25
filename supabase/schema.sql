@@ -89,6 +89,7 @@ create table rutas (
   estatus text not null default 'pendiente' check (estatus in ('pendiente','en_curso','concluida')),
   orden_optimizado uuid[],
   vehiculo_texto text,
+  origen_tienda_id uuid references tiendas(id) on delete set null, -- punto de salida de la ruta
   hora_inicio timestamptz,
   hora_fin timestamptz,
   created_at timestamptz not null default now()
@@ -123,7 +124,7 @@ create table pedidos (
   volumen_m3 numeric,
   importe_total numeric,
   orden_en_ruta int,
-  estatus text not null default 'pendiente' check (estatus in ('pendiente','entregado','fallido')),
+  estatus text not null default 'pendiente' check (estatus in ('pendiente','en_ruta','entregado','cliente_ausente','reprogramado','cancelado_sucursal','fallido')),
   hora_llegada timestamptz,
   created_at timestamptz not null default now()
 );
@@ -134,14 +135,34 @@ create table entregas (
   pedido_id uuid not null references pedidos(id) on delete cascade,
   ruta_id uuid references rutas(id) on delete set null,
   hora_entrega timestamptz not null default now(),
-  resultado text not null check (resultado in ('entregado','fallido')),
+  resultado text not null check (resultado in ('entregado','cliente_ausente','reprogramado','cancelado_sucursal','fallido')),
   motivo text,
+  nueva_fecha date,          -- fecha propuesta cuando resultado = 'reprogramado'
+  items_entregados jsonb,    -- checklist de artículos marcados por el chofer
+  entrega_parcial boolean not null default false,
   comentarios text,
   fotos text[],       -- URLs en Supabase Storage (no dataURL como en el prototipo)
   firma_url text,     -- URL de la firma en Supabase Storage
   documentos text[],
   created_at timestamptz not null default now()
 );
+
+-- Bitácora de avisos por correo (Resend). La escribe la Edge Function
+-- notificar-inicio-ruta con la service_role; un renglón por destinatario.
+-- ruta_ref / pedido_folio son texto para aceptar también los IDs del
+-- prototipo en localStorage mientras la app no esté migrada a Supabase.
+create table notificaciones_correo (
+  id uuid primary key default gen_random_uuid(),
+  tipo text not null default 'inicio_ruta',
+  ruta_ref text,
+  pedido_folio text,
+  email text,
+  estatus text not null check (estatus in ('enviado','fallido','omitido')),
+  motivo text,          -- sin_email / email_invalido / mensaje de error de Resend
+  resend_id text,
+  created_at timestamptz not null default now()
+);
+create index notificaciones_correo_ruta_idx on notificaciones_correo (ruta_ref);
 
 -- ============================================================
 -- Row Level Security — cerrado por defecto para todos (incl. anon)
@@ -154,6 +175,7 @@ alter table usuarios enable row level security;
 alter table rutas    enable row level security;
 alter table pedidos  enable row level security;
 alter table entregas enable row level security;
+alter table notificaciones_correo enable row level security;
 
 -- Nota: aquí agregarías políticas para admin/trafico/chofer autenticados
 -- (por ejemplo: "un chofer solo ve sus propias rutas/pedidos"). Se omiten
@@ -232,3 +254,23 @@ $$;
 
 revoke all on function public.get_informe_por_folio(text) from public;
 grant execute on function public.get_informe_por_folio(text) to anon, authenticated;
+
+-- ============================================================
+-- Secretos para Edge Functions (Supabase Vault)
+-- ============================================================
+-- Permite guardar la API key de Resend sin usar la CLI de Supabase:
+--   select vault.create_secret('re_xxx', 'resend_api_key');
+--   select vault.create_secret('MapRoad <entregas@tu-dominio.com>', 'resend_from');
+-- Solo service_role (la Edge Function) puede leerlos; anon/authenticated no.
+-- Si defines los secrets de la función (RESEND_API_KEY / RESEND_FROM) esos tienen prioridad.
+create or replace function public.leer_secreto(p_nombre text)
+returns text
+language sql
+security definer
+set search_path = ''
+as $$
+  select decrypted_secret from vault.decrypted_secrets where name = p_nombre limit 1;
+$$;
+
+revoke all on function public.leer_secreto(text) from public, anon, authenticated;
+grant execute on function public.leer_secreto(text) to service_role;

@@ -221,6 +221,19 @@ tr:hover td{background:#f8fafc;}
 
 <script>
 /* ============================================================
+   0. CONFIGURACIÓN — notificaciones por correo (Resend)
+   Al iniciar una ruta, la app del chofer llama a la Edge Function
+   supabase/functions/notificar-inicio-ruta, que envía el correo con Resend.
+   La API key de Resend NUNCA va aquí: vive como secret de la función.
+   Deja url vacío para desactivar el envío.
+   ============================================================ */
+const NOTIF_CONFIG = {
+  url: 'https://jtgungaomigzfzvxwrtc.supabase.co/functions/v1/notificar-inicio-ruta',
+  // Llave pública (anon) del proyecto — segura en el frontend; la función valida el JWT.
+  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0Z3VuZ2FvbWlnemZ6dnh3cnRjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwNjM3NzAsImV4cCI6MjEwMjYzOTc3MH0.xEWemrDgziselIo7DaxgMmgaI7dBEHOfSlK_NgBQlzY',
+};
+
+/* ============================================================
    1. UTILIDADES
    ============================================================ */
 const Util = {
@@ -517,7 +530,8 @@ const NAV_ITEMS = [
   ]},
 ];
 
-function currentPath(){ return (location.hash||'#/login').replace('#/','') || 'login'; }
+function currentPath(){ return (location.hash||'#/login').replace('#/','').split('?')[0] || 'login'; }
+function hashParam(name){ const q=(location.hash||'').split('?')[1]; return q ? new URLSearchParams(q).get(name) : null; }
 
 function route(){
   const user = Auth.current();
@@ -1499,7 +1513,7 @@ function openDetalleRutaModal(rutaId){
   openModalCustom('detalleRutaModal', `Envíos de la ruta — ${Util.esc(tituloRuta)}`, `
     <div class="small muted" style="margin-bottom:10px">
       <b>${Util.esc(ch?.nombre||'Sin chofer asignado')}</b> · ${Util.esc(un?.placa||ruta.vehiculoTexto||'—')} · ${Util.esc(ce?.nombre||'—')} · ${Util.fmtDate(ruta.fecha)}
-      ${ruta.horaInicio?(' · Inicio '+Util.fmtTime(ruta.horaInicio)):''}${ruta.horaFin?(' · Fin '+Util.fmtTime(ruta.horaFin)):''}
+      ${ruta.horaInicio?(' · Inicio '+Util.fmtTime(ruta.horaInicio)):''}${ruta.horaFin?(' · Fin '+Util.fmtTime(ruta.horaFin)):''}${resumenNotificacionInicio(ruta)}
     </div>
     <div class="grid cols-4" style="margin-bottom:14px">
       <div class="card"><h3>Paradas</h3><div class="stat small-stat">${pedidos.length}</div></div>
@@ -1783,6 +1797,57 @@ function renderChoferShell(user){
   renderChoferRuta(body, ruta, chofer);
 }
 
+/* Avisa por correo (Resend, vía Edge Function) a cada cliente de la ruta que su
+   pedido ya va en camino. Guarda el resultado en ruta.notificacionInicio para
+   que tráfico lo vea en el detalle de la ruta. Nunca lanza: si falla, la ruta
+   sigue su curso normal. */
+async function notificarInicioRuta(ruta){
+  const pedidos = DB.get('pedidos');
+  const ids = (ruta.ordenOptimizado&&ruta.ordenOptimizado.length?ruta.ordenOptimizado:ruta.pedidoIds);
+  const orden = ids.map(pid=>pedidos.find(p=>p.id===pid)).filter(Boolean);
+  const guardar = (r)=>DB.update('rutas', ruta.id, {notificacionInicio:{fecha:Util.nowISO(), ...r}});
+
+  if(!NOTIF_CONFIG.url){ guardar({estatus:'no_configurado', enviados:[], fallidos:[], omitidos:[]}); return; }
+
+  const chofer = DB.find('choferes', ruta.choferId), unidad = DB.find('unidades', ruta.unidadId);
+  const origen = resolverOrigenRuta(ruta);
+  const payload = {
+    rutaId: ruta.id, fecha: ruta.fecha, horaInicio: ruta.horaInicio,
+    origen: origen?.nombre || '', chofer: chofer?.nombre || '', unidad: unidad?.placa || ruta.vehiculoTexto || '',
+    trackingBaseUrl: location.origin + location.pathname,
+    pedidos: orden.map((p,i)=>({folio:p.folio, email:(p.emailContacto||'').trim(), nombre:p.nombreContacto, direccion:[p.direccion,p.colonia].filter(Boolean).join(', '), parada:i+1})),
+  };
+  try{
+    const resp = await fetch(NOTIF_CONFIG.url, {
+      method:'POST',
+      headers:{'Content-Type':'application/json', apikey:NOTIF_CONFIG.anonKey, Authorization:'Bearer '+NOTIF_CONFIG.anonKey},
+      body: JSON.stringify(payload),
+    });
+    const data = await resp.json().catch(()=>({}));
+    const r = {enviados:data.enviados||[], fallidos:data.fallidos||[], omitidos:data.omitidos||[]};
+    if(!resp.ok && !r.fallidos.length) r.error = data.error || ('HTTP '+resp.status);
+    r.estatus = r.fallidos.length||r.error ? 'error' : 'ok';
+    guardar(r);
+    if(r.estatus==='ok' && r.enviados.length) Util.toast(`Aviso enviado por correo a ${r.enviados.length} cliente(s)`,'ok');
+    else if(r.estatus==='error') Util.toast('No se pudo enviar el aviso por correo a los clientes','err');
+  }catch(err){
+    guardar({estatus:'error', error:String(err&&err.message||err), enviados:[], fallidos:[], omitidos:[]});
+    Util.toast('No se pudo enviar el aviso por correo a los clientes','err');
+  }
+}
+
+function resumenNotificacionInicio(ruta){
+  const n = ruta.notificacionInicio;
+  if(!n) return '';
+  if(n.estatus==='no_configurado') return ' · ✉️ Aviso por correo desactivado';
+  const partes = [];
+  if(n.enviados.length) partes.push(`${n.enviados.length} enviado(s)`);
+  if(n.fallidos.length) partes.push(`${n.fallidos.length} fallido(s)`);
+  if(n.omitidos.length) partes.push(`${n.omitidos.length} sin correo válido`);
+  if(n.error && !n.fallidos.length) partes.push('error: '+n.error);
+  return ` · ✉️ Aviso de salida: ${Util.esc(partes.join(', ')||'sin destinatarios')}`;
+}
+
 function renderChoferRuta(body, ruta, chofer){
   const pedidos = DB.get('pedidos');
   const orden = (ruta.ordenOptimizado&&ruta.ordenOptimizado.length?ruta.ordenOptimizado:ruta.pedidoIds).map(pid=>pedidos.find(p=>p.id===pid)).filter(Boolean);
@@ -1803,7 +1868,9 @@ function renderChoferRuta(body, ruta, chofer){
     body.querySelector('#btnIniciar').onclick=()=>{
       DB.update('rutas', ruta.id, {estatus:'en_curso', horaInicio:Util.nowISO()});
       Util.toast('Salida de sucursal registrada','ok');
-      renderChoferRuta(body, DB.find('rutas',ruta.id), chofer);
+      const rutaIniciada = DB.find('rutas',ruta.id);
+      renderChoferRuta(body, rutaIniciada, chofer);
+      notificarInicioRuta(rutaIniciada); // no bloquea al chofer; el resultado queda en la ruta
     };
     return;
   }
@@ -2087,6 +2154,13 @@ function renderTracking(){
     document.getElementById('tErr').innerHTML='';
     renderTrackingResult(pedido);
   });
+  // Enlace directo desde el correo de "tu pedido va en camino": #/tracking?folio=F1000
+  const folioLink = hashParam('folio');
+  if(folioLink){
+    const form=document.getElementById('tForm');
+    form.folio.value=folioLink;
+    form.requestSubmit();
+  }
 }
 
 function renderTrackingResult(pedido){
