@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="mpr_fondo">#070B17</color>
+    <color name="mpr_acento">#38BDF8</color>
+
+    <style name="AppTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/mpr_fondo</item>
+        <item name="android:statusBarColor">@color/mpr_fondo</item>
+        <item name="android:navigationBarColor">@color/mpr_fondo</item>
+        <item name="android:colorAccent">@color/mpr_acento</item>
+    </style>
+</resources>

@@ -1,138 +1,72 @@
 # MapRoad
 
-Prototipo funcional de una app web para **control de unidades, choferes, rutas y entregas**, con **tracking público para clientes**. Todo corre en un único archivo (`index.html`, con CSS y JS embebidos) usando `localStorage` como base de datos, pensado para migrarse después a **Supabase** sin rediseñar la app.
+Control de rutas de envío de mercancía para varias **sociedades (razones sociales)**, cada una con sus **centros** y **CEDIS**: unidades, choferes, rutas del día, entregas con evidencia, monitoreo en vivo con GPS y rastreo público para el cliente.
 
-## Cómo probarlo
+| Pieza | Dónde vive | Para quién |
+|-------|-----------|------------|
+| Panel web | [`index.html`](index.html) | Administrador, usuarios por sociedad / centro, observador de auditoría |
+| App del chofer | [`chofer/index.html`](chofer/index.html) — la misma página va dentro del APK | Choferes |
+| APK Android | [`apk/MapRoadChofer.apk`](apk/MapRoadChofer.apk) (fuente en [`android/`](android/)) | Choferes |
+| Base de datos | Supabase, proyecto `gk-control-operativo-entregas` — [`supabase/schema_mpr.sql`](supabase/schema_mpr.sql) | — |
 
-Abre `index.html` con un servidor local (no funciona como `file://` porque `localStorage` se deshabilita en ese modo):
+La app arranca **en blanco**: sin datos de ejemplo. El único usuario inicial es el administrador `fcerezo` (su cuenta de Supabase Auth `fcerezo@kuroda.com`, con su contraseña de siempre).
 
-```bash
-npx serve MapRoad -l 8766
-```
+## Primeros pasos (con el panel vacío)
 
-o con el `serve.ps1` incluido (PowerShell, sin dependencias):
+1. Entra al panel con `fcerezo`.
+2. **Configuración → Sociedades**: da de alta cada razón social.
+3. **Configuración → Centros y CEDIS**: crea los centros de cada sociedad (tipo *Centro* o *CEDIS*).
+4. **Operación**: unidades, choferes y tiendas (marca como *punto de salida* las sucursales/CEDIS desde donde parten rutas; llevan coordenadas obligatorias).
+5. **Configuración → Usuarios y roles**: crea los accesos (ver roles abajo). Para un chofer: primero el chofer en *Control de choferes*, luego su usuario con rol *Chofer* vinculado.
+6. **Cargar rutas del día**: sube el Excel; cada vehículo del archivo se convierte en una ruta optimizada.
+7. El chofer instala el APK, entra con su usuario y presiona **Salir de la sucursal e iniciar ruta**.
 
-```bash
-powershell -File MapRoad/serve.ps1 -Port 8766
-```
+## Roles
 
-Luego abre `http://localhost:8766`.
+| Rol | Qué ve | Qué puede cambiar |
+|-----|--------|-------------------|
+| **Administrador** | Todo | Todo; es el único que crea usuarios y sociedades |
+| **Por sociedad** | Los centros de su razón social y todo lo que cuelga de ellos | Lo de sus centros (incluye crear centros de su sociedad) |
+| **Por centro** | Solo su centro / CEDIS | Unidades, choferes, tiendas, rutas y pedidos de su centro |
+| **Chofer** | Solo su ruta del día, y solo desde la app móvil | Registra salida, llegadas, entregas y fin de ruta |
+| **Observador de auditoría** | Todo, más la bitácora | Nada (solo lectura) |
 
-## Diseño visual
+El alcance no depende de la interfaz: lo imponen las políticas **RLS** de Postgres (`mpr_ve_centro`, `mpr_edita_centro`). Ocultar botones en el panel es solo comodidad.
 
-La paleta, tipografía (Open Sans) y estilo de tarjetas/sidebar/botones están
-adaptados del look de [Argon Dashboard PRO (Material UI)](https://demos.creative-tim.com/argon-dashboard-pro-material-ui/)
-— solo el estilo/UX (colores, radios, sombras, layout), sin usar ningún asset
-ni código de ese sitio.
+Los usuarios se crean desde el panel a través de la Edge Function [`usuarios-mpr`](supabase/functions/usuarios-mpr/index.ts), que verifica que quien llama sea administrador. Un usuario sin correo real entra solo con su nombre de usuario (internamente `usuario@mpr.kuroda.com`).
 
-**Imagen del encabezado (banner de bienvenida del Dashboard):** vive en
-[`assets/header-vehicle.svg`](assets/header-vehicle.svg) — es una ilustración
-propia (no la del sitio de referencia). Para cambiarla, sube tu propia imagen
-a esa misma ruta desde GitHub (mismo nombre de archivo, o cambia la ruta en el
-`<img>` dentro de `viewDashboard()` en `index.html`). Se muestra a la mitad
-(50%) de su ancho natural y es responsiva (se reduce más en móvil).
+> **Proyecto compartido.** El proyecto de Supabase también aloja Control Operativo y otras apps. Todo lo de MapRoad lleva sufijo `_mpr` (tablas, bucket `evidencias-mpr`) o prefijo `mpr_` (funciones) y no toca nada existente. Como ese proyecto crea un perfil de Control Operativo por cada cuenta nueva de Auth, `usuarios-mpr` deja ese perfil **inactivo** para las cuentas que crea MapRoad. Al eliminar un usuario solo se borra la cuenta de Auth si es interna de MapRoad; a una cuenta con correo real solo se le retira el acceso.
 
-## Accesos de prueba
+## App del chofer y ubicación en vivo
 
-| Usuario   | Contraseña  | Rol      | Vista |
-|-----------|-------------|----------|-------|
-| admin     | admin123    | admin    | Panel completo + usuarios |
-| trafico   | trafico123  | trafico  | Panel operativo (sin gestión de usuarios) |
-| chofer1/2/3 | chofer123 | chofer   | App móvil de ruta (solo choferes) |
+- Al entrar, la app **descarga una sola vez** la ruta del día (`mpr_chofer_ruta`) y la guarda en el teléfono; desde ahí trabaja local, también sin señal.
+- Lo que pasa en la ruta (salida, llegadas, entregas, fin, puntos GPS) se guarda en una cola local y se sube **en lote** con una sola llamada (`mpr_chofer_sync`): al cerrar cada entrega y en cada reporte de ubicación. Sin conexión, espera y se envía al volver la señal. No hay consultas a tablas ni canales abiertos desde el teléfono.
+- Al iniciar la ruta, la unidad aparece en **Monitoreo en vivo** y la app reporta su posición **cada 4 minutos** hasta concluirla. En el APK lo hace un servicio en primer plano (con notificación fija), así que funciona con la pantalla apagada; en navegador solo mientras la pestaña esté abierta.
+- En el mapa cada chofer tiene su color: línea punteada = plan, línea continua = recorrido real, 🚚 = última posición (se pone gris si lleva más de 12 min sin señal).
+- Fotos y firma se suben a Storage (`evidencias-mpr`) y en la base solo queda la URL.
+- Tres temas: oscuro, claro y multicolor, estilo *liquid glass*, adaptable a teléfono y tableta.
 
-También hay un enlace público **"Rastrear un pedido"** (sin login) para el tracking de clientes.
+El intervalo se cambia en [`config.js`](config.js) (`minutosUbicacion`) y requiere recompilar el APK.
 
-## Módulos
-
-1. **Panel de control de unidades** — CRUD de vehículos (placa, capacidad, estatus, centro, chofer asignado).
-2. **Control de choferes** — CRUD de choferes + alta de su acceso a la app móvil.
-3. **Asignación de tiendas por chofer** — tabla de puntos de entrega con asignación por dropdown, filtrable por centro. Latitud/longitud son **obligatorias** al crear/editar una tienda — son las que realmente se usan para calcular rutas (tanto para entregar en ellas como para tomarlas como tienda de origen/punto de salida).
-4. **Centros / razón social** — es solo el agrupador administrativo (razón social, unidades, choferes). **No necesita coordenadas** — el punto real de partida de una ruta lo da la tienda de origen (ver módulo 5).
-5. **Cargar rutas del día** — importa un `.xlsx`/`.csv` con las columnas del pedido (Folio, Vehículo, Cliente, dirección, coordenadas, pesos, fechas de entrega, etc.), agrupa por Folio (multi-artículo) y por Vehículo, y genera una ruta optimizada por vehículo/chofer. Requiere elegir una **tienda de origen (punto de salida)** — la ruta se calcula siempre desde ahí, usando sus coordenadas reales. Un botón **📥 Descargar plantilla** genera un `.xlsx` de ejemplo con las dos hojas ya armadas (Rutas + Detalle) listo para llenar. Antes de generar, muestra una tabla de **verificación**: qué vehículo del archivo se mapea a qué unidad/chofer registrado (editable si no hubo match automático) y qué pedidos tienen datos faltantes (ej. coordenadas), con un botón ✎ para corregirlos ahí mismo — las coordenadas con caracteres sobrantes (comas, comillas) se limpian automáticamente, y las que quedan fuera de rango geográfico se marcan como faltantes en vez de romper el mapa. Ya generada, cada ruta se puede volver a abrir desde **Monitoreo** (✎ "Editar ruta") para reasignar chofer/unidad, corregir dirección/teléfono/coordenadas de un pedido, o recalcular el orden óptimo — y también se puede **🗑 eliminar** por completo (con sus pedidos y entregas) si se cargó por error.
-   - **Checklist de artículos**: si el `.xlsx` trae una hoja llamada **"Detalle"** (columnas `Folio de Pedido`, `Nombre de Item`, `Cantidad`), esos artículos quedan ligados a cada pedido y el chofer los marca uno por uno al registrar la entrega (ver módulo 7).
-6. **Optimización de ruta** — heurística de vecino más cercano que penaliza giros a la derecha (aprox. al enfoque de Amazon de preferir seguir de frente / girar a la izquierda), usando el rumbo (bearing) entre paradas consecutivas. No usa red vial real, solo geometría de línea recta — para producción se recomienda un motor de ruteo real (OSRM, Google Routes API, etc.).
-7. **App del chofer (móvil)** — login exclusivo, ve su ruta del día en orden optimizado. Antes de arrancar, la pantalla "Ruta lista para iniciar" muestra la sucursal de origen y si tiene coordenadas configuradas; al presionar **"Salir de la sucursal e iniciar ruta"** se registra la fecha/hora exacta de salida (queda visible todo el recorrido, para las métricas de tiempo en traslado). Botón "Navegar" que abre Google Maps con el destino. Al llegar al domicilio debe presionar **"Confirmar llegada"** antes de poder registrar la entrega — eso separa el tiempo de traslado del tiempo en el sitio. Al registrar la entrega elige un **resultado**: Entregado, Cliente ausente / no se encontró, Reprogramar entrega (con fecha propuesta opcional), Cancelar — cliente pasará a sucursal, u otro motivo — y si el resultado es "Entregado" marca un **checklist de los artículos** que realmente entregó (viene de la hoja "Detalle" del Excel), quedando registrada la entrega como parcial si desmarca alguno. También captura hasta 10 fotos, firma en canvas y documentos. Avanza automáticamente a la siguiente parada. Al terminar solicita concluir la ruta (con validación opcional de geolocalización contra el centro de retorno), calculando duración total, tiempo en traslado, tiempo en sitio (promedio y total) y % de eficiencia.
-8. **Tracking del cliente** — acceso público solo con el **Folio de Pedido**. Muestra el progreso como pasos con fecha/hora de cada uno (sin coordenadas exactas — se difumina la posición para no revelar el punto anterior real de la unidad), una hora estimada de entrega calculada a partir del tiempo histórico promedio por parada de ese chofer, y las fotos de evidencia de entrega si existen (nunca la firma, por seguridad).
-9. **Monitoreo en tiempo real** — mapa real (Leaflet + tiles de OpenStreetMap, gratuito, sin API key) con la ruta de cada chofer en un color distinto sobre el mapa de México, tabla de estatus con filtros por chofer/unidad/centro/estatus/fecha. Se actualiza entre pestañas del mismo navegador vía el evento `storage`. Cada ruta se dibuja como un recorrido completo: un punto **verde** de salida y uno **rojo** de regreso/fin de ruta, tomados automáticamente de las coordenadas de la tienda de origen configurada — se muestran como si fueran 2 paradas más, con su fecha/hora, tanto en el mapa como en el detalle de la ruta (clic en cualquier fila de ruta, que también permite ✎ editar o 🗑 eliminar la ruta).
-10. **Histórico y estadísticas** — rutas de días anteriores con filtros por cualquier campo, duración, % de éxito y tiempo promedio por parada.
-11. **Usuarios y accesos** (solo admin) — alta de usuarios y su rol.
-
-## Diseño de datos (pensado para Supabase)
-
-Todo el acceso a datos pasa por el objeto `DB` (ver `index.html`), con 5 métodos que reflejan 1:1 las llamadas de un cliente de Supabase:
-
-```js
-DB.get(tabla)         // ≈ supabase.from(tabla).select('*')
-DB.insert(tabla, obj) // ≈ supabase.from(tabla).insert(obj)
-DB.update(tabla,id,p) // ≈ supabase.from(tabla).update(p).eq('id', id)
-DB.remove(tabla, id)  // ≈ supabase.from(tabla).delete().eq('id', id)
-DB.query(tabla, fn)   // ≈ supabase.from(tabla).select('*') + filtro en cliente
-```
-
-Las tablas usadas hoy en `localStorage` (`maproad_*`) son: `usuarios`, `unidades`, `choferes`, `tiendas`, `centros`, `pedidos`, `rutas`, `entregas`. Migrar a Supabase implica:
-
-- Crear estas tablas en Postgres (mismos campos) — el esquema completo ya está listo en [`supabase/schema.sql`](supabase/schema.sql).
-- Reemplazar la implementación de `DB` por llamadas async al cliente `@supabase/supabase-js`.
-- Mover fotos/firmas/documentos de *dataURL en localStorage* a **Supabase Storage** (el prototipo ya comprime las fotos a JPEG antes de guardarlas, pero `localStorage` tiene un límite de ~5-10MB).
-- El mapa ya usa Leaflet + OpenStreetMap (gratuito); si se requiere navegación/tráfico en vivo se puede cambiar a Google Maps/Mapbox sin tocar el resto de la app (mismas coordenadas).
-- Sustituir el algoritmo de optimización por uno basado en una API de ruteo real (OSRM, Google Routes API) si se requiere precisión en calles/tráfico.
-
-### Aviso por correo al cliente cuando el chofer inicia la ruta (Resend)
-
-Cuando el chofer presiona **"Salir de la sucursal e iniciar ruta"**, la app llama a la Edge Function
-[`supabase/functions/notificar-inicio-ruta`](supabase/functions/notificar-inicio-ruta/index.ts), que envía
-con [Resend](https://resend.com) un correo a cada cliente de la ruta (campo *Email del Contacto*) con el
-folio, dirección, chofer, unidad, hora de salida y un botón **Rastrear mi pedido** (`#/tracking?folio=...`).
-
-- **Proveedor de envío** (Vault `email_proveedor`): `gmail` (activo) o `resend`. Las credenciales **nunca**
-  están en el navegador: la función las lee de Supabase Vault (o de sus secrets, que tienen prioridad).
-  - **Gmail** — SMTP `smtp.gmail.com:465` (Supabase bloquea los puertos 25 y 587). Vault: `gmail_usuario`,
-    `gmail_app_password` (contraseña de aplicación de Google) y `gmail_nombre` (nombre visible, opcional).
-    Límite de Gmail: ~500 correos/día.
-  - **Resend** — Vault: `resend_api_key`, `resend_from` (requiere dominio verificado, ver abajo).
-- El envío no bloquea al chofer; el resultado queda en la ruta (`notificacionInicio`) y se ve en el detalle
-  de la ruta en Monitoreo (✉️ enviados / fallidos / sin correo válido). Cada intento también se registra en la
-  tabla `notificaciones_correo`.
-- Reintentos de la misma ruta no duplican correos: a quien ya aparece como `enviado` en `notificaciones_correo` para esa ruta no se le vuelve a escribir.
-- Endpoint y llave pública se configuran en `NOTIF_CONFIG` al inicio del `<script>` de `index.html`
-  (vacío = desactivado).
-- **Producción:** proyecto Supabase `jtgungaomigzfzvxwrtc`. Remitente configurado en Vault:
-  `MapRoad <entregas@notificaciones.kuroda.com>`. Se usa un **subdominio** para no tocar el SPF/MX del
-  correo corporativo de `kuroda.com` (Outlook).
-
-#### Registros DNS pendientes (DomainDiscover, zona `kuroda.com`)
-
-Resend solo entrega a cualquier destinatario cuando el dominio está verificado. Agregar en el DNS de
-`kuroda.com` (ns1/ns2.domaindiscover.com):
-
-| Tipo | Nombre (host) | Valor | Prioridad |
-|------|---------------|-------|-----------|
-| TXT  | `resend._domainkey.notificaciones` | `p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDKWTw2NgRYrrrdx7OxNrZUzsk8nuAkH3c099NUkRoRkycxpX4nK2FiyDOoYlWO5xmKnG3s+RJhGcXVJ9hiVOHczVV8pe+861hfPnSR/+e/osouv7rQepklJ0oUUsmdsOuu+ei7OILP1PCzic760YSLuHkIAdV2WB6Tnb8r3lO6qwIDAQAB` | |
-| MX   | `send.notificaciones` | `feedback-smtp.us-east-1.amazonses.com` | 10 |
-| TXT  | `send.notificaciones` | `v=spf1 include:amazonses.com ~all` | |
-| CNAME| `rsend.notificaciones` | `send.forge.rmta.net` | |
-| TXT  | `_dmarc.notificaciones` *(recomendado)* | `v=DMARC1; p=none;` | |
-
-Después: Resend → Domains → `notificaciones.kuroda.com` → **Verify**. Prueba directa contra prod:
+### Compilar el APK
 
 ```bash
-curl -X POST https://jtgungaomigzfzvxwrtc.supabase.co/functions/v1/notificar-inicio-ruta   -H "Authorization: Bearer <ANON_KEY>" -H "apikey: <ANON_KEY>" -H "Content-Type: application/json"   -d '{"rutaId":"prueba-1","chofer":"Juan Pérez","unidad":"ABC-123","origen":"CEDIS Norte","pedidos":[{"folio":"TEST-001","email":"cliente@correo.com","nombre":"Cliente"}]}'
+cd android && gradle assembleRelease
 ```
 
-Cada intento queda en la tabla `notificaciones_correo` (enviado / fallido / omitido, con el motivo).
+Requiere `android/local.properties` (ruta del SDK) y `android/keystore.properties` (llave de firma); ninguno se sube al repositorio. La compilación empaqueta `chofer/`, `vendor/` y `config.js` tal como están en el repo. Al publicar una versión nueva, sube `versionCode` en `android/app/build.gradle` y copia el resultado a `apk/MapRoadChofer.apk`.
 
-### Consulta pública de solo lectura por Folio (para otra web)
+## Módulos del panel
 
-`supabase/schema.sql` incluye la función `get_informe_por_folio(folio)`: permite
-que **otra página web**, usando solo la llave pública (anon) de tu proyecto
-Supabase, consulte el mismo informe que ves en "Histórico → Informe por Folio
-de Pedido" — de solo lectura, buscando **únicamente por número de folio** (sin
-pedir teléfono/C.P. como el tracking interno). Row Level Security queda cerrado
-en todas las tablas; la función es la única puerta, y solo devuelve un folio a
-la vez, nunca una lista. Instrucciones de conexión (JS y REST puro) en
-[`supabase/README.md`](supabase/README.md).
+- **Resumen** — rutas y pedidos de hoy, flota, rutas en curso sin señal GPS.
+- **Monitoreo en vivo** — mapa (Leaflet + OpenStreetMap) y tabla de avance; se actualiza solo (Supabase Realtime).
+- **Histórico y estadísticas** — filtros por fecha, chofer, unidad, centro y folio; informe por folio con evidencia; exportación a CSV.
+- **Cargar rutas del día** — importa `.xlsx`/`.csv`, valida coordenadas, asigna vehículo → unidad/chofer y genera rutas optimizadas desde la tienda de origen. Incluye plantilla descargable y hoja *Detalle* para el checklist de artículos.
+- **Unidades, choferes, tiendas** — catálogos por centro.
+- **Configuración** — sociedades, centros y CEDIS, usuarios y roles, **bitácora de auditoría** (quién cambió qué y cuándo; la llenan triggers en la base).
+- **Rastreo público** (`#/tracking`) — el cliente consulta con su folio; ve avance, hora estimada, zona aproximada (nunca la posición exacta) y fotos de entrega (nunca la firma).
 
-## Columnas esperadas en el archivo de rutas
+Columnas del archivo de rutas:
 
 ```
 Folio de Pedido, Vehiculo, Nombre de Item, Cantidad, Codigo de Item, Numero del Cliente,
@@ -142,15 +76,20 @@ Sucursal que Solicita, Nombre del Vendedor, Comentarios, Folio de Factura,
 Peso Total en KG, Volumen Total en M3, Importe Total Factura
 ```
 
-Filas con el mismo "Folio de Pedido" se agrupan como una sola parada con varios artículos.
+## Publicación
+
+El panel es estático (sin compilación): basta servir la raíz del repositorio por HTTPS — por ejemplo GitHub Pages (Settings → Pages → rama `master`, carpeta `/`). Si la dirección final no es `https://kurodaclaudeksateam-blip.github.io/MapRoad/`, cámbiala en `config.js` (`webUrl`): se usa en el enlace de rastreo del correo al cliente.
+
+Para probar en local:
+
+```bash
+python -m http.server 8766
+```
+
+## Aviso por correo al iniciar ruta
+
+Cuando el chofer inicia la ruta, la app llama a la Edge Function [`notificar-inicio-ruta`](supabase/functions/notificar-inicio-ruta/index.ts) (vive en el proyecto `jtgungaomigzfzvxwrtc`, donde están sus credenciales de Gmail/Resend en Vault), que escribe a cada cliente con su folio, hora estimada y el enlace de rastreo. El resultado se ve en el detalle de la ruta. Se desactiva dejando `notifUrl` vacío en `config.js`.
 
 ## Dependencias
 
-Dos recursos externos por CDN, ambos gratuitos y sin API key: [SheetJS](https://sheetjs.com/) (`xlsx.full.min.js`, para leer `.xlsx` en el navegador — los `.csv` se parsean sin dependencias) y [Leaflet](https://leafletjs.com/) con tiles de [OpenStreetMap](https://www.openstreetmap.org/copyright) para los mapas (monitoreo y tracking).
-
-## Estado del prototipo
-
-Es un prototipo funcional para validar el flujo completo antes de invertir en backend. Limitaciones conocidas a resolver en la versión con Supabase:
-- Sin encriptación de contraseñas (login solo para demo).
-- Sin sincronización multi-dispositivo real (solo localStorage del navegador; el evento `storage` sincroniza pestañas del mismo navegador, no dispositivos distintos).
-- El "tiempo real" del monitoreo depende de que el chofer use la app en el mismo navegador/perfil; con Supabase esto se resuelve con *Realtime subscriptions*.
+[SheetJS](https://sheetjs.com/) y [Leaflet](https://leafletjs.com/) por CDN (solo el panel); [supabase-js](https://github.com/supabase/supabase-js) incluido en `vendor/` para que la app del chofer abra sin conexión.

@@ -1,79 +1,32 @@
-# Consulta pública de solo lectura por Folio de Pedido
+# Supabase — MapRoad
 
-`schema.sql` incluye una función `get_informe_por_folio(folio)` pensada para que
-**otra página web** consulte el informe de una entrega usando únicamente el
-número de folio — de solo lectura, sin poder ver ni listar el resto de la base.
+Proyecto: **gk-control-operativo-entregas** (`mhmqgjgfkcrgbtrhmtqw`), compartido con otras apps.
+Todo lo de MapRoad se distingue por nombre y no modifica objetos existentes:
 
-## Cómo se conecta la otra web
+| Tipo | Nombres |
+|------|---------|
+| Tablas | `sociedades_mpr`, `centros_mpr`, `unidades_mpr`, `choferes_mpr`, `tiendas_mpr`, `usuarios_mpr`, `rutas_mpr`, `pedidos_mpr`, `entregas_mpr`, `ubicaciones_mpr`, `bitacora_mpr` |
+| Funciones | `mpr_rol`, `mpr_sociedad`, `mpr_ve_centro`, `mpr_edita_centro`, `mpr_ve_sociedad`, `mpr_chofer_ruta`, `mpr_chofer_sync`, `mpr_tracking`, `mpr_bitacora`, `mpr_auth_id_por_email` |
+| Storage | bucket `evidencias-mpr` (fotos y firmas de entrega) |
+| Edge Function | `usuarios-mpr` (altas, cambios y bajas de usuarios; solo administradores) |
 
-Solo necesita dos valores públicos de tu proyecto Supabase (Project Settings → API):
-- **Project URL** (ej. `https://xxxxxxxx.supabase.co`)
-- **anon / publishable key** (segura de exponer en el frontend de la otra web — el
-  acceso real está controlado por RLS + la función, no por esta llave)
+[`schema_mpr.sql`](schema_mpr.sql) es el esquema completo y se puede volver a aplicar sin riesgo (`if not exists` / `create or replace`). No inserta datos, salvo dar el rol de administrador a la cuenta `fcerezo@kuroda.com`.
 
-### Opción A — con `@supabase/supabase-js`
+## Acceso
+
+- **Panel** (admin, sociedad, centro, auditor): lee y escribe las tablas directamente; RLS limita cada renglón al alcance del rol.
+- **Chofer**: no tiene acceso directo a ninguna tabla. Usa dos funciones:
+  - `mpr_chofer_ruta(fecha)` — devuelve su ruta del día completa en un JSON.
+  - `mpr_chofer_sync(eventos)` — aplica en lote `inicio`, `llegada`, `entrega`, `fin`, `ubic` y `notif`. Es idempotente (reenviar un lote no duplica entregas) y un evento inválido se cuenta en `errores` sin detener al resto.
+- **Público** (sin sesión): solo `mpr_tracking(folio)`, que devuelve un pedido a la vez, sin teléfono, firma ni documentos.
+
+## Consultar un folio desde otra web
 
 ```js
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  'https://xxxxxxxx.supabase.co',
-  'TU_ANON_KEY'
-)
-
-const { data, error } = await supabase.rpc('get_informe_por_folio', {
-  p_folio: 'F1000'
-})
-
-if (data?.encontrado) {
-  console.log(data.cliente, data.direccion, data.resultado, data.fotos)
-} else {
-  console.log('No encontrado:', data?.error)
-}
+const { data } = await supabase.rpc('mpr_tracking', { p_folio: 'F1000' })
+if (data.encontrado) console.log(data.pedido.estatus, data.ruta?.estatus, data.entrega?.fotos)
 ```
 
-### Opción B — REST directo (cualquier lenguaje, sin librería)
+## Realtime
 
-```bash
-curl -X POST 'https://xxxxxxxx.supabase.co/rest/v1/rpc/get_informe_por_folio' \
-  -H "apikey: TU_ANON_KEY" \
-  -H "Authorization: Bearer TU_ANON_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"p_folio": "F1000"}'
-```
-
-Responde un JSON con los mismos campos que ves en el "Informe por Folio de
-Pedido" del panel admin de MapRoad (cliente, dirección, chofer, ruta, hora de
-llegada/entrega, fotos), o `{"encontrado": false, ...}` si el folio no existe.
-
-**Por seguridad, esta consulta nunca incluye la firma del cliente ni los
-documentos internos (remisión, factura) — solo las fotos tomadas en la
-entrega.** Es la misma regla que aplica el tracking público de `index.html`.
-La firma solo es visible dentro del panel admin/tráfico autenticado.
-
-## Por qué es seguro exponer la anon key
-
-- Row Level Security está **activado y sin políticas** en todas las tablas, así
-  que la anon key no puede hacer `SELECT` directo sobre `pedidos`, `entregas`, etc.
-- La función está marcada `SECURITY DEFINER`, así que ella sí puede leer, pero
-  solo se le dio `GRANT EXECUTE` a `anon` — nunca acceso a las tablas.
-- La función siempre devuelve **como máximo un registro** (el del folio pedido),
-  nunca una lista.
-
-## Decisión pendiente: folio solo vs. folio + dato de verificación
-
-Tal como se pidió, la función solo requiere el folio (sin teléfono/C.P. como el
-tracking interno de MapRoad). Esto es más simple de integrar, pero significa que
-cualquiera que tenga o adivine el folio puede ver el informe completo. Si más
-adelante se quiere una capa extra de privacidad, basta con:
-
-```sql
-create or replace function public.get_informe_por_folio(p_folio text, p_telefono text)
-...
-  select * into v_pedido from pedidos
-  where lower(folio) = lower(trim(p_folio)) and telefono = p_telefono
-  limit 1;
-...
-```
-
-y pedirle ese segundo dato al usuario en la otra web antes de llamar la función.
+`rutas_mpr`, `pedidos_mpr`, `entregas_mpr` y `ubicaciones_mpr` están en la publicación `supabase_realtime`; el panel se suscribe para refrescar el monitoreo. RLS también aplica a lo que llega por ese canal.

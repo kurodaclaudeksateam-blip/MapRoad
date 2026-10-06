@@ -12,7 +12,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 /* ============================================================
-   MapRoad — Prototipo funcional (localStorage)
+   MapRoad — Panel web (datos en Supabase, tablas _mpr)
    Paleta y tipografía adaptadas de Argon Dashboard PRO (Material UI):
    https://demos.creative-tim.com/argon-dashboard-pro-material-ui/
    (solo estilo/UX propio — sin copiar assets ni código de ese sitio)
@@ -207,9 +207,21 @@ tr:hover td{background:#f8fafc;}
 .tab.active{color:var(--primary);border-color:var(--primary);}
 
 .mobile-warning{display:none;}
+/* Rol observador (auditor) o sin permiso de edición: se ocultan los controles de escritura.
+   Es solo comodidad visual — quien realmente bloquea la escritura es RLS en Supabase. */
+body.solo-lectura [data-edit],body.solo-lectura [data-del],body.solo-lectura #btnNueva,body.solo-lectura #btnNuevo,
+body.solo-lectura [data-editruta],body.solo-lectura [data-delruta]{display:none !important;}
+body.solo-lectura [data-asig]{pointer-events:none;opacity:.75;}
+#btnMenu{display:none;}
+/* Unidad en vivo sobre el mapa */
+.unit-pin{width:34px;height:34px;border-radius:50%;background:#fff;border:3px solid var(--c,#2563eb);display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 4px 12px rgba(0,0,0,.35);position:relative;}
+.unit-pin::after{content:'';position:absolute;inset:-7px;border-radius:50%;border:2px solid var(--c,#2563eb);opacity:.5;animation:pulso 1.8s ease-out infinite;}
+.unit-pin.sin-senal{filter:grayscale(1);opacity:.75;} .unit-pin.sin-senal::after{display:none;}
+@keyframes pulso{from{transform:scale(.7);opacity:.7}to{transform:scale(1.5);opacity:0}}
 @media(max-width:820px){
   .sidebar{position:fixed;left:-260px;top:0;transition:left .2s;z-index:50;}
   .sidebar.open{left:0;}
+  #btnMenu{display:inline-flex;}
   .content{padding:16px;}
   .cols-4,.cols-3{grid-template-columns:repeat(2,1fr);}
 }
@@ -219,19 +231,14 @@ tr:hover td{background:#f8fafc;}
 <div id="app"></div>
 <div class="toast-wrap" id="toastWrap"></div>
 
+<script src="vendor/supabase.js"></script>
+<script src="config.js"></script>
 <script>
 /* ============================================================
-   0. CONFIGURACIÓN — notificaciones por correo (Resend)
-   Al iniciar una ruta, la app del chofer llama a la Edge Function
-   supabase/functions/notificar-inicio-ruta, que envía el correo con Resend.
-   La API key de Resend NUNCA va aquí: vive como secret de la función.
-   Deja url vacío para desactivar el envío.
+   0. CONFIGURACIÓN — ver config.js (compartido con la app del chofer)
    ============================================================ */
-const NOTIF_CONFIG = {
-  url: 'https://jtgungaomigzfzvxwrtc.supabase.co/functions/v1/notificar-inicio-ruta',
-  // Llave pública (anon) del proyecto — segura en el frontend; la función valida el JWT.
-  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0Z3VuZ2FvbWlnemZ6dnh3cnRjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwNjM3NzAsImV4cCI6MjEwMjYzOTc3MH0.xEWemrDgziselIo7DaxgMmgaI7dBEHOfSlK_NgBQlzY',
-};
+const CFG = window.MPR_CONFIG;
+const sb = supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey);
 
 /* ============================================================
    1. UTILIDADES
@@ -335,6 +342,27 @@ const Util = {
       reader.readAsDataURL(file);
     });
   },
+  // Fecha de Excel/CSV a YYYY-MM-DD: acepta número de serie de Excel, dd/mm/aaaa o ISO. Otro formato = null.
+  parseFecha(v){
+    if(v==null||v==='') return null;
+    if(v instanceof Date) return isNaN(v)?null:Util.dateISO(v);
+    if(typeof v==='number' || /^\d{4,6}(\.\d+)?$/.test(String(v).trim())){
+      const d=new Date(Date.UTC(1899,11,30)+Math.floor(Number(v))*86400000);
+      return isNaN(d)?null:d.toISOString().slice(0,10);
+    }
+    const t=String(v).trim(); let m;
+    if((m=t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+    if((m=t.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/))) return `${m[3].length===2?'20'+m[3]:m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+    return null;
+  },
+  parseNum(v){ if(v==null||v==='') return null; const n=Number(String(v).replace(/[$,\s]/g,'')); return isNaN(n)?null:n; },
+  descargarCSV(nombre, filas){
+    const csv = filas.map(f=>f.map(c=>'"'+String(c==null?'':c).replace(/"/g,'""')+'"').join(',')).join('\r\n');
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));
+    a.download=nombre; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+  },
+  hace(iso){ const m=Util.minsBetween(iso,Util.nowISO()); return m<1?'hace un momento':m<60?`hace ${m} min`:`hace ${Util.fmtMins(m)}`; },
   toast(msg,type){
     const wrap=document.getElementById('toastWrap');
     const el=document.createElement('div');
@@ -346,110 +374,144 @@ const Util = {
 };
 
 /* ============================================================
-   2. CAPA DE DATOS (localStorage)
-   Diseñada para ser 1:1 con una futura API de Supabase:
-   DB.get(tabla)        ≈ supabase.from(tabla).select('*')
-   DB.insert(tabla,obj) ≈ supabase.from(tabla).insert(obj)
-   DB.update(tabla,id,p)≈ supabase.from(tabla).update(p).eq('id',id)
-   DB.remove(tabla,id)  ≈ supabase.from(tabla).delete().eq('id',id)
-   Cuando se migre, basta con reemplazar la implementación de
-   estos 5 métodos por llamadas async al cliente de Supabase.
+   2. CAPA DE DATOS (Supabase, tablas con sufijo _mpr)
+   Las vistas siguen leyendo de forma síncrona: DB mantiene una copia
+   en memoria de lo que el usuario puede ver (RLS decide el alcance por
+   rol) y cada escritura se aplica al instante en esa copia y se envía a
+   Supabase en segundo plano, en orden. Si Supabase la rechaza, se avisa
+   y se vuelve a cargar lo real.
+   En la app los campos van en camelCase; en Postgres en snake_case.
    ============================================================ */
 const DB = {
-  _k(t){ return 'maproad_'+t; },
-  get(t){ try{ return JSON.parse(localStorage.getItem(this._k(t)))||[]; }catch(e){ return []; } },
-  set(t,arr){
-    try{ localStorage.setItem(this._k(t), JSON.stringify(arr)); return true; }
-    catch(e){ Util.toast('Almacenamiento local lleno. En producción esto se resuelve con Supabase Storage.','err'); return false; }
+  _c:{}, _q:Promise.resolve(), _desde:null, _canal:null,
+  CATALOGOS:['sociedades','centros','unidades','choferes','tiendas','usuarios'],
+  DIAS_VENTANA:35, // rutas/pedidos/entregas que se cargan al entrar (el Histórico pide más si hace falta)
+  _t(t){ return t+'_mpr'; },
+  toRow(o){
+    const r={};
+    Object.keys(o).forEach(k=>{
+      if(k[0]==='_' || o[k]===undefined) return;
+      r[k.replace(/[A-Z]/g,m=>'_'+m.toLowerCase())] = o[k]==='' ? null : o[k];
+    });
+    return r;
   },
-  insert(t,obj){ const all=this.get(t); obj.id=obj.id||Util.uid(t); obj.creado=obj.creado||Util.nowISO(); all.push(obj); this.set(t,all); return obj; },
-  update(t,id,patch){ const all=this.get(t); const i=all.findIndex(x=>x.id===id); if(i>-1){ all[i]=Object.assign({},all[i],patch); this.set(t,all); return all[i]; } return null; },
-  remove(t,id){ const all=this.get(t).filter(x=>x.id!==id); this.set(t,all); },
+  fromRow(r){ const o={}; Object.keys(r).forEach(k=>{ o[k.replace(/_([a-z0-9])/g,(m,c)=>c.toUpperCase())]=r[k]; }); return o; },
+
+  get(t){ return this._c[t] || (this._c[t]=[]); },
   find(t,id){ return this.get(t).find(x=>x.id===id); },
   query(t,fn){ return this.get(t).filter(fn); },
-  seedIfEmpty(){
-    if(localStorage.getItem('maproad_seeded')) return;
-    const centros=[
-      {id:'c1',nombre:'CEDIS Norte',razonSocial:'Distribuidora del Norte S.A. de C.V.',direccion:'Av. Industrias 450, Monterrey',lat:null,lng:null},
-      {id:'c2',nombre:'CEDIS Bajío',razonSocial:'Comercializadora Bajío S.A. de C.V.',direccion:'Blvd. Logístico 120, León',lat:null,lng:null},
-    ];
-    const unidades=[
-      {id:'u1',placa:'MR-101-A',modelo:'Nissan NP300',capacidadKg:1200,capacidadM3:6,estatus:'disponible',centroId:'c1'},
-      {id:'u2',placa:'MR-204-B',modelo:'Isuzu ELF',capacidadKg:3500,capacidadM3:14,estatus:'disponible',centroId:'c1'},
-      {id:'u3',placa:'MR-330-C',modelo:'Ford Transit',capacidadKg:1400,capacidadM3:8,estatus:'disponible',centroId:'c2'},
-    ];
-    const choferes=[
-      {id:'d1',nombre:'Juan Pérez',telefono:'8112345601',licencia:'NL-99123',estatus:'activo',unidadId:'u1',centroId:'c1'},
-      {id:'d2',nombre:'Roberto García',telefono:'8112345602',licencia:'NL-99124',estatus:'activo',unidadId:'u2',centroId:'c1'},
-      {id:'d3',nombre:'Marco Torres',telefono:'4772345603',licencia:'GT-88213',estatus:'activo',unidadId:'u3',centroId:'c2'},
-    ];
-    unidades[0].choferId='d1'; unidades[1].choferId='d2'; unidades[2].choferId='d3';
-    const tiendas=[
-      {id:'t0-c1',nombre:'CEDIS Norte — Tienda de origen',direccion:'Av. Industrias 450, Monterrey',colonia:'',cp:'',lat:25.6866,lng:-100.3161,centroId:'c1',choferId:'',esOrigen:true},
-      {id:'t0-c2',nombre:'CEDIS Bajío — Tienda de origen',direccion:'Blvd. Logístico 120, León',colonia:'',cp:'',lat:21.1250,lng:-101.6860,centroId:'c2',choferId:'',esOrigen:true},
-      {id:'t1',nombre:'Súper Centro Cumbres',direccion:'Av. Cumbres 800',colonia:'Cumbres',cp:'64610',lat:25.7220,lng:-100.3660,centroId:'c1',choferId:'d1'},
-      {id:'t2',nombre:'Comercial San Jerónimo',direccion:'Calz. San Jerónimo 220',colonia:'San Jerónimo',cp:'64640',lat:25.6390,lng:-100.3800,centroId:'c1',choferId:'d1'},
-      {id:'t3',nombre:'Plaza Contry',direccion:'Av. Real 45',colonia:'Contry',cp:'64860',lat:25.6280,lng:-100.2890,centroId:'c1',choferId:'d2'},
-      {id:'t4',nombre:'Mercado Apodaca',direccion:'Av. Miguel Alemán 300',colonia:'Centro',cp:'66600',lat:25.7797,lng:-100.1889,centroId:'c1',choferId:'d2'},
-      {id:'t5',nombre:'Central León Centro',direccion:'Blvd. López Mateos 100',colonia:'Centro',cp:'37000',lat:21.1230,lng:-101.6820,centroId:'c2',choferId:'d3'},
-    ];
-    const usuarios=[
-      {id:'us1',usuario:'admin',password:'admin123',rol:'admin',nombre:'Administrador General'},
-      {id:'us2',usuario:'trafico',password:'trafico123',rol:'trafico',nombre:'Tráfico y Logística'},
-      {id:'us3',usuario:'chofer1',password:'chofer123',rol:'chofer',nombre:'Juan Pérez',choferId:'d1'},
-      {id:'us4',usuario:'chofer2',password:'chofer123',rol:'chofer',nombre:'Roberto García',choferId:'d2'},
-      {id:'us5',usuario:'chofer3',password:'chofer123',rol:'chofer',nombre:'Marco Torres',choferId:'d3'},
-    ];
-    DB.set('centros',centros); DB.set('unidades',unidades); DB.set('choferes',choferes);
-    DB.set('tiendas',tiendas); DB.set('usuarios',usuarios); DB.set('pedidos',[]);
-    DB.set('rutas',[]); DB.set('entregas',[]);
-    // Histórico de ejemplo (ayer) para poblar reportes
-    seedHistorico(centros,unidades,choferes,tiendas);
-    localStorage.setItem('maproad_seeded','1');
+
+  // Lee una tabla completa por páginas (PostgREST entrega máximo 1000 renglones por petición).
+  async _all(t, filtro){
+    let out=[], desde=0;
+    for(;;){
+      let q = sb.from(this._t(t)).select('*').order('created_at').order('id').range(desde, desde+999);
+      if(filtro) q = filtro(q);
+      const {data,error} = await q;
+      if(error) throw error;
+      out = out.concat(data);
+      if(data.length<1000) break;
+      desde += 1000;
+    }
+    return out.map(this.fromRow);
+  },
+  async reload(t){ this._c[t] = await this._all(t); },
+  async load(desdeISO){
+    const desde = desdeISO || Util.dateISO(new Date(Date.now()-this.DIAS_VENTANA*86400000));
+    const [cats, rutas, pedidos, entregas] = await Promise.all([
+      Promise.all(this.CATALOGOS.map(t=>this._all(t))),
+      this._all('rutas', q=>q.gte('fecha',desde)),
+      this._all('pedidos', q=>q.gte('fecha',desde)),
+      this._all('entregas', q=>q.gte('hora_entrega',desde+'T00:00:00')),
+    ]);
+    this.CATALOGOS.forEach((t,i)=>{ this._c[t]=cats[i]; });
+    this._c.rutas=rutas; this._c.pedidos=pedidos; this._c.entregas=entregas;
+    this._desde=desde;
+  },
+  clear(){ this._c={}; this._desde=null; if(this._canal){ sb.removeChannel(this._canal); this._canal=null; } },
+
+  _w(fn){
+    this._q = this._q.then(fn).then(res=>{ if(res && res.error) throw res.error; }).catch(err=>{
+      console.error(err);
+      const msg = /row-level security|permission denied/i.test(err.message||'') ? 'tu rol no permite ese cambio' : (err.message||err);
+      Util.toast('No se pudo guardar: '+msg,'err');
+      this.load(this._desde).then(()=>route()).catch(()=>{});
+    });
+    return this._q;
+  },
+  insert(t,obj){
+    obj.id = obj.id || crypto.randomUUID();
+    obj.createdAt = obj.createdAt || Util.nowISO();
+    this.get(t).push(obj);
+    this._w(()=>sb.from(this._t(t)).insert(this.toRow(obj)));
+    return obj;
+  },
+  insertMany(t,arr){
+    if(!arr.length) return;
+    arr.forEach(o=>{ o.id=o.id||crypto.randomUUID(); o.createdAt=o.createdAt||Util.nowISO(); this.get(t).push(o); });
+    for(let i=0;i<arr.length;i+=500){
+      const lote = arr.slice(i,i+500).map(o=>this.toRow(o));
+      this._w(()=>sb.from(this._t(t)).insert(lote));
+    }
+  },
+  update(t,id,patch){
+    const all=this.get(t); const i=all.findIndex(x=>x.id===id);
+    if(i<0) return null;
+    all[i]=Object.assign({},all[i],patch);
+    this._w(()=>sb.from(this._t(t)).update(this.toRow(patch)).eq('id',id));
+    return all[i];
+  },
+  remove(t,id){
+    this._c[t]=this.get(t).filter(x=>x.id!==id);
+    this._w(()=>sb.from(this._t(t)).delete().eq('id',id));
+  },
+
+  /* Realtime: avances de los choferes y posiciones GPS llegan solos al panel. */
+  subscribe(){
+    if(this._canal) return;
+    const ch = sb.channel('mpr-panel');
+    ['rutas','pedidos','entregas','ubicaciones'].forEach(t=>{
+      ch.on('postgres_changes',{event:'*',schema:'public',table:this._t(t)}, p=>this._rt(t,p));
+    });
+    this._canal = ch.subscribe();
+  },
+  _rt(t,p){
+    if(t==='ubicaciones'){
+      if(p.eventType==='INSERT') Ubic.agregar(this.fromRow(p.new));
+    } else if(p.eventType==='DELETE'){
+      this._c[t]=this.get(t).filter(x=>x.id!==p.old.id);
+    } else {
+      const o=this.fromRow(p.new), all=this.get(t), i=all.findIndex(x=>x.id===o.id);
+      if(i>-1) all[i]=Object.assign({},all[i],o); else all.push(o);
+    }
+    clearTimeout(this._rtTimer);
+    this._rtTimer=setTimeout(()=>window.dispatchEvent(new Event('mpr:datos')),700);
   }
 };
 
-function seedHistorico(centros,unidades,choferes,tiendas){
-  const ayer=Util.dateISO(new Date(Date.now()-86400000));
-  const pedidos=[],rutas=[],entregas=[];
-  choferes.forEach((ch,ci)=>{
-    const stops=tiendas.filter(t=>t.choferId===ch.id);
-    if(!stops.length) return;
-    const centro=centros.find(c=>c.id===ch.centroId);
-    const origenTienda=tiendas.find(t=>t.centroId===ch.centroId && t.esOrigen);
-    const orden=optimizarRuta(origenTienda,stops.map(s=>({id:s.id,lat:s.lat,lng:s.lng})));
-    const rutaId=Util.uid('r');
-    let t0=new Date(ayer+'T08:00:00');
-    const pedidoIds=[];
-    orden.forEach((o,idx)=>{
-      const tienda=stops.find(s=>s.id===o.id);
-      const pid=Util.uid('p');
-      const horaEntrega=new Date(t0.getTime() + (idx+1)*(22+Math.random()*14)*60000);
-      pedidos.push({
-        id:pid, folio:'F'+(1000+ci*10+idx), vehiculo:unidades.find(u=>u.choferId===ch.id).placa,
-        nombreItem:'Mercancía general', cantidad:Math.ceil(Math.random()*10)+1, codigoItem:'SKU-'+(100+idx),
-        numeroCliente:'CLI-'+tienda.id, nombreContacto:tienda.nombre, telefono:'81'+Math.floor(10000000+Math.random()*89999999),
-        emailContacto:'contacto@'+tienda.nombre.toLowerCase().replace(/\s+/g,'')+'.com', direccion:tienda.direccion,
-        colonia:tienda.colonia, cp:tienda.cp, lat:tienda.lat, lng:tienda.lng,
-        fechaMin:ayer, fechaMax:ayer, controlDestino:'', oficinaVentas:'OV-01', sucursalSolicita:centro.nombre,
-        nombreVendedor:'Vendedor Demo', comentarios:'', folioFactura:'FA-'+(2000+idx), pesoKg:(Math.random()*80+5).toFixed(1),
-        volumenM3:(Math.random()*1.2+0.1).toFixed(2), importeTotal:(Math.random()*8000+300).toFixed(2),
-        fecha:ayer, centroId:centro.id, rutaId, ordenEnRuta:idx+1, estatus:'entregado',
-        creado:t0.toISOString(), horaLlegada:new Date(horaEntrega.getTime()-4*60000).toISOString()
-      });
-      const demoFoto = "data:image/svg+xml;utf8,"+encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><rect width='300' height='300' fill='#dbeafe'/><text x='50%' y='50%' font-size='20' text-anchor='middle' fill='#1e40af' dy='.3em'>Foto demo</text></svg>`);
-      const demoFirma = "data:image/svg+xml;utf8,"+encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='300' height='120'><rect width='300' height='120' fill='#fff'/><path d='M20 80 Q 60 20 100 80 T 180 80 T 260 60' stroke='#0f172a' fill='none' stroke-width='2'/></svg>`);
-      entregas.push({id:Util.uid('e'),pedidoId:pid,rutaId,horaEntrega:horaEntrega.toISOString(),fotos:[demoFoto],firma:demoFirma,documentos:[],comentarios:'Entrega OK (demo)',resultado:'entregado'});
-      pedidoIds.push(pid);
-    });
-    const horaFin=new Date(t0.getTime() + (orden.length+1)*30*60000);
-    rutas.push({id:rutaId,fecha:ayer,choferId:ch.id,unidadId:unidades.find(u=>u.choferId===ch.id).id,centroId:centro.id,origenTiendaId:origenTienda?origenTienda.id:null,
-      estatus:'concluida',pedidoIds,ordenOptimizado:pedidoIds.slice(),horaInicio:t0.toISOString(),horaFin:horaFin.toISOString()});
-  });
-  DB.set('pedidos',pedidos.concat(DB.get('pedidos')));
-  DB.set('rutas',rutas.concat(DB.get('rutas')));
-  DB.set('entregas',entregas.concat(DB.get('entregas')));
-}
+/* Recorrido real (GPS) de cada ruta. Se pide solo para las rutas que el mapa
+   está mostrando y se queda en memoria; lo nuevo llega por Realtime. */
+const Ubic = {
+  porRuta:{}, _cargadas:new Set(),
+  de(rutaId){ return this.porRuta[rutaId] || []; },
+  agregar(u){
+    const arr = this.porRuta[u.rutaId] || (this.porRuta[u.rutaId]=[]);
+    if(arr.some(x=>x.id===u.id)) return;
+    arr.push(u); arr.sort((a,b)=>new Date(a.registradaEn)-new Date(b.registradaEn));
+  },
+  // Devuelve true si trajo algo nuevo (para redibujar el mapa).
+  async cargar(rutaIds){
+    const faltan = rutaIds.filter(id=>!this._cargadas.has(id));
+    if(!faltan.length) return false;
+    faltan.forEach(id=>this._cargadas.add(id));
+    try{
+      const filas = await DB._all('ubicaciones', q=>q.in('ruta_id',faltan));
+      filas.forEach(u=>this.agregar(u));
+      return filas.length>0;
+    }catch(e){ faltan.forEach(id=>this._cargadas.delete(id)); console.error(e); return false; }
+  },
+  clear(){ this.porRuta={}; this._cargadas=new Set(); }
+};
 
 /* ============================================================
    3. ALGORITMO DE OPTIMIZACIÓN DE RUTA
@@ -490,75 +552,101 @@ function optimizarRuta(depot, paradas){
 }
 
 /* ============================================================
-   4. SESIÓN / AUTENTICACIÓN
+   4. SESIÓN / AUTENTICACIÓN (Supabase Auth + usuarios_mpr)
+   La cuenta vive en Supabase Auth; el rol y el alcance (sociedad,
+   centro o chofer) en usuarios_mpr. Una cuenta de Auth sin renglón
+   activo en usuarios_mpr no entra a MapRoad.
    ============================================================ */
+const ROLES = {
+  admin:{label:'Administrador', desc:'Ve y edita todo; crea usuarios'},
+  sociedad:{label:'Por sociedad', desc:'Ve y edita los centros de su razón social'},
+  centro:{label:'Por centro', desc:'Ve y edita solo su centro / CEDIS'},
+  chofer:{label:'Chofer', desc:'Solo la app móvil con su ruta del día'},
+  auditor:{label:'Observador de auditoría', desc:'Consulta todo y la bitácora; no edita'},
+};
 const Auth = {
-  login(usuario,password){
-    const u = DB.get('usuarios').find(x=>x.usuario.toLowerCase()===String(usuario).toLowerCase() && x.password===password);
-    if(!u) return null;
-    localStorage.setItem('maproad_session', JSON.stringify({usuarioId:u.id, ts:Util.nowISO()}));
-    return u;
+  user:null,
+  async _perfil(uid){
+    const {data} = await sb.from('usuarios_mpr').select('*').eq('id',uid).maybeSingle();
+    this.user = (data && data.activo) ? DB.fromRow(data) : null;
+    return this.user;
   },
-  logout(){ localStorage.removeItem('maproad_session'); },
-  current(){
-    try{
-      const s=JSON.parse(localStorage.getItem('maproad_session'));
-      if(!s) return null;
-      return DB.find('usuarios', s.usuarioId) || null;
-    }catch(e){ return null; }
-  }
+  async init(){
+    const {data:{session}} = await sb.auth.getSession();
+    if(session) await this._perfil(session.user.id);
+    return this.user;
+  },
+  // Acepta correo completo o solo el usuario (prueba el dominio interno y el corporativo).
+  async login(usuario,password){
+    const u = String(usuario||'').trim().toLowerCase();
+    const correos = u.includes('@') ? [u] : [u+'@'+CFG.dominioInterno, u+'@'+CFG.dominioCorporativo];
+    for(const email of correos){
+      const {data,error} = await sb.auth.signInWithPassword({email,password});
+      if(error || !data.user) continue;
+      if(await this._perfil(data.user.id)) return {user:this.user};
+      await sb.auth.signOut();
+      return {error:'Tu cuenta no tiene acceso a MapRoad. Pide al administrador que te dé de alta.'};
+    }
+    return {error:'Usuario o contraseña incorrectos.'};
+  },
+  async logout(){ await sb.auth.signOut(); this.user=null; DB.clear(); Ubic.clear(); },
+  current(){ return this.user; }
 };
 
 /* ============================================================
    5. ROUTER
    ============================================================ */
+const R_OPERA = ['admin','sociedad','centro'];          // pueden editar su alcance
+const R_PANEL = ['admin','sociedad','centro','auditor']; // entran al panel
 const NAV_ITEMS = [
   {group:'General', items:[
-    {path:'dashboard', label:'Resumen', icon:'📊', roles:['admin','trafico']},
-    {path:'monitoreo', label:'Monitoreo en vivo', icon:'🛰️', roles:['admin','trafico']},
-    {path:'historico', label:'Histórico y estadísticas', icon:'📈', roles:['admin','trafico']},
+    {path:'dashboard', label:'Resumen', icon:'📊', roles:R_PANEL},
+    {path:'monitoreo', label:'Monitoreo en vivo', icon:'🛰️', roles:R_PANEL},
+    {path:'historico', label:'Histórico y estadísticas', icon:'📈', roles:R_PANEL},
   ]},
   {group:'Operación', items:[
-    {path:'cargar-rutas', label:'Cargar rutas del día', icon:'📥', roles:['admin','trafico']},
-    {path:'unidades', label:'Control de unidades', icon:'🚚', roles:['admin','trafico']},
-    {path:'choferes', label:'Control de choferes', icon:'🧑‍✈️', roles:['admin','trafico']},
-    {path:'asignacion-tiendas', label:'Asignación de tiendas', icon:'🏬', roles:['admin','trafico']},
-    {path:'asignacion-centros', label:'Centros y razón social', icon:'🏢', roles:['admin','trafico']},
+    {path:'cargar-rutas', label:'Cargar rutas del día', icon:'📥', roles:R_OPERA},
+    {path:'unidades', label:'Control de unidades', icon:'🚚', roles:R_PANEL},
+    {path:'choferes', label:'Control de choferes', icon:'🧑‍✈️', roles:R_PANEL},
+    {path:'asignacion-tiendas', label:'Tiendas y puntos de entrega', icon:'🏬', roles:R_PANEL},
   ]},
-  {group:'Cuenta', items:[
-    {path:'usuarios', label:'Usuarios y accesos', icon:'🔑', roles:['admin']},
+  {group:'Configuración', items:[
+    {path:'sociedades', label:'Sociedades (razones sociales)', icon:'🏛️', roles:['admin','auditor']},
+    {path:'asignacion-centros', label:'Centros y CEDIS', icon:'🏢', roles:R_PANEL},
+    {path:'usuarios', label:'Usuarios y roles', icon:'🔑', roles:['admin']},
+    {path:'bitacora', label:'Bitácora de auditoría', icon:'🧾', roles:['admin','auditor']},
   ]},
 ];
 
 function currentPath(){ return (location.hash||'#/login').replace('#/','').split('?')[0] || 'login'; }
 function hashParam(name){ const q=(location.hash||'').split('?')[1]; return q ? new URLSearchParams(q).get(name) : null; }
 
+let _liveRefresh = null; // la vista activa registra aquí cómo refrescarse sin redibujarse completa
+let _listo = false;      // true cuando ya se resolvió la sesión y se cargaron los datos
+
 function route(){
+  if(!_listo) return;
   const user = Auth.current();
   const path = currentPath();
+  _liveRefresh = null;
 
   if(path==='tracking'){ return renderTracking(); }
   if(!user){ if(path!=='login') location.hash='#/login'; return renderLogin(); }
 
-  if(path==='login'){
-    location.hash = user.rol==='chofer' ? '#/chofer' : '#/dashboard';
-    return;
-  }
-  if(user.rol==='chofer'){
-    if(path!=='chofer'){ location.hash='#/chofer'; return; }
-    return renderChoferShell(user);
-  }
+  // Los choferes no usan el panel: su app (la misma que va en el APK) vive en /chofer/
+  if(user.rol==='chofer'){ location.replace('chofer/'); return; }
+
+  if(path==='login'){ location.hash = '#/dashboard'; return; }
   const allowed = NAV_ITEMS.flatMap(g=>g.items).filter(i=>i.roles.includes(user.rol)).map(i=>i.path);
   const validPath = allowed.includes(path) ? path : 'dashboard';
   if(validPath!==path){ location.hash='#/'+validPath; return; }
   renderAdminShell(user, validPath);
 }
 window.addEventListener('hashchange', route);
-window.addEventListener('storage', (e)=>{
-  if(e.key && e.key.indexOf('maproad_')===0){
-    const p=currentPath();
-    if(['monitoreo','dashboard','chofer','historico'].includes(p)) route();
-  }
+window.addEventListener('mpr:datos', ()=>{
+  if(document.querySelector('.modal-bg')) return; // no interrumpir a quien está capturando
+  if(_liveRefresh) _liveRefresh();
+  else if(currentPath()==='dashboard') route();
 });
 
 /* ============================================================
@@ -566,6 +654,7 @@ window.addEventListener('storage', (e)=>{
    ============================================================ */
 function renderLogin(){
   const app=document.getElementById('app');
+  document.body.classList.remove('solo-lectura');
   app.innerHTML = `
   <div class="auth-wrap">
     <div class="auth-card">
@@ -575,34 +664,47 @@ function renderLogin(){
       </div>
       <div id="loginErr"></div>
       <form id="loginForm">
-        <div class="field"><label>Usuario</label><input name="usuario" autocomplete="username" required></div>
+        <div class="field"><label>Usuario o correo</label><input name="usuario" autocomplete="username" autocapitalize="none" required></div>
         <div class="field"><label>Contraseña</label><input type="password" name="password" autocomplete="current-password" required></div>
-        <button class="btn primary block" type="submit">Iniciar sesión</button>
+        <button class="btn primary block" type="submit" id="loginBtn">Iniciar sesión</button>
       </form>
-      <div class="auth-demo">
-        <b>Accesos demo</b><br>
-        admin / admin123 · trafico / trafico123 · chofer1 / chofer123
-      </div>
       <div class="auth-links">
         <a href="#/tracking">📦 Rastrear un pedido</a>
-        <span class="mute2">MapRoad v0.1 (prototipo)</span>
+        <a href="${Util.esc(CFG.apkUrl)}" download>📱 App del chofer (Android)</a>
       </div>
     </div>
   </div>`;
-  document.getElementById('loginForm').addEventListener('submit', e=>{
+  document.getElementById('loginForm').addEventListener('submit', async e=>{
     e.preventDefault();
-    const f=new FormData(e.target);
-    const u=Auth.login(f.get('usuario'), f.get('password'));
-    if(!u){ document.getElementById('loginErr').innerHTML='<div class="errbox">Usuario o contraseña incorrectos.</div>'; return; }
-    location.hash = u.rol==='chofer' ? '#/chofer' : '#/dashboard';
+    const f=new FormData(e.target), btn=document.getElementById('loginBtn');
+    btn.disabled=true; btn.textContent='Entrando…';
+    const r = await Auth.login(f.get('usuario'), f.get('password'));
+    if(r.error){
+      btn.disabled=false; btn.textContent='Iniciar sesión';
+      document.getElementById('loginErr').innerHTML=`<div class="errbox">${Util.esc(r.error)}</div>`;
+      return;
+    }
+    if(r.user.rol==='chofer'){ location.replace('chofer/'); return; }
+    try{ await DB.load(); DB.subscribe(); }
+    catch(err){ console.error(err); Util.toast('No se pudieron cargar los datos: '+(err.message||err),'err'); }
+    location.hash='#/dashboard';
+    route();
   });
 }
 
 /* ============================================================
-   7. SHELL ADMIN / TRÁFICO
+   7. SHELL DEL PANEL
    ============================================================ */
+function puedeEditar(){ const u=Auth.current(); return !!u && R_OPERA.includes(u.rol); }
+function alcanceTexto(user){
+  if(user.rol==='sociedad') return DB.find('sociedades',user.sociedadId)?.nombre || 'Sociedad';
+  if(user.rol==='centro') return DB.find('centros',user.centroId)?.nombre || 'Centro';
+  return ROLES[user.rol]?.label || user.rol;
+}
+
 function renderAdminShell(user, path){
   const app=document.getElementById('app');
+  document.body.classList.toggle('solo-lectura', !puedeEditar());
   const groupsHtml = NAV_ITEMS.map(g=>{
     const items = g.items.filter(i=>i.roles.includes(user.rol));
     if(!items.length) return '';
@@ -615,35 +717,44 @@ function renderAdminShell(user, path){
   <div class="shell">
     <div class="sidebar" id="sidebar">
       <div class="brand"><div class="logo">MR</div><div><b>MapRoad</b><span>Panel de control</span></div></div>
-      <div class="nav">${groupsHtml}</div>
+      <div class="nav">${groupsHtml}
+        <div class="grp">Choferes</div>
+        <a href="${Util.esc(CFG.apkUrl)}" download><span class="ic">📱</span>Descargar app (APK)</a>
+      </div>
       <div class="foot">
         <div class="userbox">
           <div class="avatar">${Util.esc((user.nombre||user.usuario)[0]||'U').toUpperCase()}</div>
-          <div class="who"><b>${Util.esc(user.nombre||user.usuario)}</b><span>${Util.esc(user.rol)}</span></div>
+          <div class="who"><b>${Util.esc(user.nombre||user.usuario)}</b><span>${Util.esc(alcanceTexto(user))}</span></div>
         </div>
         <button class="btn-logout" id="btnLogout">Cerrar sesión</button>
       </div>
     </div>
     <div class="main">
       <div class="topbar">
-        <button class="icon-btn hidden" id="btnMenu" style="display:none">☰</button>
+        <button class="icon-btn" id="btnMenu">☰</button>
         <h1 id="pageTitle"></h1>
-        <a class="btn ghost sm" href="#/tracking" target="_blank">📦 Vista de cliente</a>
+        <div style="display:flex;gap:8px;align-items:center">
+          ${user.rol==='auditor'?'<span class="badge b-amber">Solo lectura</span>':''}
+          <a class="btn ghost sm" href="#/tracking" target="_blank">📦 Vista de cliente</a>
+        </div>
       </div>
       <div class="content" id="content"></div>
     </div>
   </div>`;
-  document.getElementById('btnLogout').addEventListener('click', ()=>{ Auth.logout(); location.hash='#/login'; });
+  document.getElementById('btnLogout').addEventListener('click', async ()=>{ await Auth.logout(); location.hash='#/login'; route(); });
+  document.getElementById('btnMenu').onclick=()=>document.getElementById('sidebar').classList.toggle('open');
 
   const titles = {dashboard:'Resumen general',monitoreo:'Monitoreo en vivo',historico:'Histórico y estadísticas',
     'cargar-rutas':'Cargar rutas del día', unidades:'Control de unidades', choferes:'Control de choferes',
-    'asignacion-tiendas':'Asignación de tiendas por chofer', 'asignacion-centros':'Centros / razón social', usuarios:'Usuarios y accesos'};
+    'asignacion-tiendas':'Tiendas y puntos de entrega', 'asignacion-centros':'Centros y CEDIS',
+    sociedades:'Sociedades (razones sociales)', usuarios:'Usuarios y roles', bitacora:'Bitácora de auditoría'};
   document.getElementById('pageTitle').textContent = titles[path]||'MapRoad';
 
   const renderers = {
     dashboard:viewDashboard, monitoreo:viewMonitoreo, historico:viewHistorico,
     'cargar-rutas':viewCargarRutas, unidades:viewUnidades, choferes:viewChoferes,
-    'asignacion-tiendas':viewAsignacionTiendas, 'asignacion-centros':viewAsignacionCentros, usuarios:viewUsuarios
+    'asignacion-tiendas':viewAsignacionTiendas, 'asignacion-centros':viewAsignacionCentros,
+    sociedades:viewSociedades, usuarios:viewUsuarios, bitacora:viewBitacora
   };
   (renderers[path]||viewDashboard)(document.getElementById('content'), user);
 }
@@ -661,6 +772,7 @@ function viewDashboard(el,user){
   const enRuta = rutasHoy.filter(r=>r.estatus==='en_curso').length;
   const choferes = DB.get('choferes');
   const unidades = DB.get('unidades');
+  const sinSenal = rutasHoy.filter(r=>r.estatus==='en_curso' && (!r.ultimaUbicacion || Util.minsBetween(r.ultimaUbicacion,Util.nowISO())>12)).length;
   const hora = new Date().getHours();
   const saludo = hora<12 ? 'Buenos días' : hora<19 ? 'Buenas tardes' : 'Buenas noches';
 
@@ -674,7 +786,7 @@ function viewDashboard(el,user){
     <img src="assets/header-vehicle.svg" class="vehicle-img" alt="Vehículo de reparto MapRoad">
   </div>
   <div class="grid cols-4" style="margin-bottom:18px;">
-    <div class="card"><h3>Rutas de hoy</h3><div class="stat">${rutasHoy.length}</div><div class="trend muted">${enRuta} en curso</div></div>
+    <div class="card"><h3>Rutas de hoy</h3><div class="stat">${rutasHoy.length}</div><div class="trend muted">${enRuta} en curso${sinSenal?` · <span style="color:var(--warning)">${sinSenal} sin señal GPS</span>`:''}</div></div>
     <div class="card"><h3>Pedidos de hoy</h3><div class="stat">${pedidosHoy.length}</div><div class="trend muted">${pendientes} pendientes</div></div>
     <div class="card"><h3>Entregados</h3><div class="stat" style="color:var(--success)">${entregados}</div><div class="trend up">${pedidosHoy.length?Math.round(entregados/pedidosHoy.length*100):0}% del total</div></div>
     <div class="card"><h3>Con incidencia</h3><div class="stat" style="color:var(--danger)">${fallidos}</div><div class="trend ${fallidos?'down':''}">ausente, reprogramado, cancelado o fallido</div></div>
@@ -688,12 +800,13 @@ function viewDashboard(el,user){
           const ch=DB.find('choferes',r.choferId), un=DB.find('unidades',r.unidadId), ce=DB.find('centros',r.centroId);
           return `<tr data-verruta="${r.id}" style="cursor:pointer" title="Ver envíos de esta ruta"><td>${Util.esc(ch?.nombre||'—')}</td><td class="mono">${Util.esc(un?.placa||'—')}</td><td>${Util.esc(ce?.nombre||'—')}</td>
           <td>${r.pedidoIds.length}</td><td>${estatusBadge(r.estatus)}</td><td>${Util.fmtTime(r.horaInicio)}</td></tr>`;
-        }).join('') : `<tr><td colspan="6" class="empty">Aún no se han cargado rutas para hoy. <a href="#/cargar-rutas">Cargar ahora →</a></td></tr>`}</tbody>
+        }).join('') : `<tr><td colspan="6" class="empty">Aún no se han cargado rutas para hoy. ${puedeEditar()?'<a href="#/cargar-rutas">Cargar ahora →</a>':''}</td></tr>`}</tbody>
       </table></div>
     </div>
     <div class="panel">
       <div class="panel-h"><b>Flota</b></div>
       <div class="panel-b">
+        ${!unidades.length?'<div class="empty">Sin unidades registradas.</div>':''}
         ${unidades.map(u=>{
           const ch=choferes.find(c=>c.id===u.choferId);
           return `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
@@ -762,7 +875,14 @@ function viewUnidades(el){
       </select></div>
     `, (data)=>{
       data.capacidadKg=Number(data.capacidadKg)||0; data.capacidadM3=Number(data.capacidadM3)||0;
-      if(id) DB.update('unidades',id,data); else DB.insert('unidades',data);
+      if(!data.centroId){ Util.toast('Primero da de alta un centro en Configuración','err'); return; }
+      // Alta en dos pasos: la unidad se inserta sin chofer y luego se enlazan ambos lados
+      // (unidad.choferId <-> chofer.unidadId se referencian mutuamente).
+      const choferSel = data.choferId || null;
+      const unidadId = id || DB.insert('unidades',Object.assign({},data,{choferId:null})).id;
+      DB.update('unidades',unidadId,id?data:{choferId:choferSel});
+      DB.get('choferes').filter(c=>c.unidadId===unidadId && c.id!==choferSel).forEach(c=>DB.update('choferes',c.id,{unidadId:null}));
+      if(choferSel) DB.update('choferes',choferSel,{unidadId});
       Util.toast('Unidad guardada','ok'); closeModal(); draw();
     });
   }
@@ -810,19 +930,14 @@ function viewChoferes(el){
       <div class="field"><label>Estatus</label><select name="estatus">${['activo','inactivo'].map(s=>`<option ${c.estatus===s?'selected':''}>${s}</option>`).join('')}</select></div></div>
       <div class="field-row"><div class="field"><label>Unidad asignada</label><select name="unidadId"><option value="">Sin asignar</option>${unidades.map(u=>`<option value="${u.id}" ${c.unidadId===u.id?'selected':''}>${Util.esc(u.placa)}</option>`).join('')}</select></div>
       <div class="field"><label>Centro</label><select name="centroId">${centros.map(x=>`<option value="${x.id}" ${c.centroId===x.id?'selected':''}>${Util.esc(x.nombre)}</option>`).join('')}</select></div></div>
-      <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
-      <div class="small muted" style="margin-bottom:8px">Acceso a la app móvil (opcional)</div>
-      <div class="field-row"><div class="field"><label>Usuario</label><input name="usLogin" value="${Util.esc(us?.usuario||'')}" placeholder="ej. chofer4"></div>
-      <div class="field"><label>Contraseña</label><input name="usPass" value="${Util.esc(us?.password||'')}" placeholder="••••••"></div></div>
+      <div class="small muted" style="margin-top:6px">📱 Acceso a la app móvil: ${us?`usuario <b>${Util.esc(us.usuario)}</b>`:'aún no tiene'} — se crea en <b>Configuración → Usuarios y roles</b> con el rol "Chofer".</div>
     `, (data)=>{
-      const {usLogin,usPass,...choferData} = data;
-      let choferId=id;
-      if(id) DB.update('choferes',id,choferData); else { choferId = DB.insert('choferes',choferData).id; }
-      if(usLogin){
-        const existing = DB.get('usuarios').find(u=>u.choferId===choferId);
-        if(existing) DB.update('usuarios',existing.id,{usuario:usLogin,password:usPass||existing.password,nombre:choferData.nombre});
-        else DB.insert('usuarios',{usuario:usLogin,password:usPass||'chofer123',rol:'chofer',nombre:choferData.nombre,choferId});
-      }
+      if(!data.centroId){ Util.toast('Primero da de alta un centro en Configuración','err'); return; }
+      const choferId = id || DB.insert('choferes',data).id;
+      if(id) DB.update('choferes',id,data);
+      // La unidad y el chofer se apuntan mutuamente: se mantiene sincronizado el otro lado.
+      DB.get('unidades').filter(u=>u.choferId===choferId && u.id!==data.unidadId).forEach(u=>DB.update('unidades',u.id,{choferId:null}));
+      if(data.unidadId) DB.update('unidades',data.unidadId,{choferId});
       Util.toast('Chofer guardado','ok'); closeModal(); draw();
     });
   }
@@ -855,7 +970,7 @@ function viewAsignacionTiendas(el){
       el.querySelector('#tbody').innerHTML = rows.length ? rows.map(t=>{
         const ce=centros.find(c=>c.id===t.centroId);
         return `<tr>
-          <td><b>${Util.esc(t.nombre)}</b><div class="small muted">${Util.esc(t.direccion||'')}</div></td>
+          <td><b>${Util.esc(t.nombre)}</b> ${t.esOrigen?'<span class="badge b-green">Salida</span>':''}<div class="small muted">${Util.esc(t.direccion||'')}</div></td>
           <td>${Util.esc(t.colonia||'—')}</td><td class="mono">${Util.esc(t.cp||'—')}</td><td>${Util.esc(ce?.nombre||'—')}</td>
           <td><select data-asig="${t.id}" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px">
             <option value="">Sin asignar</option>
@@ -883,12 +998,15 @@ function viewAsignacionTiendas(el){
       <div class="field"><label>Dirección</label><input name="direccion" value="${Util.esc(t.direccion||'')}"></div>
       <div class="field-row"><div class="field"><label>Colonia</label><input name="colonia" value="${Util.esc(t.colonia||'')}"></div>
       <div class="field"><label>C.P.</label><input name="cp" value="${Util.esc(t.cp||'')}"></div></div>
-      <div class="field-row"><div class="field"><label>Latitud <span style="color:var(--danger)">*</span></label><input type="number" step="any" min="-90" max="90" name="lat" value="${t.lat||''}" required></div>
-      <div class="field"><label>Longitud <span style="color:var(--danger)">*</span></label><input type="number" step="any" min="-180" max="180" name="lng" value="${t.lng||''}" required></div></div>
+      <div class="field-row"><div class="field"><label>Latitud <span style="color:var(--danger)">*</span></label><input type="number" step="any" min="-90" max="90" name="lat" value="${t.lat??''}" required></div>
+      <div class="field"><label>Longitud <span style="color:var(--danger)">*</span></label><input type="number" step="any" min="-180" max="180" name="lng" value="${t.lng??''}" required></div></div>
       <div class="small muted" style="margin:-6px 0 12px">Obligatorias: sin coordenadas la tienda no se puede ubicar en la ruta óptima ni en el mapa. Cópialas desde Google Maps (clic derecho en el punto exacto → clic en las coordenadas).</div>
       <div class="field-row"><div class="field"><label>Centro</label><select name="centroId">${centros.map(c=>`<option value="${c.id}" ${t.centroId===c.id?'selected':''}>${Util.esc(c.nombre)}</option>`).join('')}</select></div>
       <div class="field"><label>Chofer asignado</label><select name="choferId"><option value="">Sin asignar</option>${choferes.map(c=>`<option value="${c.id}" ${t.choferId===c.id?'selected':''}>${Util.esc(c.nombre)}</option>`).join('')}</select></div></div>
+      <label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" name="esOrigen" ${t.esOrigen?'checked':''}> Es punto de salida (sucursal / CEDIS desde donde parten rutas)</label>
     `, (data)=>{
+      data.esOrigen = data.esOrigen==='on';
+      if(!data.centroId){ Util.toast('Primero da de alta un centro en Configuración','err'); return; }
       const lat=Number(data.lat), lng=Number(data.lng);
       if(data.lat===''||data.lng===''||isNaN(lat)||isNaN(lng)||lat<-90||lat>90||lng<-180||lng>180){
         Util.toast('Latitud/Longitud inválidas o vacías','err'); return;
@@ -902,16 +1020,21 @@ function viewAsignacionTiendas(el){
 }
 
 /* ============================================================
-   12. VISTA: CENTROS / RAZÓN SOCIAL
+   12. VISTA: CENTROS Y CEDIS
+   Cada centro pertenece a una sociedad (razón social). Un CEDIS es un
+   centro de tipo "cedis": surte a varios centros de su misma sociedad.
    ============================================================ */
-function viewAsignacionCentros(el){
+function viewAsignacionCentros(el, user){
+  const puedeCrear = ['admin','sociedad'].includes(user.rol);
   function draw(){
-    const centros=DB.get('centros'), unidades=DB.get('unidades'), choferes=DB.get('choferes'), tiendas=DB.get('tiendas');
-    el.innerHTML = `<div class="grid cols-2">` + centros.map(c=>{
+    const centros=DB.get('centros'), unidades=DB.get('unidades'), choferes=DB.get('choferes'), tiendas=DB.get('tiendas'), sociedades=DB.get('sociedades');
+    el.innerHTML = (centros.length ? `<div class="grid cols-2">` + centros.map(c=>{
       const us=unidades.filter(u=>u.centroId===c.id), ch=choferes.filter(x=>x.centroId===c.id), ti=tiendas.filter(t=>t.centroId===c.id);
+      const so=sociedades.find(s=>s.id===c.sociedadId);
       return `<div class="panel">
-        <div class="panel-h"><div><b>${Util.esc(c.nombre)}</b><div class="small muted">${Util.esc(c.razonSocial||'')}</div></div>
-        <div><button class="icon-btn" data-edit="${c.id}">✎</button> <button class="icon-btn" data-del="${c.id}">🗑</button></div></div>
+        <div class="panel-h"><div><b>${Util.esc(c.nombre)}</b> <span class="badge ${c.tipo==='cedis'?'b-blue':'b-gray'}">${c.tipo==='cedis'?'CEDIS':'Centro'}</span>
+          <div class="small muted">${Util.esc(so?.nombre||c.razonSocial||'Sin sociedad asignada')}</div></div>
+        ${puedeCrear?`<div><button class="icon-btn" data-edit="${c.id}">✎</button> <button class="icon-btn" data-del="${c.id}">🗑</button></div>`:''}</div>
         <div class="panel-b">
           <div class="small muted" style="margin-bottom:10px">${Util.esc(c.direccion||'Sin dirección')}</div>
           <div class="grid cols-3">
@@ -921,27 +1044,29 @@ function viewAsignacionCentros(el){
           </div>
         </div>
       </div>`;
-    }).join('') + `</div>
-    <div style="margin-top:16px"><button class="btn primary" id="btnNuevo">+ Nuevo centro / razón social</button></div>`;
-    el.querySelector('#btnNuevo').onclick=()=>openCentroModal();
+    }).join('') + `</div>` : `<div class="panel"><div class="empty">Aún no hay centros. ${puedeCrear?'Crea primero la sociedad (razón social) y después sus centros o CEDIS.':''}</div></div>`)
+    + (puedeCrear?`<div style="margin-top:16px"><button class="btn primary" id="btnNuevo">+ Nuevo centro / CEDIS</button></div>`:'');
+    const bn=el.querySelector('#btnNuevo'); if(bn) bn.onclick=()=>openCentroModal();
     el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openCentroModal(b.dataset.edit));
-    el.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ if(confirm('¿Eliminar centro?')){ DB.remove('centros',b.dataset.del); Util.toast('Eliminado'); draw(); } });
+    el.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ if(confirm('¿Eliminar centro? Sus unidades, choferes y tiendas quedarán sin centro.')){ DB.remove('centros',b.dataset.del); Util.toast('Eliminado'); draw(); } });
   }
   function openCentroModal(id){
     const c=id?DB.find('centros',id):{};
+    const sociedades = DB.get('sociedades');
+    if(!sociedades.length){ Util.toast('Primero da de alta una sociedad (razón social)','err'); return; }
     openModal(`${id?'Editar':'Nuevo'} centro`, `
-      <div class="field"><label>Nombre del centro</label><input name="nombre" value="${Util.esc(c.nombre||'')}" required></div>
-      <div class="field"><label>Razón social</label><input name="razonSocial" value="${Util.esc(c.razonSocial||'')}"></div>
+      <div class="field-row"><div class="field"><label>Nombre del centro</label><input name="nombre" value="${Util.esc(c.nombre||'')}" required></div>
+      <div class="field"><label>Tipo</label><select name="tipo"><option value="centro" ${c.tipo!=='cedis'?'selected':''}>Centro / sucursal</option><option value="cedis" ${c.tipo==='cedis'?'selected':''}>CEDIS</option></select></div></div>
+      <div class="field"><label>Sociedad (razón social)</label><select name="sociedadId" required>${sociedades.map(s=>`<option value="${s.id}" ${c.sociedadId===s.id?'selected':''}>${Util.esc(s.nombre)}</option>`).join('')}</select></div>
       <div class="field"><label>Dirección</label><input name="direccion" value="${Util.esc(c.direccion||'')}"></div>
-      <div class="field-row"><div class="field"><label>Latitud (opcional)</label><input type="number" step="any" min="-90" max="90" name="lat" value="${c.lat||''}"></div>
-      <div class="field"><label>Longitud (opcional)</label><input type="number" step="any" min="-180" max="180" name="lng" value="${c.lng||''}"></div></div>
-      <div class="small muted" style="margin-top:-6px">El centro es la razón social/agrupador administrativo — no necesita coordenadas. El punto real de partida de cada ruta se define con la <b>tienda de origen</b> en "Cargar rutas del día".</div>
+      <div class="field-row"><div class="field"><label>Latitud (opcional)</label><input type="number" step="any" min="-90" max="90" name="lat" value="${c.lat??''}"></div>
+      <div class="field"><label>Longitud (opcional)</label><input type="number" step="any" min="-180" max="180" name="lng" value="${c.lng??''}"></div></div>
+      <div class="small muted" style="margin-top:-6px">El punto real de partida de cada ruta se define con la <b>tienda de origen</b> en "Cargar rutas del día"; las coordenadas del centro son solo respaldo.</div>
     `, (data)=>{
-      const lat=Util.parseCoord(data.lat), lng=Util.parseCoord(data.lng);
-      if((data.lat&&lat==null)||(data.lng&&lng==null)||(lat!=null&&(lat<-90||lat>90))||(lng!=null&&(lng<-180||lng>180))){
-        Util.toast('Latitud/Longitud inválidas','err'); return;
-      }
+      const lat=Util.parseLat(data.lat), lng=Util.parseLng(data.lng);
+      if((data.lat&&lat==null)||(data.lng&&lng==null)){ Util.toast('Latitud/Longitud inválidas','err'); return; }
       data.lat=lat; data.lng=lng;
+      data.razonSocial = DB.find('sociedades',data.sociedadId)?.razonSocial || DB.find('sociedades',data.sociedadId)?.nombre || '';
       if(id) DB.update('centros',id,data); else DB.insert('centros',data);
       Util.toast('Centro guardado','ok'); closeModal(); draw();
     });
@@ -950,40 +1075,164 @@ function viewAsignacionCentros(el){
 }
 
 /* ============================================================
-   13. VISTA: USUARIOS Y ACCESOS (solo admin)
+   13. CONFIGURACIÓN: SOCIEDADES, USUARIOS Y BITÁCORA
    ============================================================ */
-function viewUsuarios(el){
+function viewSociedades(el){
   function draw(){
-    const usuarios=DB.get('usuarios'), choferes=DB.get('choferes');
+    const sociedades=DB.get('sociedades'), centros=DB.get('centros');
     el.innerHTML = `<div class="panel">
+      <div class="panel-h"><b>Sociedades / razones sociales (${sociedades.length})</b><button class="btn primary sm" id="btnNueva">+ Nueva sociedad</button></div>
+      <div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Razón social</th><th>RFC</th><th>Centros</th><th>CEDIS</th><th></th></tr></thead>
+      <tbody>${sociedades.length?sociedades.map(s=>{
+        const cs=centros.filter(c=>c.sociedadId===s.id);
+        return `<tr><td><b>${Util.esc(s.nombre)}</b></td><td>${Util.esc(s.razonSocial||'—')}</td><td class="mono">${Util.esc(s.rfc||'—')}</td>
+        <td>${cs.filter(c=>c.tipo!=='cedis').length}</td><td>${cs.filter(c=>c.tipo==='cedis').length}</td>
+        <td><button class="icon-btn" data-edit="${s.id}">✎</button> <button class="icon-btn" data-del="${s.id}">🗑</button></td></tr>`;
+      }).join(''):`<tr><td colspan="6" class="empty">Sin sociedades. Empieza por aquí: cada sociedad agrupa sus centros y CEDIS.</td></tr>`}</tbody></table></div>
+    </div>`;
+    el.querySelector('#btnNueva').onclick=()=>abrir();
+    el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>abrir(b.dataset.edit));
+    el.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{
+      if(DB.get('centros').some(c=>c.sociedadId===b.dataset.del)){ Util.toast('Esa sociedad tiene centros; reasígnalos o elimínalos primero','err'); return; }
+      if(confirm('¿Eliminar sociedad?')){ DB.remove('sociedades',b.dataset.del); draw(); }
+    });
+  }
+  function abrir(id){
+    const s=id?DB.find('sociedades',id):{};
+    openModal(`${id?'Editar':'Nueva'} sociedad`, `
+      <div class="field"><label>Nombre corto</label><input name="nombre" value="${Util.esc(s.nombre||'')}" required></div>
+      <div class="field"><label>Razón social</label><input name="razonSocial" value="${Util.esc(s.razonSocial||'')}"></div>
+      <div class="field"><label>RFC</label><input name="rfc" value="${Util.esc(s.rfc||'')}"></div>
+    `, (data)=>{
+      if(id) DB.update('sociedades',id,data); else DB.insert('sociedades',data);
+      Util.toast('Sociedad guardada','ok'); closeModal(); draw();
+    });
+  }
+  draw();
+}
+
+/* Altas, cambios y bajas de usuarios pasan por la Edge Function usuarios-mpr
+   (valida que quien llama sea admin y opera Supabase Auth del lado del servidor). */
+async function apiUsuarios(body){
+  const {data:{session}} = await sb.auth.getSession();
+  const r = await fetch(CFG.supabaseUrl+'/functions/v1/usuarios-mpr', {
+    method:'POST',
+    headers:{'Content-Type':'application/json', apikey:CFG.supabaseKey, Authorization:'Bearer '+(session?session.access_token:'')},
+    body:JSON.stringify(body)
+  });
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(d.error || ('HTTP '+r.status));
+  return d;
+}
+
+function viewUsuarios(el, user){
+  function vinculo(u){
+    if(u.rol==='sociedad') return '🏛️ '+(DB.find('sociedades',u.sociedadId)?.nombre||'—');
+    if(u.rol==='centro') return '🏢 '+(DB.find('centros',u.centroId)?.nombre||'—');
+    if(u.rol==='chofer') return '🧑‍✈️ '+(DB.find('choferes',u.choferId)?.nombre||'—');
+    return 'Todo';
+  }
+  function draw(){
+    const usuarios=DB.get('usuarios');
+    el.innerHTML = `
+    <div class="grid cols-4" style="margin-bottom:16px;grid-template-columns:repeat(5,1fr)">
+      ${Object.entries(ROLES).map(([k,r])=>`<div class="card"><h3>${Util.esc(r.label)}</h3><div class="stat small-stat">${usuarios.filter(u=>u.rol===k).length}</div><div class="small muted">${Util.esc(r.desc)}</div></div>`).join('')}
+    </div>
+    <div class="panel">
       <div class="panel-h"><b>Usuarios (${usuarios.length})</b><button class="btn primary sm" id="btnNuevo">+ Nuevo usuario</button></div>
-      <div class="table-wrap"><table><thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Vínculo</th><th></th></tr></thead>
+      <div class="table-wrap"><table><thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Alcance</th><th>Estatus</th><th></th></tr></thead>
       <tbody>${usuarios.map(u=>`<tr>
-        <td class="mono">${Util.esc(u.usuario)}</td><td>${Util.esc(u.nombre||'—')}</td>
-        <td><span class="badge b-blue">${Util.esc(u.rol)}</span></td>
-        <td>${u.choferId?Util.esc(choferes.find(c=>c.id===u.choferId)?.nombre||''):'—'}</td>
-        <td><button class="icon-btn" data-edit="${u.id}">✎</button> <button class="icon-btn" data-del="${u.id}">🗑</button></td>
+        <td class="mono">${Util.esc(u.usuario)}<div class="small mute2">${Util.esc(u.email||'')}</div></td><td>${Util.esc(u.nombre||'—')}</td>
+        <td><span class="badge ${u.rol==='admin'?'b-red':u.rol==='auditor'?'b-amber':u.rol==='chofer'?'b-green':'b-blue'}">${Util.esc(ROLES[u.rol]?.label||u.rol)}</span></td>
+        <td>${Util.esc(vinculo(u))}</td>
+        <td>${u.activo?'<span class="badge b-green">Activo</span>':'<span class="badge b-gray">Inactivo</span>'}</td>
+        <td><button class="icon-btn" data-edit="${u.id}">✎</button> ${u.id===user.id?'':`<button class="icon-btn" data-del="${u.id}">🗑</button>`}</td>
       </tr>`).join('')}</tbody></table></div>
     </div>`;
     el.querySelector('#btnNuevo').onclick=()=>openUserModal();
     el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openUserModal(b.dataset.edit));
-    el.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ if(confirm('¿Eliminar usuario?')){ DB.remove('usuarios',b.dataset.del); draw(); } });
-  }
-  function openUserModal(id){
-    const u=id?DB.find('usuarios',id):{};
-    const choferes=DB.get('choferes');
-    openModal(`${id?'Editar':'Nuevo'} usuario`, `
-      <div class="field"><label>Nombre</label><input name="nombre" value="${Util.esc(u.nombre||'')}"></div>
-      <div class="field-row"><div class="field"><label>Usuario</label><input name="usuario" value="${Util.esc(u.usuario||'')}" required></div>
-      <div class="field"><label>Contraseña</label><input name="password" value="${Util.esc(u.password||'')}" required></div></div>
-      <div class="field"><label>Rol</label><select name="rol">${['admin','trafico','chofer'].map(r=>`<option ${u.rol===r?'selected':''}>${r}</option>`).join('')}</select></div>
-      <div class="field"><label>Chofer vinculado (si aplica)</label><select name="choferId"><option value="">—</option>${choferes.map(c=>`<option value="${c.id}" ${u.choferId===c.id?'selected':''}>${Util.esc(c.nombre)}</option>`).join('')}</select></div>
-    `, (data)=>{
-      if(id) DB.update('usuarios',id,data); else DB.insert('usuarios',data);
-      Util.toast('Usuario guardado','ok'); closeModal(); draw();
+    el.querySelectorAll('[data-del]').forEach(b=>b.onclick=async ()=>{
+      const u=DB.find('usuarios',b.dataset.del);
+      if(!confirm(`¿Eliminar el acceso de "${u.usuario}" a MapRoad?`)) return;
+      try{ await apiUsuarios({accion:'eliminar', id:u.id}); await DB.reload('usuarios'); Util.toast('Usuario eliminado','ok'); draw(); }
+      catch(err){ Util.toast(err.message,'err'); }
     });
   }
+  function openUserModal(id){
+    const u=id?DB.find('usuarios',id):{rol:'centro',activo:true};
+    const choferes=DB.get('choferes'), centros=DB.get('centros'), sociedades=DB.get('sociedades');
+    const yaVinculados = DB.get('usuarios').filter(x=>x.rol==='chofer' && x.id!==id).map(x=>x.choferId);
+    openModal(`${id?'Editar':'Nuevo'} usuario`, `
+      <div class="field"><label>Nombre completo</label><input name="nombre" value="${Util.esc(u.nombre||'')}" required></div>
+      <div class="field-row">
+        <div class="field"><label>Usuario</label><input name="usuario" value="${Util.esc(u.usuario||'')}" ${id?'disabled':'required'} pattern="[A-Za-z0-9._\\-]{3,40}" autocapitalize="none" placeholder="ej. jperez"></div>
+        <div class="field"><label>${id?'Nueva contraseña (opcional)':'Contraseña'}</label><input name="password" type="text" minlength="8" ${id?'':'required'} placeholder="mínimo 8 caracteres" autocomplete="new-password"></div>
+      </div>
+      ${id?'':`<div class="field"><label>Correo (opcional)</label><input name="email" type="email" placeholder="si se deja vacío entra solo con su usuario">
+        <div class="small muted" style="margin-top:4px">Si el correo ya tiene cuenta en otra app del proyecto, se le da acceso a MapRoad con su contraseña actual.</div></div>`}
+      <div class="field"><label>Rol</label><select name="rol" id="uRol">${Object.entries(ROLES).map(([k,r])=>`<option value="${k}" ${u.rol===k?'selected':''}>${Util.esc(r.label)} — ${Util.esc(r.desc)}</option>`).join('')}</select></div>
+      <div class="field" data-para="sociedad"><label>Sociedad que puede ver</label><select name="sociedadId"><option value="">— Selecciona —</option>${sociedades.map(s=>`<option value="${s.id}" ${u.sociedadId===s.id?'selected':''}>${Util.esc(s.nombre)}</option>`).join('')}</select></div>
+      <div class="field" data-para="centro"><label>Centro / CEDIS que puede ver</label><select name="centroId"><option value="">— Selecciona —</option>${centros.map(c=>`<option value="${c.id}" ${u.centroId===c.id?'selected':''}>${Util.esc(c.nombre)}${c.tipo==='cedis'?' (CEDIS)':''}</option>`).join('')}</select></div>
+      <div class="field" data-para="chofer"><label>Chofer vinculado</label><select name="choferId"><option value="">— Selecciona —</option>${choferes.filter(c=>!yaVinculados.includes(c.id)).map(c=>`<option value="${c.id}" ${u.choferId===c.id?'selected':''}>${Util.esc(c.nombre)}</option>`).join('')}</select>
+        <div class="small muted" style="margin-top:4px">El chofer se da de alta antes en "Control de choferes". Entra solo desde la app móvil.</div></div>
+      ${id?`<label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" name="activo" ${u.activo?'checked':''}> Usuario activo</label>`:''}
+    `, async (data)=>{
+      const btn=document.querySelector('#genericModal button[type=submit]');
+      btn.disabled=true;
+      try{
+        const body = {accion:id?'actualizar':'crear', id, nombre:data.nombre, rol:data.rol,
+          sociedadId:data.sociedadId||null, centroId:data.centroId||null, choferId:data.choferId||null, password:data.password||''};
+        if(id) body.activo = data.activo==='on'; else { body.usuario=data.usuario; body.email=data.email||''; }
+        const r = await apiUsuarios(body);
+        await DB.reload('usuarios');
+        Util.toast(r.vinculado?'Cuenta existente vinculada a MapRoad (conserva su contraseña)':'Usuario guardado','ok');
+        closeModal(); draw();
+      }catch(err){ btn.disabled=false; Util.toast(err.message,'err'); }
+    });
+    const sel=document.getElementById('uRol');
+    const sync=()=>document.querySelectorAll('#genericModal [data-para]').forEach(d=>d.style.display = d.dataset.para===sel.value?'block':'none');
+    sel.onchange=sync; sync();
+  }
   draw();
+}
+
+/* Bitácora: quién cambió qué y cuándo. La llenan triggers en Postgres, así que
+   registra también los cambios hechos fuera del panel. */
+function viewBitacora(el){
+  const NOMBRES={sociedades_mpr:'Sociedades',centros_mpr:'Centros',unidades_mpr:'Unidades',choferes_mpr:'Choferes',tiendas_mpr:'Tiendas',usuarios_mpr:'Usuarios',rutas_mpr:'Rutas',pedidos_mpr:'Pedidos',entregas_mpr:'Entregas'};
+  const OPS={INSERT:['b-green','Alta'],UPDATE:['b-blue','Cambio'],DELETE:['b-red','Baja']};
+  el.innerHTML = `<div class="panel">
+    <div class="filters">
+      <input type="date" id="bDesde" value="${Util.dateISO(new Date(Date.now()-7*86400000))}"> <span class="small muted" style="align-self:center">a</span> <input type="date" id="bHasta" value="${Util.todayISO()}">
+      <select id="bTabla"><option value="">Todas las tablas</option>${Object.entries(NOMBRES).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select>
+      <select id="bOp"><option value="">Altas, cambios y bajas</option><option value="INSERT">Altas</option><option value="UPDATE">Cambios</option><option value="DELETE">Bajas</option></select>
+      <button class="btn sm" id="bBuscar">Filtrar</button>
+      <button class="btn sm" id="bCsv">⬇ CSV</button>
+    </div>
+    <div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Usuario</th><th>Tabla</th><th>Movimiento</th><th>Detalle</th></tr></thead><tbody id="bBody"><tr><td colspan="5" class="empty">Cargando…</td></tr></tbody></table></div>
+  </div>`;
+  let filas=[];
+  const resumen = c => Object.entries(c||{}).filter(([k])=>!['id','created_at'].includes(k)).slice(0,8).map(([k,v])=>`${k}: ${v===null?'—':typeof v==='object'?JSON.stringify(v):v}`).join(' · ');
+  async function buscar(){
+    const hasta = new Date(el.querySelector('#bHasta').value+'T00:00:00'); hasta.setDate(hasta.getDate()+1);
+    let q = sb.from('bitacora_mpr').select('*').gte('created_at', new Date(el.querySelector('#bDesde').value+'T00:00:00').toISOString())
+      .lt('created_at', hasta.toISOString()).order('created_at',{ascending:false}).limit(500);
+    if(el.querySelector('#bTabla').value) q=q.eq('tabla', el.querySelector('#bTabla').value);
+    if(el.querySelector('#bOp').value) q=q.eq('operacion', el.querySelector('#bOp').value);
+    const {data,error} = await q;
+    if(error){ Util.toast(error.message,'err'); return; }
+    filas=data;
+    el.querySelector('#bBody').innerHTML = filas.length ? filas.map(f=>{
+      const [cls,txt]=OPS[f.operacion]||['b-gray',f.operacion];
+      return `<tr><td class="small" style="white-space:nowrap">${Util.fmtDateTime(f.created_at)}</td><td>${Util.esc(f.usuario||'app chofer / sistema')}</td>
+        <td>${Util.esc(NOMBRES[f.tabla]||f.tabla)}</td><td><span class="badge ${cls}">${txt}</span></td>
+        <td class="small" style="max-width:520px;word-break:break-word">${Util.esc(resumen(f.cambios))}</td></tr>`;
+    }).join('') : `<tr><td colspan="5" class="empty">Sin movimientos en ese periodo.</td></tr>`;
+  }
+  el.querySelector('#bBuscar').onclick=buscar;
+  el.querySelector('#bCsv').onclick=()=>Util.descargarCSV('MapRoad_bitacora.csv',
+    [['Fecha','Usuario','Tabla','Movimiento','Registro','Detalle']].concat(filas.map(f=>[f.created_at,f.usuario||'',NOMBRES[f.tabla]||f.tabla,f.operacion,f.registro_id||'',resumen(f.cambios)])));
+  buscar();
 }
 
 /* ============================================================
@@ -1019,7 +1268,7 @@ function viewCargarRutas(el){
         <div class="field"><label>Centro / razón social</label><select id="fCentro">${centros.map(c=>`<option value="${c.id}">${Util.esc(c.nombre)}</option>`).join('')}</select></div>
       </div>
       <div class="field"><label>Tienda de origen (punto de salida) <span style="color:var(--danger)">*</span></label>
-        <select id="fTiendaOrigen"><option value="">— Selecciona la tienda de salida —</option>${tiendas.map(t=>{
+        <select id="fTiendaOrigen"><option value="">— Selecciona la tienda de salida —</option>${tiendas.slice().sort((a,b)=>(b.esOrigen?1:0)-(a.esOrigen?1:0)).map(t=>{
           const ce=centros.find(c=>c.id===t.centroId);
           return `<option value="${t.id}">${Util.esc(t.nombre)}${ce?' — '+Util.esc(ce.nombre):''}</option>`;
         }).join('')}</select>
@@ -1144,11 +1393,11 @@ function procesarImportacion(el, rawRows, detalleRows){
   const pedidosNuevos = Object.values(porFolio).map((p,idx)=>({
     _tmpId:idx, folio:p.folio, vehiculo:p.vehiculo, items:p.items, numeroCliente:p.numeroCliente, nombreContacto:p.nombreContacto,
     telefono:p.telefono, emailContacto:p.emailContacto, direccion:p.direccion, colonia:p.colonia, cp:p.cp,
-    lat:Util.parseLat(p.lat), lng:Util.parseLng(p.lng), fechaMin:p.fechaMin, fechaMax:p.fechaMax,
+    lat:Util.parseLat(p.lat), lng:Util.parseLng(p.lng), fechaMin:Util.parseFecha(p.fechaMin), fechaMax:Util.parseFecha(p.fechaMax),
     controlDestino:p.controlDestino, oficinaVentas:p.oficinaVentas, sucursalSolicita:p.sucursalSolicita,
     nombreVendedor:p.nombreVendedor, comentarios:p.comentarios, folioFactura:p.folioFactura,
-    pesoKg:p.pesoKg, volumenM3:p.volumenM3, importeTotal:p.importeTotal
-  }));
+    pesoKg:Util.parseNum(p.pesoKg), volumenM3:Util.parseNum(p.volumenM3), importeTotal:Util.parseNum(p.importeTotal)
+  })).map(p=>{ ['folio','vehiculo','numeroCliente','telefono','cp','folioFactura'].forEach(k=>{ if(p[k]!=null) p[k]=String(p[k]).trim(); }); return p; });
 
   _importState = pedidosNuevos;
   _vehiculoAsign = {};
@@ -1266,7 +1515,8 @@ function generarRutas(el){
   const porVehiculo = {};
   _importState.forEach(p=>{ (porVehiculo[p.vehiculo]=porVehiculo[p.vehiculo]||[]).push(p); });
 
-  const pedidosDB = DB.get('pedidos'), rutasDB = DB.get('rutas');
+  if(!centroId){ Util.toast('Selecciona el centro de la ruta','err'); return; }
+  const pedidosDB = [], rutasDB = [];
   let rutasCreadas=0, pedidosCreados=0, omitidos=0;
 
   Object.keys(porVehiculo).forEach(placa=>{
@@ -1278,14 +1528,14 @@ function generarRutas(el){
     const sinGeo = porVehiculo[placa].filter(p=>p.lat==null || p.lng==null);
 
     const orden = optimizarRuta(origenTienda, stops.map(s=>({id:s.folio,lat:s.lat,lng:s.lng})));
-    const rutaId = Util.uid('r');
+    const rutaId = crypto.randomUUID();
     const pedidoIdsRuta = [];
 
     [...orden.map(o=>stops.find(s=>s.folio===o.id)), ...sinGeo].forEach((p,idx)=>{
-      const pid = Util.uid('p');
+      const pid = crypto.randomUUID();
       const {_tmpId, ...pClean} = p;
       pedidosDB.push(Object.assign({}, pClean, {
-        id:pid, fecha, centroId, rutaId, ordenEnRuta: idx<orden.length?idx+1:null, estatus:'pendiente', creado:Util.nowISO()
+        id:pid, fecha, centroId, rutaId, ordenEnRuta: idx<orden.length?idx+1:null, estatus:'pendiente'
       }));
       pedidoIdsRuta.push(pid);
       pedidosCreados++;
@@ -1299,7 +1549,7 @@ function generarRutas(el){
     rutasCreadas++;
   });
 
-  DB.set('pedidos',pedidosDB); DB.set('rutas',rutasDB);
+  DB.insertMany('rutas',rutasDB); DB.insertMany('pedidos',pedidosDB); // rutas primero: los pedidos las referencian
   if(omitidos) Util.toast(`${omitidos} pedido(s) no se enrutaron por vehículos sin unidad asignada`,'err');
   _importState=null; _vehiculoAsign={};
   Util.toast(`Se generaron ${rutasCreadas} rutas con ${pedidosCreados} pedidos`,'ok');
@@ -1308,7 +1558,7 @@ function generarRutas(el){
     <p class="muted">${rutasCreadas} rutas · ${pedidosCreados} pedidos · Fecha: ${Util.fmtDate(fecha)}</p>
     <div style="display:flex;gap:10px;justify-content:center;margin-top:16px">
       <a class="btn primary" href="#/monitoreo">Ver en monitoreo</a>
-      <a class="btn" href="#/cargar-rutas" onclick="location.reload()">Cargar otro archivo</a>
+      <a class="btn" href="#/cargar-rutas" onclick="route();return false;">Cargar otro archivo</a>
     </div>
   </div></div>`;
 }
@@ -1347,7 +1597,7 @@ function viewMonitoreo(el){
       el.querySelector('#'+id).onchange = e=>{
         filtros = {fecha:el.querySelector('#ffFecha').value, choferId:el.querySelector('#ffChofer').value,
           unidadId:el.querySelector('#ffUnidad').value, centroId:el.querySelector('#ffCentro').value, estatus:el.querySelector('#ffEstatus').value};
-        refresh();
+        refresh(true);
       };
     });
     el.querySelector('#ffReset').onclick=()=>{ filtros={fecha:Util.todayISO(),choferId:'',unidadId:'',centroId:'',estatus:''}; draw(); };
@@ -1357,9 +1607,11 @@ function viewMonitoreo(el){
       maxZoom:19, attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
     }).addTo(map);
     mapLayer = L.layerGroup().addTo(map);
-    refresh();
+    refresh(true);
+    // Avances y posiciones que llegan por Realtime: se repinta sin mover el encuadre del mapa.
+    _liveRefresh = ()=>{ if(el.isConnected) refresh(false); };
   }
-  function refresh(){
+  function refresh(fit){
     const choferes=DB.get('choferes'), unidades=DB.get('unidades'), centros=DB.get('centros'), pedidos=DB.get('pedidos'), entregas=DB.get('entregas');
     let rutas = DB.query('rutas', r=>r.fecha===filtros.fecha);
     if(filtros.choferId) rutas=rutas.filter(r=>r.choferId===filtros.choferId);
@@ -1380,7 +1632,8 @@ function viewMonitoreo(el){
         <td><div style="background:var(--border);border-radius:99px;height:6px;width:90px;overflow:hidden"><div style="background:${color};height:100%;width:${total?done/total*100:0}%"></div></div>
         <span class="small muted">${done}/${total}</span></td>
         <td>${estatusBadge(r.estatus)}</td><td>${Util.fmtTime(r.horaInicio)}</td>
-        <td class="small">${ultimasEntregas[0]?('Folio '+Util.esc(pedidos.find(p=>p.id===ultimasEntregas[0].pedidoId)?.folio||'')+' · '+Util.fmtTime(ultimasEntregas[0].horaEntrega)):'—'}</td>
+        <td class="small">${ultimasEntregas[0]?('Folio '+Util.esc(pedidos.find(p=>p.id===ultimasEntregas[0].pedidoId)?.folio||'')+' · '+Util.fmtTime(ultimasEntregas[0].horaEntrega)):'—'}
+          ${r.ultimaUbicacion?`<div class="${r.estatus==='en_curso'&&Util.minsBetween(r.ultimaUbicacion,Util.nowISO())>12?'':'mute2'}" ${r.estatus==='en_curso'&&Util.minsBetween(r.ultimaUbicacion,Util.nowISO())>12?'style="color:var(--warning)"':''}>📡 GPS ${Util.hace(r.ultimaUbicacion)}</div>`:(r.estatus==='en_curso'?'<div style="color:var(--warning)">📡 Sin señal GPS aún</div>':'')}</td>
         <td><button class="icon-btn" data-editruta="${r.id}" title="Editar ruta">✎</button> <button class="icon-btn" data-delruta="${r.id}" title="Eliminar ruta">🗑</button></td>
       </tr>`;
     }).join('') : `<tr><td colspan="9" class="empty">No hay rutas que coincidan con los filtros.</td></tr>`;
@@ -1395,9 +1648,13 @@ function viewMonitoreo(el){
     el.querySelector('#legend').innerHTML = rutas.map(r=>{
       const ch=choferes.find(c=>c.id===r.choferId);
       return `<div class="li"><span class="sw" style="background:${colorForChofer(r.choferId,choferes)}"></span>${Util.esc(ch?.nombre||'—')}</div>`;
-    }).join('') || '<span class="mute2 small">Sin rutas para mostrar</span>';
+    }).join('') + (rutas.length?'<span class="mute2 small" style="margin-left:auto">┄ plan · ━ recorrido real (GPS cada '+CFG.minutosUbicacion+' min) · 🚚 unidad en vivo</span>':'<span class="mute2 small">Sin rutas para mostrar</span>');
 
-    drawMap(map, mapLayer, rutas, pedidos, centros, choferes);
+    drawMap(map, mapLayer, rutas, pedidos, centros, choferes, fit);
+    // El recorrido GPS se pide aparte (solo de las rutas en pantalla) y se pinta al llegar.
+    Ubic.cargar(rutas.filter(r=>r.estatus!=='pendiente').map(r=>r.id)).then(nuevo=>{
+      if(nuevo && el.isConnected) drawMap(map, mapLayer, rutas, pedidos, centros, choferes, fit);
+    });
   }
   draw();
 }
@@ -1411,9 +1668,9 @@ function eliminarRuta(rutaId, onDeleted){
   const totalEntregas = DB.get('entregas').filter(e=>e.rutaId===rutaId).length;
   const msg = `¿Eliminar esta ruta? Se borrarán ${pedidos.length} pedido(s)${totalEntregas?` y ${totalEntregas} entrega(s) ya registradas`:''}. Esta acción no se puede deshacer.`;
   if(!confirm(msg)) return;
-  DB.set('pedidos', DB.get('pedidos').filter(p=>p.rutaId!==rutaId));
-  DB.set('entregas', DB.get('entregas').filter(e=>e.rutaId!==rutaId));
-  DB.remove('rutas', rutaId);
+  DB._c.pedidos = DB.get('pedidos').filter(p=>p.rutaId!==rutaId);
+  DB._c.entregas = DB.get('entregas').filter(e=>e.rutaId!==rutaId);
+  DB.remove('rutas', rutaId); // pedidos, entregas y recorrido GPS se borran en cascada en la base
   Util.toast('Ruta eliminada','ok');
   if(onDeleted) onDeleted();
 }
@@ -1612,7 +1869,7 @@ function openInformeFolioModal(folioQuery){
             </div>
           </div>`:''}
           <div class="field"><label>Fotos (${ent.fotos.length})</label>
-            <div class="thumbs">${ent.fotos.length?ent.fotos.map(f=>`<div class="thumb"><img src="${f}"></div>`).join(''):'<span class="small mute2">Sin fotos</span>'}</div>
+            <div class="thumbs">${ent.fotos.length?ent.fotos.map(f=>`<a class="thumb" href="${Util.esc(f)}" target="_blank"><img src="${Util.esc(f)}"></a>`).join(''):'<span class="small mute2">Sin fotos</span>'}</div>
           </div>
           <div class="field"><label>Firma del cliente</label>
             ${ent.firma?`<img src="${ent.firma}" style="max-width:100%;border:1px solid var(--border);border-radius:8px;background:#fff">`:'<span class="small mute2">Sin firma</span>'}
@@ -1626,14 +1883,19 @@ function openInformeFolioModal(folioQuery){
   });
 }
 
-function drawMap(map, mapLayer, rutas, pedidos, centros, choferes){
+/* Pinta cada ruta en el color de su chofer:
+   - línea punteada: el plan (salida → paradas en orden óptimo → regreso)
+   - línea continua: el recorrido real reportado por la app del chofer (GPS)
+   - 🚚: última posición conocida de la unidad mientras la ruta está en curso */
+function drawMap(map, mapLayer, rutas, pedidos, centros, choferes, fit){
   mapLayer.clearLayers();
   const pts=[];
+  const unidades=DB.get('unidades');
   rutas.forEach(r=>{
     const color=colorForChofer(r.choferId,choferes);
     const seq = construirSecuenciaConSalidaRegreso(r, pedidos);
     if(seq.length>1){
-      L.polyline(seq.map(p=>[p.lat,p.lng]), {color, weight:3, opacity:.85}).addTo(mapLayer);
+      L.polyline(seq.map(p=>[p.lat,p.lng]), {color, weight:2, opacity:.55, dashArray:'5 9'}).addTo(mapLayer);
     }
     seq.forEach(p=>{
       pts.push([p.lat,p.lng]);
@@ -1653,7 +1915,28 @@ function drawMap(map, mapLayer, rutas, pedidos, centros, choferes){
         .bindPopup(`<b>Folio ${Util.esc(p.folio)}</b><br>${Util.esc(p.nombreContacto||'')}<br>${Util.esc(p.direccion||'')}<br>${estatusBadge(p.estatus)}`)
         .addTo(mapLayer);
     });
+
+    // Recorrido real
+    const track = Ubic.de(r.id);
+    if(track.length>1) L.polyline(track.map(u=>[u.lat,u.lng]), {color, weight:4.5, opacity:.95, lineJoin:'round'}).addTo(mapLayer);
+    track.forEach(u=>{
+      pts.push([u.lat,u.lng]);
+      L.circleMarker([u.lat,u.lng], {radius:3, color, weight:1, fillColor:'#fff', fillOpacity:1})
+        .bindPopup(`📡 ${Util.fmtTime(u.registradaEn)}${u.velocidadKmh!=null?' · '+Math.round(u.velocidadKmh)+' km/h':''}`).addTo(mapLayer);
+    });
+    const ult = track.length ? track[track.length-1]
+      : (r.ultimaLat!=null ? {lat:r.ultimaLat, lng:r.ultimaLng, registradaEn:r.ultimaUbicacion} : null);
+    if(ult && r.estatus==='en_curso'){
+      const ch=choferes.find(c=>c.id===r.choferId), un=unidades.find(u=>u.id===r.unidadId);
+      const viejo = Util.minsBetween(ult.registradaEn, Util.nowISO()) > 12;
+      pts.push([ult.lat,ult.lng]);
+      L.marker([ult.lat,ult.lng], {zIndexOffset:1000, icon:L.divIcon({className:'', iconSize:[34,34], iconAnchor:[17,17],
+        html:`<div class="unit-pin ${viejo?'sin-senal':''}" style="--c:${color}">🚚</div>`})})
+        .bindPopup(`<b>${Util.esc(un?.placa||r.vehiculoTexto||'Unidad')}</b><br>${Util.esc(ch?.nombre||'')}<br>📡 ${Util.fmtTime(ult.registradaEn)} (${Util.hace(ult.registradaEn)})${viejo?'<br><b style="color:#c94a2c">Sin señal reciente</b>':''}`)
+        .addTo(mapLayer);
+    }
   });
+  if(!fit) return;
   if(pts.length){ map.fitBounds(L.latLngBounds(pts), {padding:[24,24], maxZoom:14}); }
   else { map.setView([23.6345,-102.5528],5); }
 }
@@ -1690,6 +1973,7 @@ function construirSecuenciaConSalidaRegreso(ruta, pedidosDB){
    16. VISTA: HISTÓRICO Y ESTADÍSTICAS
    ============================================================ */
 function viewHistorico(el){
+  let _rutasHist=[];
   let filtros={desde:Util.dateISO(new Date(Date.now()-7*86400000)), hasta:Util.todayISO(), choferId:'', unidadId:'', centroId:'', folio:''};
   function draw(){
     const choferes=DB.get('choferes'), unidades=DB.get('unidades'), centros=DB.get('centros');
@@ -1712,6 +1996,7 @@ function viewHistorico(el){
         <select id="hCentro"><option value="">Todos los centros</option>${centros.map(c=>`<option value="${c.id}">${Util.esc(c.nombre)}</option>`).join('')}</select>
         <input placeholder="Buscar folio…" id="hFolio">
         <button class="btn sm" id="hBuscar">Filtrar</button>
+        <button class="btn sm" id="hCsv">⬇ CSV</button>
       </div>
       <div class="panel-b"><div class="grid cols-4" id="hStats"></div></div>
       <div class="table-wrap"><table>
@@ -1719,10 +2004,27 @@ function viewHistorico(el){
         <tbody id="hBody"></tbody>
       </table></div>
     </div>`;
-    el.querySelector('#hBuscar').onclick=()=>{
+    el.querySelector('#hBuscar').onclick=async ()=>{
       filtros={desde:el.querySelector('#hDesde').value, hasta:el.querySelector('#hHasta').value, choferId:el.querySelector('#hChofer').value,
         unidadId:el.querySelector('#hUnidad').value, centroId:el.querySelector('#hCentro').value, folio:el.querySelector('#hFolio').value.trim()};
+      // Al entrar solo se cargan las últimas semanas; si se pide más atrás, se trae de Supabase.
+      if(filtros.desde && DB._desde && filtros.desde<DB._desde){
+        Util.toast('Cargando historial…');
+        try{ await DB.load(filtros.desde); }catch(err){ Util.toast('No se pudo cargar el historial: '+(err.message||err),'err'); }
+      }
       refresh();
+    };
+    el.querySelector('#hCsv').onclick=()=>{
+      const ch=DB.get('choferes'), un=DB.get('unidades'), ce=DB.get('centros'), pe=DB.get('pedidos'), en=DB.get('entregas');
+      const filas=[['Fecha','Centro','Chofer','Unidad','Folio','Cliente','Dirección','Estatus','Llegada','Entrega','Min. en sitio','Motivo','Comentarios']];
+      _rutasHist.forEach(r=>r.pedidoIds.forEach(pid=>{
+        const p=pe.find(x=>x.id===pid); if(!p) return;
+        const e=en.find(x=>x.pedidoId===pid);
+        filas.push([r.fecha, ce.find(c=>c.id===r.centroId)?.nombre||'', ch.find(c=>c.id===r.choferId)?.nombre||'', un.find(u=>u.id===r.unidadId)?.placa||r.vehiculoTexto||'',
+          p.folio, p.nombreContacto||'', p.direccion||'', p.estatus, p.horaLlegada||'', e?.horaEntrega||'',
+          p.horaLlegada&&e?Util.minsBetween(p.horaLlegada,e.horaEntrega):'', e?.motivo||'', e?.comentarios||'']);
+      }));
+      Util.descargarCSV(`MapRoad_entregas_${filtros.desde}_a_${filtros.hasta}.csv`, filas);
     };
     function buscarInforme(){
       const v = el.querySelector('#hInformeFolio').value.trim();
@@ -1741,6 +2043,7 @@ function viewHistorico(el){
     if(filtros.centroId) rutas=rutas.filter(r=>r.centroId===filtros.centroId);
     if(filtros.folio) rutas=rutas.filter(r=>r.pedidoIds.some(pid=>{ const p=pedidos.find(x=>x.id===pid); return p && p.folio && p.folio.toLowerCase().includes(filtros.folio.toLowerCase()); }));
 
+    _rutasHist = rutas;
     const concluidas = rutas.filter(r=>r.estatus==='concluida');
     const totalParadas = rutas.reduce((s,r)=>s+r.pedidoIds.length,0);
     const totalExitosas = rutas.reduce((s,r)=>s+r.pedidoIds.filter(pid=>pedidos.find(p=>p.id===pid)?.estatus==='entregado').length,0);
@@ -1771,390 +2074,30 @@ function viewHistorico(el){
 }
 
 /* ============================================================
-   17. VISTA: APP DEL CHOFER (móvil)
+   17. ESTATUS DE ENTREGA
+   (La app del chofer ya no vive en este archivo: está en chofer/index.html,
+   que es también lo que se empaqueta en el APK.)
    ============================================================ */
-function renderChoferShell(user){
-  const app=document.getElementById('app');
-  const chofer = DB.find('choferes', user.choferId);
-  const hoy = Util.todayISO();
-  const ruta = DB.get('rutas').find(r=>r.choferId===user.choferId && r.fecha===hoy);
-
-  app.innerHTML = `
-  <div class="chofer-shell">
-    <div class="chofer-top">
-      <div><b>${Util.esc(chofer?.nombre||user.nombre)}</b><br><span>${Util.esc(chofer?.telefono||'')}</span></div>
-      <button class="btn-logout" style="width:auto;padding:7px 12px" id="btnLogout">Salir</button>
-    </div>
-    <div class="chofer-body" id="choferBody"></div>
-  </div>`;
-  app.querySelector('#btnLogout').onclick=()=>{ Auth.logout(); location.hash='#/login'; };
-
-  const body = document.getElementById('choferBody');
-  if(!ruta){
-    body.innerHTML = `<div class="empty" style="padding-top:60px">📭<br><br>No tienes una ruta asignada para hoy (${Util.fmtDate(hoy)}).<br><span class="small">Consulta con tráfico/logística.</span></div>`;
-    return;
-  }
-  renderChoferRuta(body, ruta, chofer);
-}
-
-/* Minutos promedio por parada (traslado + entrega) de un chofer, según sus rutas
-   concluidas. Base del ETA del tracking y del correo de inicio de ruta. */
-function promedioMinsPorParada(choferId){
-  const histEntregas = DB.get('entregas');
-  const histRutas = DB.get('rutas').filter(r=>r.choferId===choferId && r.estatus==='concluida');
-  const tiemposPorParada=[];
-  histRutas.forEach(hr=>{
-    const ords = hr.ordenOptimizado&&hr.ordenOptimizado.length?hr.ordenOptimizado:hr.pedidoIds;
-    let prev=hr.horaInicio;
-    ords.forEach(pid=>{
-      const ent = histEntregas.find(e=>e.pedidoId===pid);
-      if(ent && prev){ tiemposPorParada.push(Util.minsBetween(prev, ent.horaEntrega)); prev=ent.horaEntrega; }
-    });
-  });
-  return tiemposPorParada.length ? tiemposPorParada.reduce((a,b)=>a+b,0)/tiemposPorParada.length : 28;
-}
-
-/* Avisa por correo (Resend, vía Edge Function) a cada cliente de la ruta que su
-   pedido ya va en camino. Guarda el resultado en ruta.notificacionInicio para
-   que tráfico lo vea en el detalle de la ruta. Nunca lanza: si falla, la ruta
-   sigue su curso normal. */
-async function notificarInicioRuta(ruta){
-  const pedidos = DB.get('pedidos');
-  const ids = (ruta.ordenOptimizado&&ruta.ordenOptimizado.length?ruta.ordenOptimizado:ruta.pedidoIds);
-  const orden = ids.map(pid=>pedidos.find(p=>p.id===pid)).filter(Boolean);
-  const guardar = (r)=>DB.update('rutas', ruta.id, {notificacionInicio:{fecha:Util.nowISO(), ...r}});
-
-  if(!NOTIF_CONFIG.url){ guardar({estatus:'no_configurado', enviados:[], fallidos:[], omitidos:[]}); return; }
-
-  const chofer = DB.find('choferes', ruta.choferId), unidad = DB.find('unidades', ruta.unidadId);
-  const origen = resolverOrigenRuta(ruta);
-  const promParada = promedioMinsPorParada(ruta.choferId);
-  const t0 = new Date(ruta.horaInicio||Date.now()).getTime();
-  const payload = {
-    rutaId: ruta.id, fecha: ruta.fecha, horaInicio: ruta.horaInicio,
-    origen: origen?.nombre || '', chofer: chofer?.nombre || '', unidad: unidad?.placa || ruta.vehiculoTexto || '',
-    totalParadas: orden.length,
-    trackingBaseUrl: location.origin + location.pathname,
-    pedidos: orden.map((p,i)=>({
-      folio:p.folio, email:(p.emailContacto||'').trim(), nombre:p.nombreContacto,
-      direccion:[p.direccion,p.colonia,p.cp?('C.P. '+p.cp):''].filter(Boolean).join(', '),
-      parada:i+1,
-      eta:new Date(t0 + Math.round(promParada*(i+1))*60000).toISOString(),
-      items:(p.items||[]).filter(it=>it&&it.nombre).map(it=>({nombre:it.nombre, cantidad:it.cantidad})),
-    })),
-  };
-  try{
-    const resp = await fetch(NOTIF_CONFIG.url, {
-      method:'POST',
-      headers:{'Content-Type':'application/json', apikey:NOTIF_CONFIG.anonKey, Authorization:'Bearer '+NOTIF_CONFIG.anonKey},
-      body: JSON.stringify(payload),
-    });
-    const data = await resp.json().catch(()=>({}));
-    const r = {enviados:data.enviados||[], fallidos:data.fallidos||[], omitidos:data.omitidos||[]};
-    if(!resp.ok && !r.fallidos.length) r.error = data.error || ('HTTP '+resp.status);
-    r.estatus = r.fallidos.length||r.error ? 'error' : 'ok';
-    guardar(r);
-    if(r.estatus==='ok' && r.enviados.length) Util.toast(`Aviso enviado por correo a ${r.enviados.length} cliente(s)`,'ok');
-    else if(r.estatus==='error') Util.toast('No se pudo enviar el aviso por correo a los clientes','err');
-  }catch(err){
-    guardar({estatus:'error', error:String(err&&err.message||err), enviados:[], fallidos:[], omitidos:[]});
-    Util.toast('No se pudo enviar el aviso por correo a los clientes','err');
-  }
-}
+// Estatus de pedido "cerrados" (ya no se van a reintentar en esta ruta) que no son un éxito.
+const ESTATUS_NO_EXITOSOS = ['cliente_ausente','reprogramado','cancelado_sucursal','fallido'];
+function esEstatusCerrado(estatus){ return estatus==='entregado' || ESTATUS_NO_EXITOSOS.includes(estatus); }
 
 function resumenNotificacionInicio(ruta){
   const n = ruta.notificacionInicio;
   if(!n) return '';
   if(n.estatus==='no_configurado') return ' · ✉️ Aviso por correo desactivado';
   const partes = [];
-  if(n.enviados.length) partes.push(`${n.enviados.length} enviado(s)`);
-  if(n.fallidos.length) partes.push(`${n.fallidos.length} fallido(s)`);
-  if(n.omitidos.length) partes.push(`${n.omitidos.length} sin correo válido`);
-  if(n.error && !n.fallidos.length) partes.push('error: '+n.error);
+  if((n.enviados||[]).length) partes.push(`${n.enviados.length} enviado(s)`);
+  if((n.fallidos||[]).length) partes.push(`${n.fallidos.length} fallido(s)`);
+  if((n.omitidos||[]).length) partes.push(`${n.omitidos.length} sin correo válido`);
+  if(n.error && !(n.fallidos||[]).length) partes.push('error: '+n.error);
   return ` · ✉️ Aviso de salida: ${Util.esc(partes.join(', ')||'sin destinatarios')}`;
-}
-
-function renderChoferRuta(body, ruta, chofer){
-  const pedidos = DB.get('pedidos');
-  const orden = (ruta.ordenOptimizado&&ruta.ordenOptimizado.length?ruta.ordenOptimizado:ruta.pedidoIds).map(pid=>pedidos.find(p=>p.id===pid)).filter(Boolean);
-  const origen = resolverOrigenRuta(ruta);
-  const pendientesIdx = orden.findIndex(p=>p.estatus==='pendiente'||p.estatus==='en_ruta');
-  const todasCerradas = pendientesIdx===-1;
-
-  if(ruta.estatus==='pendiente' && !ruta.horaInicio){
-    body.innerHTML = `
-      <div class="stop-card current" style="text-align:center">
-        <h3>Ruta lista para iniciar</h3>
-        <p class="muted">${orden.length} paradas · Saliendo de <b>${Util.esc(origen?.nombre||'tienda de origen')}</b></p>
-        ${origen
-          ? `<div class="small" style="margin:10px 0;padding:8px 10px;background:var(--success-soft);border-radius:8px;color:#1a9c6b">📍 Ubicación de la tienda de origen configurada — se usará como punto de partida de la ruta óptima</div>`
-          : `<div class="small" style="margin:10px 0;padding:8px 10px;background:var(--warning-soft);border-radius:8px;color:#c94a2c">⚠️ Esta ruta no tiene una tienda de origen con coordenadas — avisa a tráfico/logística</div>`}
-        <button class="btn primary block" id="btnIniciar">🚀 Salir de la sucursal e iniciar ruta</button>
-      </div>`;
-    body.querySelector('#btnIniciar').onclick=()=>{
-      DB.update('rutas', ruta.id, {estatus:'en_curso', horaInicio:Util.nowISO()});
-      Util.toast('Salida de sucursal registrada','ok');
-      const rutaIniciada = DB.find('rutas',ruta.id);
-      renderChoferRuta(body, rutaIniciada, chofer);
-      notificarInicioRuta(rutaIniciada); // no bloquea al chofer; el resultado queda en la ruta
-    };
-    return;
-  }
-
-  if(todasCerradas){
-    renderFinalizarRuta(body, ruta, chofer, orden);
-    return;
-  }
-
-  body.innerHTML = `
-    <div class="small" style="margin-bottom:10px;padding:8px 10px;background:var(--success-soft);border-radius:8px;color:#1a9c6b">🚚 Salida de ${Util.esc(origen?.nombre||'sucursal')} registrada — ${Util.fmtDateTime(ruta.horaInicio)}</div>
-    <div style="margin-bottom:10px" class="small muted">Progreso: ${pendientesIdx}/${orden.length} paradas completadas</div>` +
-    orden.map((p,idx)=>{
-      const isCurrent = idx===pendientesIdx;
-      const isDone = idx<pendientesIdx;
-      if(isCurrent) return `<div id="currentStop"></div>`;
-      return `<div class="stop-card ${isDone?'':''}">
-        <span class="stop-num">${idx+1}</span><b>${Util.esc(p.nombreContacto||p.folio)}</b>
-        <div class="small muted" style="margin-left:34px">${Util.esc(p.direccion||'')}</div>
-        <div style="margin-left:34px;margin-top:4px">${isDone?estatusBadge(p.estatus):'<span class="badge b-gray">En espera</span>'}</div>
-      </div>`;
-    }).join('');
-
-  const cur = orden[pendientesIdx];
-  const mapsUrl = cur.lat!=null ? `https://www.google.com/maps/dir/?api=1&destination=${cur.lat},${cur.lng}` : '#';
-  const yaLlego = !!cur.horaLlegada;
-  document.getElementById('currentStop').outerHTML = `
-    <div class="stop-card current">
-      <span class="stop-num">${pendientesIdx+1}</span><b>${Util.esc(cur.nombreContacto||cur.folio)}</b>
-      <div class="small muted" style="margin-left:34px">${Util.esc(cur.direccion||'')}, ${Util.esc(cur.colonia||'')} · C.P. ${Util.esc(cur.cp||'—')}</div>
-      <div class="small" style="margin-left:34px;margin-top:6px">📦 Folio: <b class="mono">${Util.esc(cur.folio)}</b> · Tel: ${Util.esc(cur.telefono||'—')}</div>
-      ${cur.comentarios?`<div class="small muted" style="margin-left:34px;margin-top:4px">📝 ${Util.esc(cur.comentarios)}</div>`:''}
-      <div style="display:flex;gap:8px;margin-top:12px">
-        <a class="btn ${cur.lat!=null?'primary':''}" href="${mapsUrl}" target="_blank" style="flex:1;justify-content:center" ${cur.lat==null?'aria-disabled="true" onclick="return false;"':''}>🧭 Navegar</a>
-        ${yaLlego?'':'<button class="btn success" style="flex:1" id="btnLlegue">📍 Confirmar llegada</button>'}
-      </div>
-      ${yaLlego?`
-        <div class="small" style="margin-top:10px;padding:8px 10px;background:var(--success-soft);border-radius:8px;color:#166534">✅ Llegada registrada a las ${Util.fmtTime(cur.horaLlegada)}</div>
-        <button class="btn success block" style="margin-top:10px" id="btnEntregar">✅ Registrar entrega y firma</button>
-      `:`
-        <div class="small muted" style="margin-top:8px">Confirma tu llegada al domicilio para poder registrar la entrega — así medimos el tiempo de traslado y el tiempo en el sitio.</div>
-      `}
-    </div>`;
-  if(yaLlego){
-    document.getElementById('btnEntregar').onclick=()=>openEntregaForm(body, ruta, cur, orden, chofer);
-  } else {
-    document.getElementById('btnLlegue').onclick=()=>{
-      DB.update('pedidos', cur.id, {horaLlegada:Util.nowISO()});
-      Util.toast('Llegada registrada','ok');
-      renderChoferRuta(body, DB.find('rutas',ruta.id), chofer);
-    };
-  }
-}
-
-const RESULTADOS_ENTREGA = {
-  entregado:{label:'Entregado correctamente', pideMotivo:false},
-  cliente_ausente:{label:'Cliente ausente / no se encontró', pideMotivo:true},
-  reprogramado:{label:'Reprogramar entrega', pideMotivo:true, pideFecha:true},
-  cancelado_sucursal:{label:'Cancelar — cliente pasará a sucursal', pideMotivo:true},
-  fallido:{label:'Otro motivo (no se pudo entregar)', pideMotivo:true},
-};
-// Estatus de pedido "cerrados" (ya no se van a reintentar en esta ruta) que no son un éxito.
-const ESTATUS_NO_EXITOSOS = ['cliente_ausente','reprogramado','cancelado_sucursal','fallido'];
-function esEstatusCerrado(estatus){ return estatus==='entregado' || ESTATUS_NO_EXITOSOS.includes(estatus); }
-
-function openEntregaForm(body, ruta, pedido, orden, chofer){
-  let fotos=[];
-  const items = (pedido.items||[]).filter(it=>it && it.nombre);
-  const container=document.createElement('div');
-  container.className='modal-bg';
-  container.innerHTML = `
-    <div class="modal wide">
-      <div class="modal-h"><b>Registrar entrega — Folio ${Util.esc(pedido.folio)}</b><button class="icon-btn" id="mClose">✕</button></div>
-      <div class="modal-b">
-        ${pedido.horaLlegada?`<div class="small muted" style="margin-bottom:12px">📍 Llegada: ${Util.fmtTime(pedido.horaLlegada)} · Tiempo en el sitio: ${Util.fmtMins(Util.minsBetween(pedido.horaLlegada, Util.nowISO()))}</div>`:''}
-        <div class="field"><label>Resultado</label>
-          <select id="eResultado">${Object.entries(RESULTADOS_ENTREGA).map(([v,cfg])=>`<option value="${v}">${Util.esc(cfg.label)}</option>`).join('')}</select>
-        </div>
-        <div class="field" id="eMotivoWrap" style="display:none"><label>Motivo</label><input id="eMotivo" placeholder="Detalle breve (dirección incorrecta, no contestó, etc.)"></div>
-        <div class="field" id="eFechaWrap" style="display:none"><label>Nueva fecha propuesta (opcional)</label><input type="date" id="eNuevaFecha"></div>
-        ${items.length?`
-        <div class="field" id="eItemsWrap">
-          <label>Artículos entregados</label>
-          <div class="small muted" style="margin-bottom:6px">Verifica lo que realmente se entregó — desmarca lo que falte.</div>
-          <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--panel-2);border-bottom:1px solid var(--border)">
-              <label class="small" style="display:flex;align-items:center;gap:6px;font-weight:600"><input type="checkbox" id="eItemsAll" checked> Marcar todos</label>
-              <span class="small muted" id="eItemsCount"></span>
-            </div>
-            <div id="eItemsList"></div>
-          </div>
-        </div>`:''}
-        <div class="field">
-          <label>Fotos de evidencia (hasta 10)</label>
-          <input type="file" accept="image/*" capture="environment" multiple id="eFotos">
-          <div class="thumbs" id="eThumbs"></div>
-        </div>
-        <div class="field">
-          <label>Firma del cliente</label>
-          <canvas class="sigpad" id="eSig"></canvas>
-          <div style="margin-top:6px"><button class="btn sm" id="eSigClear">Limpiar firma</button></div>
-        </div>
-        <div class="field">
-          <label>Documentos (opcional — remisión, factura, etc.)</label>
-          <input type="file" accept="image/*,.pdf" multiple id="eDocs">
-        </div>
-        <div class="field"><label>Comentarios</label><textarea id="eComentarios" rows="2"></textarea></div>
-      </div>
-      <div class="modal-f"><button class="btn" id="mCancel">Cancelar</button><button class="btn success" id="mGuardar">Cerrar entrega y continuar</button></div>
-    </div>`;
-  document.body.appendChild(container);
-  container.querySelector('#mClose').onclick = container.querySelector('#mCancel').onclick = ()=>container.remove();
-
-  container.querySelector('#eResultado').onchange=(e)=>{
-    const cfg = RESULTADOS_ENTREGA[e.target.value];
-    container.querySelector('#eMotivoWrap').style.display = cfg.pideMotivo?'block':'none';
-    container.querySelector('#eFechaWrap').style.display = cfg.pideFecha?'block':'none';
-    const itemsWrap = container.querySelector('#eItemsWrap');
-    if(itemsWrap) itemsWrap.style.display = e.target.value==='entregado'?'block':'none';
-  };
-
-  // Checklist de artículos (viene de la hoja "Detalle" del Excel, o de las filas del pedido)
-  const itemsList = container.querySelector('#eItemsList');
-  function renderItemsChecklist(){
-    if(!itemsList) return;
-    itemsList.innerHTML = items.map((it,i)=>`
-      <label style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--border);font-size:13px">
-        <input type="checkbox" class="e-item-chk" data-i="${i}" checked>
-        <span style="flex:1">${Util.esc(it.nombre)}${it.codigo?` <span class="mute2 small">(${Util.esc(it.codigo)})</span>`:''}</span>
-        <span class="mono small">x${Util.esc(it.cantidad!=null?it.cantidad:1)}</span>
-      </label>`).join('');
-    updateItemsCount();
-    itemsList.querySelectorAll('.e-item-chk').forEach(chk=>chk.onchange=updateItemsCount);
-  }
-  function updateItemsCount(){
-    const checks = Array.from(itemsList?.querySelectorAll('.e-item-chk')||[]);
-    const total=checks.length, marcados=checks.filter(c=>c.checked).length;
-    const countEl = container.querySelector('#eItemsCount');
-    if(countEl) countEl.textContent = `${marcados}/${total} marcados`;
-  }
-  if(items.length){
-    renderItemsChecklist();
-    container.querySelector('#eItemsAll').onchange=(e)=>{
-      itemsList.querySelectorAll('.e-item-chk').forEach(chk=>chk.checked=e.target.checked);
-      updateItemsCount();
-    };
-  }
-
-  const thumbs=container.querySelector('#eThumbs');
-  container.querySelector('#eFotos').onchange = async (e)=>{
-    const files=Array.from(e.target.files).slice(0, 10-fotos.length);
-    for(const f of files){
-      try{ const data=await Util.resizeImage(f,900,0.6); fotos.push(data); }catch(err){}
-    }
-    e.target.value='';
-    renderThumbs();
-  };
-  function renderThumbs(){
-    thumbs.innerHTML = fotos.map((f,i)=>`<div class="thumb"><img src="${f}"><button class="rm" data-i="${i}">✕</button></div>`).join('') +
-      (fotos.length<10?'':'');
-    thumbs.querySelectorAll('.rm').forEach(b=>b.onclick=()=>{ fotos.splice(Number(b.dataset.i),1); renderThumbs(); });
-    const label = container.querySelector('#eFotos');
-    label.disabled = fotos.length>=10;
-  }
-
-  // Firma
-  const cv=container.querySelector('#eSig'); const ctx=cv.getContext('2d');
-  function fitCanvas(){ const r=cv.getBoundingClientRect(); cv.width=r.width; cv.height=150; ctx.lineWidth=2; ctx.lineCap='round'; ctx.strokeStyle='#0f172a'; }
-  fitCanvas();
-  let drawing=false;
-  function pos(e){ const r=cv.getBoundingClientRect(); const t=e.touches?e.touches[0]:e; return {x:t.clientX-r.left,y:t.clientY-r.top}; }
-  function start(e){ drawing=true; const p=pos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); e.preventDefault(); }
-  function move(e){ if(!drawing) return; const p=pos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); e.preventDefault(); }
-  function end(){ drawing=false; }
-  cv.addEventListener('mousedown',start); cv.addEventListener('mousemove',move); window.addEventListener('mouseup',end);
-  cv.addEventListener('touchstart',start,{passive:false}); cv.addEventListener('touchmove',move,{passive:false}); cv.addEventListener('touchend',end);
-  container.querySelector('#eSigClear').onclick=()=>ctx.clearRect(0,0,cv.width,cv.height);
-
-  let docs=[];
-  container.querySelector('#eDocs').onchange=(e)=>{ docs = Array.from(e.target.files).map(f=>f.name); };
-
-  container.querySelector('#mGuardar').onclick=()=>{
-    const resultado=container.querySelector('#eResultado').value;
-    const motivo=container.querySelector('#eMotivo')?.value||'';
-    const nuevaFecha=container.querySelector('#eNuevaFecha')?.value||'';
-    const comentarios=container.querySelector('#eComentarios').value;
-    const firma = cv.toDataURL('image/png');
-
-    let itemsEntregados = null, entregaParcial = false;
-    if(items.length && resultado==='entregado'){
-      const checks = Array.from(itemsList.querySelectorAll('.e-item-chk'));
-      itemsEntregados = items.map((it,i)=>({nombre:it.nombre, cantidad:it.cantidad, codigo:it.codigo, entregado:checks[i].checked}));
-      entregaParcial = itemsEntregados.some(it=>!it.entregado);
-    }
-
-    DB.insert('entregas', {pedidoId:pedido.id, rutaId:ruta.id, horaEntrega:Util.nowISO(), fotos, firma, documentos:docs, comentarios, motivo, resultado, nuevaFecha, itemsEntregados, entregaParcial});
-    DB.update('pedidos', pedido.id, {estatus:resultado});
-    container.remove();
-    const msg = resultado==='entregado' ? (entregaParcial?'Entrega parcial registrada ⚠️':'Entrega registrada ✅') : `Marcado: ${RESULTADOS_ENTREGA[resultado].label}`;
-    Util.toast(msg, resultado==='entregado'&&!entregaParcial?'ok':'err');
-    renderChoferRuta(body, DB.find('rutas',ruta.id), chofer);
-  };
-}
-
-function renderFinalizarRuta(body, ruta, chofer, orden){
-  const origen = resolverOrigenRuta(ruta);
-  body.innerHTML = `
-    <div class="stop-card current" style="text-align:center">
-      <h3>🏁 Todas las paradas completadas</h3>
-      <p class="muted">Regresa a la sucursal (${Util.esc(origen?.nombre||'—')}) para concluir la ruta.</p>
-      <div id="geoStatus" class="small muted" style="margin:10px 0">Verificando ubicación…</div>
-      <button class="btn success block" id="btnConcluir">Concluir ruta</button>
-    </div>`;
-  const geoBox = document.getElementById('geoStatus');
-  if(navigator.geolocation && origen){
-    navigator.geolocation.getCurrentPosition(pos=>{
-      const d = Util.distKm({lat:pos.coords.latitude,lng:pos.coords.longitude},origen);
-      geoBox.textContent = d<0.5 ? '📍 Ubicación confirmada en el punto de retorno.' : `📍 Estás a ${d.toFixed(1)} km del punto de retorno.`;
-    }, ()=>{ geoBox.textContent='No se pudo obtener tu ubicación (puedes concluir manualmente).'; }, {timeout:6000});
-  } else {
-    geoBox.textContent='Geolocalización no disponible en este dispositivo (modo demo).';
-  }
-  document.getElementById('btnConcluir').onclick=()=>{
-    const horaFin=Util.nowISO();
-    DB.update('rutas', ruta.id, {estatus:'concluida', horaFin});
-    const dur=Util.minsBetween(ruta.horaInicio, horaFin);
-    const exitosas = orden.filter(p=>p.estatus==='entregado').length;
-
-    // Tiempo de traslado (entre paradas) vs tiempo en el sitio (llegada -> entrega),
-    // calculado con las marcas de "Confirmar llegada" registradas durante la ruta.
-    const entregas = DB.get('entregas');
-    let tiempoTraslado=0, tiempoEnSitio=0, conteoSitio=0;
-    let prevSalida = ruta.horaInicio;
-    orden.forEach(p=>{
-      const ent = entregas.find(e=>e.pedidoId===p.id);
-      if(p.horaLlegada && prevSalida) tiempoTraslado += Util.minsBetween(prevSalida, p.horaLlegada);
-      if(ent && p.horaLlegada){ tiempoEnSitio += Util.minsBetween(p.horaLlegada, ent.horaEntrega); conteoSitio++; }
-      if(ent) prevSalida = ent.horaEntrega;
-    });
-
-    body.innerHTML = `<div class="stop-card current" style="text-align:center">
-      <h3>✅ Ruta concluida</h3>
-      <div class="grid cols-2" style="margin-top:14px;text-align:left">
-        <div class="card"><h3>Duración total</h3><div class="stat small-stat">${Util.fmtMins(dur)}</div></div>
-        <div class="card"><h3>Entregas exitosas</h3><div class="stat small-stat" style="color:var(--success)">${exitosas}/${orden.length}</div></div>
-        <div class="card"><h3>Tiempo en traslado</h3><div class="stat small-stat">${Util.fmtMins(tiempoTraslado)}</div></div>
-        <div class="card"><h3>Tiempo en sitio</h3><div class="stat small-stat">${Util.fmtMins(tiempoEnSitio)}</div></div>
-        <div class="card"><h3>Prom. en sitio/parada</h3><div class="stat small-stat">${Util.fmtMins(conteoSitio?Math.round(tiempoEnSitio/conteoSitio):null)}</div></div>
-        <div class="card"><h3>Eficiencia</h3><div class="stat small-stat">${orden.length?Math.round(exitosas/orden.length*100):0}%</div></div>
-      </div>
-      <p class="muted" style="margin-top:14px">Gracias, ${Util.esc(chofer?.nombre||'')}. Puedes cerrar la app.</p>
-    </div>`;
-    Util.toast('Ruta concluida — estadísticas calculadas','ok');
-  };
 }
 
 /* ============================================================
    18. VISTA: TRACKING PÚBLICO DEL CLIENTE
+   Sin login: consulta la función mpr_tracking(folio), que devuelve solo
+   lo que el cliente necesita ver de su pedido.
    ============================================================ */
 function renderTracking(){
   const app=document.getElementById('app');
@@ -2167,18 +2110,19 @@ function renderTracking(){
         <div class="field"><label>Folio de pedido</label><input name="folio" placeholder="Ej. F1000" required></div>
         <button class="btn primary block" type="submit">Rastrear pedido</button>
       </form>
-      <div class="auth-links"><a href="#/login">← Volver al inicio de sesión</a></div>
     </div>
     <div id="tResult"></div>
   </div></div>`;
-  document.getElementById('tForm').addEventListener('submit', e=>{
+  document.getElementById('tForm').addEventListener('submit', async e=>{
     e.preventDefault();
-    const f=new FormData(e.target);
-    const folio=f.get('folio').trim();
-    const pedido = DB.get('pedidos').find(p=>p.folio && p.folio.toLowerCase()===folio.toLowerCase());
-    if(!pedido){ document.getElementById('tErr').innerHTML='<div class="errbox">No encontramos ningún pedido con ese folio.</div>'; document.getElementById('tResult').innerHTML=''; return; }
+    const folio=new FormData(e.target).get('folio').trim();
+    const {data,error} = await sb.rpc('mpr_tracking',{p_folio:folio});
+    if(error || !data || !data.encontrado){
+      document.getElementById('tErr').innerHTML=`<div class="errbox">${error?'No se pudo consultar en este momento. Intenta de nuevo.':'No encontramos ningún pedido con ese folio.'}</div>`;
+      document.getElementById('tResult').innerHTML=''; return;
+    }
     document.getElementById('tErr').innerHTML='';
-    renderTrackingResult(pedido);
+    renderTrackingResult(data);
   });
   // Enlace directo desde el correo de "tu pedido va en camino": #/tracking?folio=F1000
   const folioLink = hashParam('folio');
@@ -2189,15 +2133,8 @@ function renderTracking(){
   }
 }
 
-function renderTrackingResult(pedido){
-  const ruta = DB.find('rutas', pedido.rutaId);
-  const origenRuta = ruta ? resolverOrigenRuta(ruta) : null;
-  const chofer = ruta ? DB.find('choferes', ruta.choferId) : null;
-  const orden = ruta ? (ruta.ordenOptimizado&&ruta.ordenOptimizado.length?ruta.ordenOptimizado:ruta.pedidoIds) : [];
-  const idx = orden.indexOf(pedido.id);
-  const pedidosRuta = DB.get('pedidos');
-  const entregadasAntes = orden.slice(0, idx).filter(pid=>esEstatusCerrado(pedidosRuta.find(p=>p.id===pid)?.estatus)).length;
-  const entrega = DB.get('entregas').find(e=>e.pedidoId===pedido.id);
+function renderTrackingResult(d){
+  const pedido=d.pedido, ruta=d.ruta, origenRuta=d.origen, entrega=d.entrega, idx=d.idx, entregadasAntes=d.entregadasAntes;
   const yaCerrado = esEstatusCerrado(pedido.estatus);
 
   const ESTADO_CLIENTE_TXT = {
@@ -2209,44 +2146,40 @@ function renderTrackingResult(pedido){
     reprogramado:'Reprogramado', cancelado_sucursal:'Cancelado — recoge en sucursal', fallido:'Intento de entrega'
   };
 
-  let estadoTxt, pasos;
+  let estadoTxt;
   if(ESTADO_CLIENTE_TXT[pedido.estatus]){ estadoTxt=ESTADO_CLIENTE_TXT[pedido.estatus]; }
   else if(ruta && ruta.estatus==='en_curso'){ estadoTxt='En camino'; }
-  else if(ruta && ruta.estatus==='pendiente'){ estadoTxt='Programado para hoy'; }
+  else if(ruta && ruta.estatus==='pendiente'){ estadoTxt='Programado'; }
   else { estadoTxt='Pendiente de asignación de ruta'; }
 
-  // El conteo de "paradas antes de la tuya" solo tiene sentido mientras va en camino;
-  // una vez cerrado (entregado o con incidencia) ya no aporta información y se omite.
-  const conteoTxt = (!yaCerrado && idx>-1) ? ` (${entregadasAntes} paradas antes de la tuya)` : '';
-
-  pasos = [
-    {label:'Pedido registrado', done:true, hora:pedido.creado},
+  // El conteo de "paradas antes de la tuya" solo tiene sentido mientras va en camino.
+  const conteoTxt = (!yaCerrado && idx>-1) ? ` (${idx-entregadasAntes} paradas antes de la tuya)` : '';
+  const pasos = [
+    {label:'Pedido registrado', done:true, hora:pedido.createdAt},
     {label:'Salió del centro de distribución', done: !!(ruta&&ruta.horaInicio), hora: ruta?.horaInicio},
     {label: pedido.horaLlegada ? 'El repartidor llegó a tu domicilio' : ('En ruta hacia tu domicilio'+conteoTxt),
       done: ruta&&ruta.estatus!=='pendiente', current: ruta&&ruta.estatus==='en_curso'&&pedido.estatus==='pendiente', hora: pedido.horaLlegada},
     {label: ULTIMO_PASO_TXT[pedido.estatus] || 'Entregado', done: yaCerrado, hora: entrega?.horaEntrega},
   ];
 
-  // ETA basado en tiempos históricos del chofer para posiciones similares en ruta
+  // ETA con el tiempo promedio histórico por parada de ese chofer
   let etaTxt='—';
   if(ruta && ruta.estatus==='en_curso' && pedido.estatus==='pendiente' && idx>-1){
-    const promParada = promedioMinsPorParada(ruta.choferId);
     const paradasRestantes = idx - entregadasAntes + 1;
-    const minsRestantes = Math.max(5, Math.round(promParada*paradasRestantes));
-    const eta = new Date(Date.now()+minsRestantes*60000);
-    etaTxt = eta.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+    const minsRestantes = Math.max(5, Math.round(d.promParada*paradasRestantes));
+    etaTxt = new Date(Date.now()+minsRestantes*60000).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
   } else if(pedido.estatus==='entregado'){
     etaTxt = 'Entregado';
   }
 
-  // Ubicación difuminada (no exacta) — solo una zona aproximada, no el punto anterior real
+  // Ubicación difuminada (no exacta) — solo una zona aproximada, nunca el punto real de la unidad
   const box = document.getElementById('tResult');
   const puedeMostrarMapa = ruta && ruta.estatus==='en_curso' && pedido.lat!=null && origenRuta;
   let fuzzed=null;
   if(puedeMostrarMapa){
-    const avance = orden.length ? Math.min(1,(entregadasAntes+0.5)/orden.length) : 0.5;
+    const avance = d.total ? Math.min(1,(entregadasAntes+0.5)/d.total) : 0.5;
     const approx = { lat: origenRuta.lat + (pedido.lat-origenRuta.lat)*avance, lng: origenRuta.lng + (pedido.lng-origenRuta.lng)*avance };
-    fuzzed = Util.jitter(approx, 1.5); // se difumina para no revelar el punto exacto anterior
+    fuzzed = Util.jitter(approx, 1.5);
   }
 
   if(_trackMap){ _trackMap.remove(); _trackMap=null; }
@@ -2263,12 +2196,12 @@ function renderTrackingResult(pedido){
         ${pasos.map(p=>`<div class="p-step ${p.done?'done':''} ${p.current?'current':''}"><div class="p-dot"></div><b class="small">${Util.esc(p.label)}</b>${p.hora?`<div class="small mute2">${Util.fmtDateTime(p.hora)}</div>`:''}</div>`).join('')}
       </div>
       <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
-      <div class="small muted"><b>Dirección de entrega:</b> ${Util.esc(pedido.direccion||'')}, ${Util.esc(pedido.colonia||'')}</div>
-      <div class="small muted" style="margin-top:4px"><b>Chofer:</b> ${chofer?Util.esc(chofer.nombre):'Por asignar'}</div>
+      <div class="small muted"><b>Dirección de entrega:</b> ${Util.esc(pedido.direccion||'')}${pedido.colonia?', '+Util.esc(pedido.colonia):''}</div>
+      <div class="small muted" style="margin-top:4px"><b>Chofer:</b> ${d.chofer?Util.esc(d.chofer):'Por asignar'}</div>
       ${entrega && entrega.fotos && entrega.fotos.length ? `
         <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
         <div class="small" style="margin-bottom:8px"><b>Evidencia de entrega</b></div>
-        <div class="thumbs">${entrega.fotos.map(f=>`<div class="thumb"><img src="${f}"></div>`).join('')}</div>
+        <div class="thumbs">${entrega.fotos.map(f=>`<div class="thumb"><img src="${Util.esc(f)}"></div>`).join('')}</div>
       `:''}
     </div>`;
 
@@ -2322,10 +2255,17 @@ function openModalCustom(id, title, bodyHtml, buttons, onAction){
 function closeCustomModal(id){ const m=document.getElementById(id); if(m) m.remove(); }
 
 /* ============================================================
-   20. BOOTSTRAP
+   20. ARRANQUE
    ============================================================ */
-DB.seedIfEmpty();
-route();
+(async function(){
+  document.getElementById('app').innerHTML='<div class="auth-wrap"><div style="color:#fff;font-weight:600">Cargando MapRoad…</div></div>';
+  try{
+    const u = await Auth.init();
+    if(u && u.rol!=='chofer' && currentPath()!=='tracking'){ await DB.load(); DB.subscribe(); }
+  }catch(err){ console.error(err); Util.toast('No se pudo conectar con el servidor: '+(err.message||err),'err'); }
+  _listo = true;
+  route();
+})();
 </script>
 </body>
 </html>

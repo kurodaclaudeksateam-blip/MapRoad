@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Camión de reparto: ícono de la app y de la notificación de ruta en curso -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFF" android:fillType="evenOdd"
+        android:pathData="M3,6.5C3,5.67 3.67,5 4.5,5h9C14.33,5 15,5.67 15,6.5V8h2.6c0.5,0 0.96,0.25 1.24,0.66l1.9,2.85c0.17,0.25 0.26,0.54 0.26,0.84V15.5c0,0.83 -0.67,1.5 -1.5,1.5h-0.55a2.5,2.5 0,0 1,-4.9 0H9.95a2.5,2.5 0,0 1,-4.9 0H4.5C3.67,17 3,16.33 3,15.5ZM15,10v2.5h3.8L17.2,10ZM7.5,15.4a1.1,1.1 0,1 0,0 2.2a1.1,1.1 0,0 0,0 -2.2ZM16.5,15.4a1.1,1.1 0,1 0,0 2.2a1.1,1.1 0,0 0,0 -2.2Z" />
+</vector>

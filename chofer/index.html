@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="oscuro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1020">
+<title>MapRoad Chofer</title>
+<script src="../vendor/supabase.js"></script>
+<script src="../config.js"></script>
+<style>
+/* ============================================================
+   MapRoad Chofer — app móvil (web y APK Android)
+   Estilo "liquid glass": capas translúcidas con desenfoque sobre un
+   fondo de color en movimiento. Tres temas: oscuro, claro y aurora
+   (multicolor). Todo el color sale de las variables de :root[data-theme].
+   ============================================================ */
+:root{
+  --r:22px; --r-sm:14px;
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --ok:#34d399; --warn:#fbbf24; --bad:#fb7185;
+}
+:root[data-theme="oscuro"]{
+  --bg:#070b17; --b1:#1d4ed8; --b2:#0e7490; --b3:#6d28d9;
+  --glass:rgba(255,255,255,.07); --glass-2:rgba(255,255,255,.12); --line:rgba(255,255,255,.16);
+  --tx:#f1f5f9; --tx2:#a9b4c7; --acc:#38bdf8; --acc2:#818cf8; --on-acc:#04121f;
+  --field:rgba(0,0,0,.28); --shadow:0 18px 40px rgba(0,0,0,.45);
+}
+:root[data-theme="claro"]{
+  --bg:#eef3fb; --b1:#93c5fd; --b2:#a5f3fc; --b3:#c4b5fd;
+  --glass:rgba(255,255,255,.58); --glass-2:rgba(255,255,255,.8); --line:rgba(255,255,255,.95);
+  --tx:#0f172a; --tx2:#51607a; --acc:#0284c7; --acc2:#4f46e5; --on-acc:#ffffff;
+  --field:rgba(255,255,255,.75); --shadow:0 16px 36px rgba(60,80,130,.18);
+  --ok:#059669; --warn:#b45309; --bad:#e11d48;
+}
+:root[data-theme="aurora"]{
+  --bg:#140a2e; --b1:#ec4899; --b2:#f59e0b; --b3:#22d3ee;
+  --glass:rgba(255,255,255,.11); --glass-2:rgba(255,255,255,.18); --line:rgba(255,255,255,.28);
+  --tx:#ffffff; --tx2:#e3d9f7; --acc:#fde047; --acc2:#f472b6; --on-acc:#2a0f3d;
+  --field:rgba(20,5,45,.35); --shadow:0 18px 44px rgba(20,0,60,.5);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;height:100%;}
+body{font-family:var(--font);color:var(--tx);background:var(--bg);font-size:15px;line-height:1.45;overflow-x:hidden;
+  transition:background .4s,color .3s;}
+button,input,select,textarea{font:inherit;color:inherit;}
+button{cursor:pointer;}
+.hidden{display:none !important;}
+
+/* Fondo líquido: tres manchas de color que derivan lentamente */
+.liquid{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;}
+.liquid i{position:absolute;border-radius:50%;filter:blur(70px);opacity:.75;will-change:transform;}
+.liquid i:nth-child(1){width:62vmax;height:62vmax;left:-22vmax;top:-20vmax;background:var(--b1);animation:deriva1 26s ease-in-out infinite alternate;}
+.liquid i:nth-child(2){width:52vmax;height:52vmax;right:-20vmax;top:22vh;background:var(--b2);animation:deriva2 32s ease-in-out infinite alternate;}
+.liquid i:nth-child(3){width:58vmax;height:58vmax;left:8vw;bottom:-30vmax;background:var(--b3);animation:deriva3 29s ease-in-out infinite alternate;}
+@keyframes deriva1{to{transform:translate(14vw,10vh) scale(1.15);}}
+@keyframes deriva2{to{transform:translate(-16vw,-8vh) scale(.9);}}
+@keyframes deriva3{to{transform:translate(10vw,-12vh) scale(1.1);}}
+@media (prefers-reduced-motion:reduce){.liquid i{animation:none;}}
+
+#app{position:relative;z-index:1;min-height:100%;display:flex;flex-direction:column;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);}
+.wrap{width:100%;max-width:560px;margin:0 auto;padding:14px 14px 110px;}
+@media(min-width:900px){ .wrap{max-width:980px;} .cols{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:16px;align-items:start;} }
+
+/* Vidrio */
+.glass{position:relative;background:var(--glass);border:1px solid var(--line);border-radius:var(--r);
+  -webkit-backdrop-filter:blur(22px) saturate(170%);backdrop-filter:blur(22px) saturate(170%);
+  box-shadow:var(--shadow), inset 0 1px 0 rgba(255,255,255,.22);}
+.glass::before{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(135deg,rgba(255,255,255,.22),rgba(255,255,255,0) 38%,rgba(255,255,255,0) 70%,rgba(255,255,255,.08));}
+.card{padding:16px;margin-bottom:14px;}
+.card h2{margin:0 0 4px;font-size:17px;letter-spacing:-.01em;}
+.muted{color:var(--tx2);} .small{font-size:12.5px;} .mono{font-family:ui-monospace,Menlo,Consolas,monospace;}
+.center{text-align:center;}
+
+/* Barra superior */
+.top{position:sticky;top:8px;z-index:20;margin:8px 14px 0;padding:10px 12px;display:flex;align-items:center;gap:10px;border-radius:999px;}
+.top .ava{width:38px;height:38px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;
+  background:linear-gradient(135deg,var(--acc),var(--acc2));color:var(--on-acc);}
+.top .who{flex:1;min-width:0;line-height:1.2;}
+.top .who b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.round{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--glass-2);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
+.round:active{transform:scale(.92);}
+
+.chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font-size:12px;font-weight:700;background:var(--glass-2);border:1px solid var(--line);white-space:nowrap;}
+.chip.ok{color:var(--ok);} .chip.warn{color:var(--warn);} .chip.bad{color:var(--bad);}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 14px;}
+
+/* Botones */
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:52px;padding:12px 18px;border-radius:999px;
+  border:1px solid var(--line);background:var(--glass-2);font-weight:700;font-size:15.5px;text-decoration:none;color:var(--tx);
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);transition:transform .12s,filter .15s;}
+.btn:active{transform:scale(.97);}
+.btn.pri{background:linear-gradient(135deg,var(--acc),var(--acc2));color:var(--on-acc);border-color:transparent;
+  box-shadow:0 10px 26px color-mix(in srgb,var(--acc) 40%,transparent), inset 0 1px 0 rgba(255,255,255,.45);}
+.btn.ok{background:linear-gradient(135deg,#34d399,#10b981);color:#042f1f;border-color:transparent;box-shadow:0 10px 26px rgba(16,185,129,.35), inset 0 1px 0 rgba(255,255,255,.45);}
+.btn:disabled{opacity:.5;}
+.btn.sm{min-height:40px;font-size:13.5px;padding:8px 14px;width:auto;}
+.row{display:flex;gap:10px;} .row>*{flex:1;}
+
+/* Campos */
+.field{margin-bottom:12px;}
+.field label{display:block;font-size:12.5px;font-weight:700;color:var(--tx2);margin-bottom:6px;}
+.field input,.field select,.field textarea{width:100%;padding:13px 14px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--field);outline:none;}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 25%,transparent);}
+.field select option{color:#0f172a;background:#fff;}
+.err{background:color-mix(in srgb,var(--bad) 18%,transparent);border:1px solid var(--bad);color:var(--tx);padding:10px 12px;border-radius:var(--r-sm);font-size:13px;margin-bottom:12px;}
+.note{padding:10px 12px;border-radius:var(--r-sm);font-size:13px;background:var(--glass-2);border:1px solid var(--line);margin:10px 0;}
+
+/* Login */
+.login{flex:1;display:flex;align-items:center;justify-content:center;padding:20px;}
+.login .card{width:100%;max-width:400px;padding:26px 22px;margin:0;}
+.logo{width:58px;height:58px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px;margin:0 auto 12px;
+  background:linear-gradient(135deg,var(--acc),var(--acc2));color:var(--on-acc);box-shadow:0 12px 28px color-mix(in srgb,var(--acc) 45%,transparent);}
+
+/* Progreso */
+.prog{height:10px;border-radius:99px;background:var(--field);overflow:hidden;border:1px solid var(--line);}
+.prog i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--acc),var(--acc2));transition:width .5s;}
+
+/* Paradas */
+.stop{display:flex;gap:12px;padding:12px 14px;margin-bottom:10px;border-radius:18px;}
+.stop .n{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;background:var(--glass-2);border:1px solid var(--line);}
+.stop.done{opacity:.72;} .stop.done .n{background:var(--ok);color:#042f1f;border-color:transparent;}
+.stop.bad .n{background:var(--warn);color:#3a2500;border-color:transparent;}
+.cur{border-color:color-mix(in srgb,var(--acc) 70%,transparent);box-shadow:var(--shadow),0 0 0 3px color-mix(in srgb,var(--acc) 22%,transparent), inset 0 1px 0 rgba(255,255,255,.22);}
+.cur .n{background:linear-gradient(135deg,var(--acc),var(--acc2));color:var(--on-acc);border-color:transparent;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.kpi{padding:12px;border-radius:16px;background:var(--glass-2);border:1px solid var(--line);}
+.kpi b{display:block;font-size:20px;} .kpi span{font-size:11.5px;color:var(--tx2);text-transform:uppercase;letter-spacing:.04em;font-weight:700;}
+
+/* Hoja inferior (registro de entrega, menú) */
+.sheet-bg{position:fixed;inset:0;z-index:50;background:rgba(3,6,16,.55);display:flex;align-items:flex-end;justify-content:center;animation:fade .2s;}
+.sheet{width:100%;max-width:620px;max-height:92vh;overflow-y:auto;border-radius:28px 28px 0 0;padding:10px 16px calc(18px + env(safe-area-inset-bottom));animation:sube .28s cubic-bezier(.2,.9,.3,1);}
+@media(min-width:700px){.sheet-bg{align-items:center;}.sheet{border-radius:28px;}}
+.sheet .grab{width:44px;height:5px;border-radius:99px;background:var(--line);margin:4px auto 12px;}
+.sheet h3{margin:0 0 12px;font-size:17px;}
+@keyframes fade{from{opacity:0}} @keyframes sube{from{transform:translateY(40px);opacity:0}}
+.items{border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden;background:var(--field);}
+.items label{display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:1px solid var(--line);font-size:14px;font-weight:500;color:var(--tx);margin:0;}
+.items label:last-child{border-bottom:none;}
+.items input{width:20px;height:20px;accent-color:var(--acc);flex-shrink:0;}
+.thumbs{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:8px;}
+.thumb{position:relative;aspect-ratio:1;border-radius:12px;overflow:hidden;border:1px solid var(--line);}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.thumb button{position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;border:none;background:rgba(0,0,0,.65);color:#fff;font-size:12px;line-height:1;}
+.sig{display:block;width:100%;height:160px;border-radius:var(--r-sm);border:1px dashed var(--line);background:#fff;touch-action:none;}
+.themes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+.themes button{padding:12px 6px;border-radius:16px;border:1px solid var(--line);background:var(--glass-2);font-weight:700;font-size:13px;}
+.themes button.on{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 25%,transparent);}
+.themes .sw{height:34px;border-radius:10px;margin-bottom:6px;}
+.toasts{position:fixed;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom));z-index:90;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;padding:0 14px;}
+.toast{padding:11px 18px;border-radius:999px;font-size:13.5px;font-weight:600;max-width:100%;animation:sube .25s;}
+.spin{width:18px;height:18px;border-radius:50%;border:2.5px solid currentColor;border-right-color:transparent;animation:gira .7s linear infinite;display:inline-block;}
+@keyframes gira{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="liquid"><i></i><i></i><i></i></div>
+<div id="app"></div>
+<div class="toasts" id="toasts"></div>
+
+<script>
+/* ============================================================
+   Principio de diseño: el teléfono habla con Supabase lo menos posible.
+     1) mpr_chofer_ruta(fecha)  → descarga UNA vez la ruta del día completa
+        y se guarda en el teléfono; a partir de ahí todo se trabaja local.
+     2) mpr_chofer_sync(eventos) → sube en lote lo que pasó (inicio, llegadas,
+        entregas, fin, puntos GPS). Sale en cada reporte de ubicación
+        (cada 4 min) o al cerrar una entrega; si no hay señal, espera en cola.
+   Nunca se consultan tablas directamente ni se mantiene un canal abierto.
+   ============================================================ */
+const CFG = window.MPR_CONFIG;
+const sb = supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey);
+const NATIVO = window.MRNative || null;   // puente del APK (GPS en segundo plano); null en navegador
+const MIN_GPS = CFG.minutosUbicacion || 4;
+const $ = (s,el)=>(el||document).querySelector(s);
+const app = $('#app');
+
+const U = {
+  esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); },
+  hoy(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); },
+  ahora(){ return new Date().toISOString(); },
+  hora(iso){ return iso ? new Date(iso).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '—'; },
+  fecha(iso){ return new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso)?iso+'T00:00:00':iso).toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'}); },
+  mins(a,b){ return Math.round((new Date(b)-new Date(a))/60000); },
+  dur(m){ if(m==null||isNaN(m)) return '—'; const h=Math.floor(m/60); return h>0?`${h}h ${m%60}m`:`${m}m`; },
+  km(a,b){ const R=6371,r=x=>x*Math.PI/180,dLa=r(b.lat-a.lat),dLo=r(b.lng-a.lng);
+    const x=Math.sin(dLa/2)**2+Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dLo/2)**2; return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x)); },
+  camel(r){ const o={}; Object.keys(r||{}).forEach(k=>{ o[k.replace(/_([a-z0-9])/g,(m,c)=>c.toUpperCase())]=r[k]; }); return o; },
+  toast(msg){ const t=document.createElement('div'); t.className='toast glass'; t.textContent=msg; $('#toasts').appendChild(t); setTimeout(()=>t.remove(),3400); },
+  foto(file,max,q){ return new Promise((ok,no)=>{ const fr=new FileReader(); fr.onerror=no; fr.onload=e=>{ const im=new Image(); im.onerror=no; im.onload=()=>{
+      let w=im.width,h=im.height; const k=Math.min(1,max/Math.max(w,h)); w=Math.round(w*k); h=Math.round(h*k);
+      const c=document.createElement('canvas'); c.width=w; c.height=h; c.getContext('2d').drawImage(im,0,0,w,h); ok(c.toDataURL('image/jpeg',q)); }; im.src=e.target.result; }; fr.readAsDataURL(file); }); },
+};
+
+/* ---------- Tema ---------- */
+const TEMAS = {oscuro:['Oscuro','linear-gradient(135deg,#0b1020,#1d4ed8)','#0b1020'], claro:['Claro','linear-gradient(135deg,#ffffff,#93c5fd)','#eef3fb'], aurora:['Multicolor','linear-gradient(135deg,#ec4899,#f59e0b,#22d3ee)','#140a2e']};
+function ponerTema(t){
+  if(!TEMAS[t]) t='oscuro';
+  document.documentElement.dataset.theme=t;
+  $('meta[name=theme-color]').content=TEMAS[t][2];
+  localStorage.setItem('mpr_tema',t);
+  if(NATIVO && NATIVO.setBarColor) NATIVO.setBarColor(TEMAS[t][2], t==='claro');
+}
+ponerTema(localStorage.getItem('mpr_tema') || (matchMedia('(prefers-color-scheme: light)').matches?'claro':'oscuro'));
+
+/* ---------- Cola local de eventos (IndexedDB: aguanta fotos y cierres de app) ---------- */
+const Cola = {
+  _db:null,
+  abrir(){ return this._db || (this._db=new Promise((ok,no)=>{ const r=indexedDB.open('mpr_chofer',1);
+    r.onupgradeneeded=()=>r.result.createObjectStore('cola',{keyPath:'k',autoIncrement:true}); r.onsuccess=()=>ok(r.result); r.onerror=()=>no(r.error); })); },
+  async _tx(modo,fn){ const db=await this.abrir(); return new Promise((ok,no)=>{ const tx=db.transaction('cola',modo); const res=fn(tx.objectStore('cola'));
+    tx.oncomplete=()=>ok(res&&res.result); tx.onerror=()=>no(tx.error); }); },
+  agregar(ev){ return this._tx('readwrite',s=>s.add(ev)); },
+  guardar(ev){ return this._tx('readwrite',s=>s.put(ev)); },
+  todos(){ return this._tx('readonly',s=>s.getAll()); },
+  async quitar(ks){ return this._tx('readwrite',s=>{ ks.forEach(k=>s.delete(k)); }); },
+  cuantos(){ return this._tx('readonly',s=>s.count()); },
+};
+
+/* ---------- Estado local: la ruta del día descargada ---------- */
+const Est = {
+  d:null, usuario:null,
+  cargar(){ try{ this.d=JSON.parse(localStorage.getItem('mpr_ruta')); }catch(e){ this.d=null; } },
+  guardar(){ localStorage.setItem('mpr_ruta', JSON.stringify(this.d)); },
+  borrar(){ this.d=null; localStorage.removeItem('mpr_ruta'); },
+  // Paradas en el orden optimizado; las que no tenían coordenadas van al final (no se pierden).
+  orden(){
+    const r=this.d.ruta, ps=this.d.pedidos, ids=[...(r.ordenOptimizado||[])];
+    (r.pedidoIds||[]).forEach(id=>{ if(!ids.includes(id)) ids.push(id); });
+    ps.forEach(p=>{ if(!ids.includes(p.id)) ids.push(p.id); });
+    return ids.map(id=>ps.find(p=>p.id===id)).filter(Boolean);
+  }
+};
+const CERRADOS = ['entregado','cliente_ausente','reprogramado','cancelado_sucursal','fallido'];
+const RESULTADOS = {
+  entregado:{label:'Entregado correctamente'},
+  cliente_ausente:{label:'Cliente ausente / no se encontró', motivo:true},
+  reprogramado:{label:'Reprogramar entrega', motivo:true, fecha:true},
+  cancelado_sucursal:{label:'Cancelar — cliente pasará a sucursal', motivo:true},
+  fallido:{label:'Otro motivo (no se pudo entregar)', motivo:true},
+};
+const ETIQ = {entregado:'Entregado',cliente_ausente:'Cliente ausente',reprogramado:'Reprogramado',cancelado_sucursal:'Recoge en sucursal',fallido:'No entregado'};
+
+/* ---------- Sincronización ---------- */
+const Sync = {
+  ocupado:false, ultimo:null, error:null,
+  async evento(ev, enviarYa){
+    ev.hora = ev.hora || U.ahora();
+    await Cola.agregar(ev);
+    pintarEstado();
+    if(enviarYa) this.enviar();
+  },
+  async enviar(){
+    if(this.ocupado || !navigator.onLine) { pintarEstado(); return; }
+    this.ocupado=true; pintarEstado();
+    try{
+      const evs = await Cola.todos();
+      if(evs.length){
+        // 1) Evidencias pendientes → Storage (una por una; lo ya subido no se repite)
+        for(const ev of evs){
+          if(ev.t!=='entrega') continue;
+          while(ev._fotos && ev._fotos.length){
+            ev.fotos.push(await this._subir(`${ev._rutaId}/${ev.id}/f${ev.fotos.length}.jpg`, ev._fotos[0], 'image/jpeg'));
+            ev._fotos.shift(); await Cola.guardar(ev);
+          }
+          if(ev._firma){ ev.firma = await this._subir(`${ev._rutaId}/${ev.id}/firma.png`, ev._firma, 'image/png'); ev._firma=null; await Cola.guardar(ev); }
+        }
+        // 2) Un solo viaje con todo lo pendiente
+        const carga = evs.map(ev=>{ const o={}; Object.keys(ev).forEach(k=>{ if(k!=='k' && k[0]!=='_') o[k]=ev[k]; }); return o; });
+        const {error} = await sb.rpc('mpr_chofer_sync',{p_eventos:carga});
+        if(error) throw error;
+        await Cola.quitar(evs.map(e=>e.k));
+      }
+      this.ultimo=U.ahora(); this.error=null;
+    }catch(e){ console.error(e); this.error=e.message||String(e); }
+    this.ocupado=false; pintarEstado();
+    // Lo que se encoló mientras se enviaba sale en un segundo viaje
+    if(!this.error && navigator.onLine && await Cola.cuantos()) setTimeout(()=>this.enviar(), 1500);
+  },
+  async _subir(ruta, dataUrl, tipo){
+    const blob = await (await fetch(dataUrl)).blob();
+    const {error} = await sb.storage.from('evidencias-mpr').upload(ruta, blob, {contentType:tipo, upsert:false});
+    // "ya existe" = se subió en un intento anterior que no alcanzó a registrarse: se da por buena
+    if(error && !/exist|duplicate/i.test(error.message||'') && String(error.statusCode)!=='409') throw error;
+    return sb.storage.from('evidencias-mpr').getPublicUrl(ruta).data.publicUrl;
+  }
+};
+window.addEventListener('online', ()=>Sync.enviar());
+
+/* ---------- Ubicación cada 4 minutos ----------
+   En el APK la toma un servicio nativo en primer plano (funciona con la pantalla
+   apagada) y aquí solo se recoge y se sube. En navegador se usa un temporizador,
+   que solo corre mientras la pestaña esté abierta. */
+const Gps = {
+  timer:null, ultimo:null,
+  activa(){ return !!(Est.d && Est.d.ruta && Est.d.ruta.estatus==='en_curso'); },
+  iniciar(){
+    if(!this.activa()) return;
+    if(NATIVO){ NATIVO.startTracking(MIN_GPS); this.recoger(); return; }
+    if(this.timer) return;
+    this.tomar();
+    this.timer=setInterval(()=>this.tomar(), MIN_GPS*60000);
+  },
+  detener(){ if(NATIVO) NATIVO.stopTracking(); clearInterval(this.timer); this.timer=null; },
+  tomar(){
+    if(!navigator.geolocation || !this.activa()) return;
+    navigator.geolocation.getCurrentPosition(p=>this.punto({lat:p.coords.latitude,lng:p.coords.longitude,prec:p.coords.accuracy,
+      vel:p.coords.speed!=null?p.coords.speed*3.6:null, rumbo:p.coords.heading, hora:U.ahora()}), ()=>{}, {enableHighAccuracy:true,timeout:20000,maximumAge:30000});
+  },
+  // Puntos acumulados por el servicio nativo desde la última vez
+  async recoger(){
+    if(!NATIVO) return;
+    let pts=[]; try{ pts=JSON.parse(NATIVO.drainLocations()||'[]'); }catch(e){}
+    for(const p of pts) await this.punto(p, true);
+    if(pts.length || this.activa()) Sync.enviar();
+  },
+  async punto(p, sinEnviar){
+    this.ultimo=p; localStorage.setItem('mpr_gps', JSON.stringify(p));
+    if(!this.activa()) return;
+    await Sync.evento({t:'ubic', rutaId:Est.d.ruta.id, lat:p.lat, lng:p.lng, prec:p.prec, vel:p.vel, rumbo:p.rumbo, hora:p.hora}, !sinEnviar);
+  }
+};
+try{ Gps.ultimo=JSON.parse(localStorage.getItem('mpr_gps')); }catch(e){}
+window.MPRNativeTick = ()=>Gps.recoger();              // lo llama el servicio nativo al tomar un punto
+window.MPRPermiso = ok=>{ if(ok) Gps.iniciar(); pintar(); };
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ Gps.recoger(); Sync.enviar(); } });
+
+/* ---------- Sesión ---------- */
+async function entrar(usuario, password){
+  const u=String(usuario||'').trim().toLowerCase();
+  const correos = u.includes('@') ? [u] : [u+'@'+CFG.dominioInterno, u+'@'+CFG.dominioCorporativo];
+  for(const email of correos){
+    const {data,error} = await sb.auth.signInWithPassword({email,password});
+    if(!error && data.user) return true;
+  }
+  return false;
+}
+async function salir(){
+  if(await Cola.cuantos()){ await Sync.enviar(); if(await Cola.cuantos()){ U.toast('Hay registros sin enviar. Conéctate a internet antes de salir.'); return; } }
+  Gps.detener(); await sb.auth.signOut(); Est.borrar(); pintarLogin();
+}
+
+/* Descarga la ruta del día (única lectura a Supabase). */
+async function descargarRuta(){
+  const {data,error} = await sb.rpc('mpr_chofer_ruta',{p_fecha:U.hoy()});
+  if(error){
+    if(/sin_acceso_chofer/.test(error.message||'')) return {sinAcceso:true};
+    throw error;
+  }
+  Est.d = {fecha:data.fecha, chofer:data.chofer, unidad:data.unidad, origen:data.origen,
+    ruta:data.ruta?U.camel(data.ruta):null, pedidos:(data.pedidos||[]).map(U.camel), bajada:U.ahora()};
+  Est.guardar();
+  return {};
+}
+
+/* ============================================================
+   PANTALLAS
+   ============================================================ */
+function pintarLogin(msg){
+  app.innerHTML = `<div class="login"><form class="glass card" id="fLogin">
+    <div class="logo">MR</div>
+    <h2 class="center" style="font-size:22px">MapRoad Chofer</h2>
+    <p class="muted center small" style="margin:2px 0 18px">Tu ruta del día, entregas y ubicación</p>
+    ${msg?`<div class="err">${U.esc(msg)}</div>`:''}<div id="lErr"></div>
+    <div class="field"><label>Usuario</label><input name="u" autocomplete="username" autocapitalize="none" autocorrect="off" required></div>
+    <div class="field"><label>Contraseña</label><input name="p" type="password" autocomplete="current-password" required></div>
+    <button class="btn pri" id="lBtn">Entrar</button>
+    <button type="button" class="btn sm" id="lTema" style="margin:14px auto 0">🎨 Cambiar tema</button>
+  </form></div>`;
+  $('#lTema').onclick=()=>{ const ks=Object.keys(TEMAS); ponerTema(ks[(ks.indexOf(document.documentElement.dataset.theme)+1)%ks.length]); };
+  $('#fLogin').onsubmit=async e=>{
+    e.preventDefault();
+    const b=$('#lBtn'); b.disabled=true; b.innerHTML='<span class="spin"></span> Entrando…';
+    const f=new FormData(e.target);
+    let ok=false; try{ ok=await entrar(f.get('u'),f.get('p')); }catch(err){}
+    if(!ok){ b.disabled=false; b.textContent='Entrar'; $('#lErr').innerHTML=`<div class="err">${navigator.onLine?'Usuario o contraseña incorrectos.':'Sin conexión a internet.'}</div>`; return; }
+    arrancar();
+  };
+}
+
+function cascaron(){
+  const c=Est.d&&Est.d.chofer, un=Est.d&&Est.d.unidad;
+  app.innerHTML = `
+  <div class="top glass">
+    <div class="ava">${U.esc(((c&&c.nombre)||'C')[0].toUpperCase())}</div>
+    <div class="who"><b>${U.esc((c&&c.nombre)||'Chofer')}</b><span class="small muted">${un?('🚚 '+U.esc(un.placa)):'Sin unidad asignada'}</span></div>
+    <button class="round" id="bSync" title="Sincronizar">🔄</button>
+    <button class="round" id="bMenu" title="Menú">☰</button>
+  </div>
+  <div class="wrap"><div class="chips" id="chips"></div><div id="cuerpo"></div></div>`;
+  $('#bMenu').onclick=menu;
+  $('#bSync').onclick=async ()=>{ await Gps.recoger(); await Sync.enviar(); U.toast(Sync.error?'No se pudo sincronizar; se reintentará':'Sincronizado'); };
+}
+
+async function pintarEstado(){
+  const el=$('#chips'); if(!el) return;
+  const n = await Cola.cuantos().catch(()=>0);
+  const chips=[];
+  if(!navigator.onLine) chips.push(`<span class="chip bad">📴 Sin conexión${n?` · ${n} en espera`:''}</span>`);
+  else if(Sync.ocupado) chips.push(`<span class="chip"><span class="spin" style="width:12px;height:12px;border-width:2px"></span> Enviando…</span>`);
+  else if(n) chips.push(`<span class="chip warn">⏳ ${n} por enviar</span>`);
+  else chips.push(`<span class="chip ok">✓ Todo enviado${Sync.ultimo?' · '+U.hora(Sync.ultimo):''}</span>`);
+  if(Gps.activa()){
+    const viejo = !Gps.ultimo || U.mins(Gps.ultimo.hora,U.ahora())>MIN_GPS*2+1;
+    chips.push(`<span class="chip ${viejo?'warn':'ok'}">📡 ${Gps.ultimo?('Ubicación '+U.hora(Gps.ultimo.hora)):'Buscando ubicación…'}</span>`);
+  }
+  el.innerHTML=chips.join('');
+}
+
+function pintar(){
+  if(!$('#cuerpo')) cascaron();
+  pintarEstado();
+  const body=$('#cuerpo'), d=Est.d;
+  if(!d || !d.ruta){
+    body.innerHTML = `<div class="glass card center" style="padding:34px 20px">
+      <div style="font-size:46px">📭</div>
+      <h2>Sin ruta para hoy</h2>
+      <p class="muted">${U.esc(U.fecha(U.hoy()))}<br>Cuando tráfico te asigne una ruta, tócala aquí para descargarla.</p>
+      <button class="btn pri" id="bBuscar">Buscar mi ruta</button>
+    </div>`;
+    $('#bBuscar').onclick=()=>recargar(true);
+    return;
+  }
+  const r=d.ruta, orden=Est.orden();
+  const hechas=orden.filter(p=>CERRADOS.includes(p.estatus)).length;
+  const idx=orden.findIndex(p=>!CERRADOS.includes(p.estatus));
+
+  if(r.estatus==='pendiente') return pintarInicio(body, orden);
+  if(r.estatus==='concluida') return pintarResumen(body, orden);
+  if(idx===-1) return pintarCierre(body, orden);
+
+  const cur=orden[idx];
+  const mapa = cur.lat!=null ? `https://www.google.com/maps/dir/?api=1&destination=${cur.lat},${cur.lng}&travelmode=driving`
+    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([cur.direccion,cur.colonia,cur.cp].filter(Boolean).join(', '))}`;
+  body.innerHTML = `<div class="cols"><div>
+    <div class="glass card">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><b>Progreso</b><span class="small muted">${hechas} de ${orden.length} paradas</span></div>
+      <div class="prog" style="margin-top:8px"><i style="width:${orden.length?hechas/orden.length*100:0}%"></i></div>
+      <div class="small muted" style="margin-top:8px">🚚 Salida ${U.esc(d.origen?d.origen.nombre:'de sucursal')} · ${U.hora(r.horaInicio)}</div>
+    </div>
+    <div class="glass card cur">
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <div class="stop" style="padding:0;margin:0"><div class="n">${idx+1}</div></div>
+        <div style="flex:1;min-width:0">
+          <span class="small muted">Siguiente parada</span>
+          <h2>${U.esc(cur.nombreContacto||cur.folio)}</h2>
+          <div class="muted">${U.esc([cur.direccion,cur.colonia,cur.cp?('C.P. '+cur.cp):''].filter(Boolean).join(', ')||'Sin dirección')}</div>
+        </div>
+      </div>
+      <div class="chips" style="margin-bottom:4px">
+        <span class="chip">📦 <span class="mono">${U.esc(cur.folio)}</span></span>
+        ${cur.telefono?`<a class="chip" href="tel:${U.esc(String(cur.telefono).replace(/[^0-9+]/g,''))}" style="color:inherit;text-decoration:none">📞 ${U.esc(cur.telefono)}</a>`:''}
+        ${(cur.items||[]).length?`<span class="chip">🧾 ${cur.items.length} artículo(s)</span>`:''}
+      </div>
+      ${cur.comentarios?`<div class="note">📝 ${U.esc(cur.comentarios)}</div>`:''}
+      ${cur.horaLlegada?`
+        <div class="note" style="color:var(--ok)">✅ Llegada registrada · ${U.hora(cur.horaLlegada)}</div>
+        <button class="btn ok" id="bEntregar">Registrar entrega y firma</button>
+        <a class="btn sm" href="${mapa}" target="_blank" style="margin:10px auto 0">🧭 Abrir mapa</a>`:`
+        <div class="row" style="margin-top:10px"><a class="btn" href="${mapa}" target="_blank">🧭 Navegar</a><button class="btn pri" id="bLlegue">📍 Ya llegué</button></div>
+        <div class="small muted" style="margin-top:10px">Confirma tu llegada para poder registrar la entrega: así se mide el traslado y el tiempo en sitio.</div>`}
+    </div></div>
+    <div><div class="small muted" style="margin:4px 6px 8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">Ruta completa</div>${listaParadas(orden, idx)}</div>
+  </div>`;
+  const bl=$('#bLlegue'); if(bl) bl.onclick=async ()=>{
+    cur.horaLlegada=U.ahora(); Est.guardar();
+    await Sync.evento({t:'llegada', pedidoId:cur.id, hora:cur.horaLlegada}); // viaja con el siguiente envío
+    U.toast('Llegada registrada'); pintar();
+  };
+  const be=$('#bEntregar'); if(be) be.onclick=()=>hojaEntrega(cur);
+}
+
+function listaParadas(orden, idxActual){
+  return orden.map((p,i)=>{
+    const hecho=CERRADOS.includes(p.estatus), mal=hecho&&p.estatus!=='entregado';
+    return `<div class="glass stop ${hecho?'done':''} ${mal?'bad':''} ${i===idxActual?'cur':''}">
+      <div class="n">${hecho?(mal?'!':'✓'):i+1}</div>
+      <div style="min-width:0;flex:1"><b>${U.esc(p.nombreContacto||p.folio)}</b>
+        <div class="small muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${U.esc(p.direccion||'')}</div>
+        ${hecho?`<span class="small" style="color:var(--${mal?'warn':'ok'});font-weight:700">${ETIQ[p.estatus]}</span>`:''}</div>
+    </div>`;
+  }).join('');
+}
+
+function pintarInicio(body, orden){
+  const d=Est.d, sinGeo=orden.filter(p=>p.lat==null).length;
+  body.innerHTML = `<div class="cols"><div>
+    <div class="glass card cur center" style="padding:24px 18px">
+      <div style="font-size:44px">🚀</div>
+      <h2 style="font-size:20px">Ruta lista para iniciar</h2>
+      <p class="muted" style="margin:4px 0 14px">${U.esc(U.fecha(d.ruta.fecha))}</p>
+      <div class="grid2" style="text-align:left;margin-bottom:14px">
+        <div class="kpi"><span>Paradas</span><b>${orden.length}</b></div>
+        <div class="kpi"><span>Unidad</span><b>${U.esc(d.unidad?d.unidad.placa:'—')}</b></div>
+      </div>
+      <div class="note" style="text-align:left">📍 Sales de <b>${U.esc(d.origen?d.origen.nombre:'la sucursal')}</b>${sinGeo?`<br>⚠️ ${sinGeo} parada(s) sin coordenadas: van al final de la lista.`:''}</div>
+      <div class="note" style="text-align:left">📡 Al iniciar, tu unidad aparece en el mapa de monitoreo y la app reporta tu ubicación cada ${MIN_GPS} minutos hasta que concluyas la ruta.</div>
+      <button class="btn pri" id="bIniciar">Salir de la sucursal e iniciar ruta</button>
+    </div></div>
+    <div><div class="small muted" style="margin:4px 6px 8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">Paradas de hoy</div>${listaParadas(orden,-1)}</div>
+  </div>`;
+  $('#bIniciar').onclick=async ()=>{
+    if(NATIVO && !NATIVO.hasLocationPermission()){ NATIVO.requestLocationPermission(); U.toast('Permite el acceso a tu ubicación para iniciar la ruta'); return; }
+    d.ruta.estatus='en_curso'; d.ruta.horaInicio=U.ahora(); Est.guardar();
+    await Sync.evento({t:'inicio', rutaId:d.ruta.id, hora:d.ruta.horaInicio}, true);
+    Gps.iniciar();
+    U.toast('Salida registrada. ¡Buen camino!');
+    pintar();
+    avisarClientes();
+  };
+}
+
+/* Correo "tu pedido va en camino" a los clientes de la ruta (no bloquea al chofer). */
+async function avisarClientes(){
+  const d=Est.d, r=d.ruta;
+  if(!CFG.notifUrl || !navigator.onLine) return;
+  const orden=Est.orden(), t0=new Date(r.horaInicio).getTime();
+  try{
+    const resp = await fetch(CFG.notifUrl, {method:'POST',
+      headers:{'Content-Type':'application/json', apikey:CFG.notifKey, Authorization:'Bearer '+CFG.notifKey},
+      body:JSON.stringify({rutaId:r.id, fecha:r.fecha, horaInicio:r.horaInicio, origen:d.origen?d.origen.nombre:'', chofer:d.chofer?d.chofer.nombre:'',
+        unidad:d.unidad?d.unidad.placa:(r.vehiculoTexto||''), totalParadas:orden.length, trackingBaseUrl:CFG.webUrl,
+        pedidos:orden.map((p,i)=>({folio:p.folio, email:(p.emailContacto||'').trim(), nombre:p.nombreContacto,
+          direccion:[p.direccion,p.colonia,p.cp?('C.P. '+p.cp):''].filter(Boolean).join(', '), parada:i+1,
+          eta:new Date(t0+28*(i+1)*60000).toISOString(),
+          items:(p.items||[]).filter(it=>it&&it.nombre).map(it=>({nombre:it.nombre,cantidad:it.cantidad}))}))})});
+    const j = await resp.json().catch(()=>({}));
+    const res = {fecha:U.ahora(), enviados:j.enviados||[], fallidos:j.fallidos||[], omitidos:j.omitidos||[]};
+    if(!resp.ok && !res.fallidos.length) res.error = j.error || ('HTTP '+resp.status);
+    res.estatus = (res.fallidos.length||res.error) ? 'error' : 'ok';
+    await Sync.evento({t:'notif', rutaId:r.id, data:res});
+    if(res.estatus==='ok' && res.enviados.length) U.toast(`Aviso enviado a ${res.enviados.length} cliente(s)`);
+  }catch(e){ console.error(e); }
+}
+
+function hojaEntrega(pedido){
+  const items=(pedido.items||[]).filter(it=>it&&it.nombre);
+  let fotos=[], firmo=false;
+  const bg=document.createElement('div'); bg.className='sheet-bg';
+  bg.innerHTML = `<div class="sheet glass">
+    <div class="grab"></div>
+    <h3>Entrega · <span class="mono">${U.esc(pedido.folio)}</span></h3>
+    <div class="small muted" style="margin:-8px 0 12px">${U.esc(pedido.nombreContacto||'')} · en sitio ${U.dur(U.mins(pedido.horaLlegada,U.ahora()))}</div>
+    <div class="field"><label>Resultado</label><select id="eRes">${Object.entries(RESULTADOS).map(([k,v])=>`<option value="${k}">${U.esc(v.label)}</option>`).join('')}</select></div>
+    <div class="field hidden" id="wMot"><label>Motivo</label><input id="eMot" placeholder="No contestó, dirección incorrecta…"></div>
+    <div class="field hidden" id="wFec"><label>Nueva fecha propuesta (opcional)</label><input type="date" id="eFec" min="${U.hoy()}"></div>
+    ${items.length?`<div class="field" id="wItems"><label>Artículos entregados <span id="eCnt"></span></label>
+      <div class="items">${items.map((it,i)=>`<label><input type="checkbox" data-i="${i}" checked><span style="flex:1">${U.esc(it.nombre)}</span><span class="mono small">x${U.esc(it.cantidad!=null?it.cantidad:1)}</span></label>`).join('')}</div>
+      <div class="small muted" style="margin-top:6px">Desmarca lo que no se entregó: queda como entrega parcial.</div></div>`:''}
+    <div class="field"><label>Fotos de evidencia (hasta 10)</label>
+      <label class="btn sm" style="width:100%">📷 Tomar o elegir foto<input type="file" accept="image/*" capture="environment" multiple id="eFotos" style="display:none"></label>
+      <div class="thumbs" id="eThumbs"></div></div>
+    <div class="field" id="wSig"><label>Firma de quien recibe</label><canvas class="sig" id="eSig"></canvas>
+      <button type="button" class="btn sm" id="eSigX" style="margin-top:8px">Borrar firma</button></div>
+    <div class="field"><label>Comentarios</label><textarea id="eCom" rows="2"></textarea></div>
+    <div class="row"><button class="btn" id="eCancel">Cancelar</button><button class="btn ok" id="eOk">Cerrar entrega</button></div>
+  </div>`;
+  document.body.appendChild(bg);
+  const q=s=>$(s,bg);
+  const cerrar=()=>bg.remove();
+  q('#eCancel').onclick=cerrar; bg.onclick=e=>{ if(e.target===bg) cerrar(); };
+
+  const chks=()=>Array.from(bg.querySelectorAll('.items input'));
+  const cuenta=()=>{ const c=q('#eCnt'); if(c) c.textContent=`(${chks().filter(x=>x.checked).length}/${chks().length})`; };
+  chks().forEach(c=>c.onchange=cuenta); cuenta();
+  q('#eRes').onchange=e=>{
+    const cfg=RESULTADOS[e.target.value], ok=e.target.value==='entregado';
+    q('#wMot').classList.toggle('hidden',!cfg.motivo); q('#wFec').classList.toggle('hidden',!cfg.fecha);
+    if(q('#wItems')) q('#wItems').classList.toggle('hidden',!ok);
+    q('#wSig').classList.toggle('hidden',!ok);
+  };
+
+  const pintaFotos=()=>{ q('#eThumbs').innerHTML=fotos.map((f,i)=>`<div class="thumb"><img src="${f}"><button type="button" data-i="${i}">✕</button></div>`).join('');
+    bg.querySelectorAll('.thumb button').forEach(b=>b.onclick=()=>{ fotos.splice(+b.dataset.i,1); pintaFotos(); }); };
+  q('#eFotos').onchange=async e=>{
+    for(const f of Array.from(e.target.files).slice(0,10-fotos.length)){ try{ fotos.push(await U.foto(f,1100,0.62)); }catch(err){} }
+    e.target.value=''; pintaFotos();
+  };
+
+  // Firma
+  const cv=q('#eSig'), ctx=cv.getContext('2d');
+  const ajusta=()=>{ const r=cv.getBoundingClientRect(), k=window.devicePixelRatio||1; cv.width=r.width*k; cv.height=r.height*k; ctx.scale(k,k); ctx.lineWidth=2.4; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle='#0f172a'; };
+  ajusta();
+  let dib=false; const pos=e=>{ const r=cv.getBoundingClientRect(); return {x:e.clientX-r.left,y:e.clientY-r.top}; };
+  cv.onpointerdown=e=>{ dib=true; firmo=true; cv.setPointerCapture(e.pointerId); const p=pos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); };
+  cv.onpointermove=e=>{ if(!dib) return; const p=pos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); };
+  cv.onpointerup=cv.onpointercancel=()=>{ dib=false; };
+  q('#eSigX').onclick=()=>{ ctx.clearRect(0,0,cv.width,cv.height); firmo=false; };
+
+  q('#eOk').onclick=async ()=>{
+    const res=q('#eRes').value, cfg=RESULTADOS[res], motivo=q('#eMot').value.trim();
+    if(cfg.motivo && !motivo){ U.toast('Escribe el motivo'); q('#eMot').focus(); return; }
+    let itemsEnt=null, parcial=false;
+    if(res==='entregado' && items.length){
+      const c=chks(); itemsEnt=items.map((it,i)=>({nombre:it.nombre,cantidad:it.cantidad,codigo:it.codigo,entregado:c[i].checked}));
+      parcial=itemsEnt.some(x=>!x.entregado);
+      if(!itemsEnt.some(x=>x.entregado)){ U.toast('Si no se entregó nada, elige otro resultado'); return; }
+    }
+    q('#eOk').disabled=true;
+    const hora=U.ahora();
+    pedido.estatus=res; Est.guardar();
+    await Sync.evento({t:'entrega', id:crypto.randomUUID(), pedidoId:pedido.id, hora, resultado:res, motivo, nuevaFecha:q('#eFec').value||'',
+      itemsEntregados:itemsEnt, entregaParcial:parcial, comentarios:q('#eCom').value.trim(), fotos:[], firma:'', documentos:[],
+      _rutaId:Est.d.ruta.id, _fotos:fotos, _firma:(res==='entregado'&&firmo)?cv.toDataURL('image/png'):null}, true);
+    cerrar();
+    U.toast(res==='entregado'?(parcial?'Entrega parcial registrada':'Entrega registrada ✅'):'Registrado: '+ETIQ[res]);
+    pintar(); window.scrollTo({top:0,behavior:'smooth'});
+  };
+}
+
+function pintarCierre(body, orden){
+  const d=Est.d, o=d.origen;
+  let dist='';
+  if(o && o.lat!=null && Gps.ultimo && U.mins(Gps.ultimo.hora,U.ahora())<=MIN_GPS*2+1){
+    const km=U.km(Gps.ultimo,o); dist = km<0.5 ? '📍 Estás en el punto de retorno.' : `📍 Estás a ${km.toFixed(1)} km del punto de retorno.`;
+  }
+  body.innerHTML = `<div class="glass card cur center" style="padding:26px 18px">
+    <div style="font-size:46px">🏁</div><h2 style="font-size:20px">Paradas completadas</h2>
+    <p class="muted">Regresa a <b>${U.esc(o?o.nombre:'la sucursal')}</b> y concluye la ruta.</p>
+    ${dist?`<div class="note">${dist}</div>`:''}
+    <button class="btn ok" id="bFin">Concluir ruta</button>
+  </div>${listaParadas(orden,-1)}`;
+  $('#bFin').onclick=async ()=>{
+    if(!NATIVO) Gps.tomar();
+    d.ruta.estatus='concluida'; d.ruta.horaFin=U.ahora(); Est.guardar();
+    await Gps.recoger();
+    await Sync.evento({t:'fin', rutaId:d.ruta.id, hora:d.ruta.horaFin}, true);
+    Gps.detener();
+    U.toast('Ruta concluida'); pintar();
+  };
+}
+
+function pintarResumen(body, orden){
+  const r=Est.d.ruta, ok=orden.filter(p=>p.estatus==='entregado').length;
+  body.innerHTML = `<div class="glass card center" style="padding:26px 18px">
+    <div style="font-size:46px">✅</div><h2 style="font-size:20px">Ruta concluida</h2>
+    <p class="muted">Gracias, ${U.esc(Est.d.chofer?Est.d.chofer.nombre.split(' ')[0]:'')}. Ya puedes cerrar la app.</p>
+    <div class="grid2" style="text-align:left;margin-top:14px">
+      <div class="kpi"><span>Duración</span><b>${U.dur(U.mins(r.horaInicio,r.horaFin))}</b></div>
+      <div class="kpi"><span>Entregadas</span><b>${ok}/${orden.length}</b></div>
+      <div class="kpi"><span>Salida</span><b>${U.hora(r.horaInicio)}</b></div>
+      <div class="kpi"><span>Efectividad</span><b>${orden.length?Math.round(ok/orden.length*100):0}%</b></div>
+    </div>
+    <button class="btn sm" id="bOtra" style="margin:16px auto 0">Buscar otra ruta</button>
+  </div>${listaParadas(orden,-1)}`;
+  $('#bOtra').onclick=()=>recargar(true);
+}
+
+function menu(){
+  const act=document.documentElement.dataset.theme;
+  const bg=document.createElement('div'); bg.className='sheet-bg';
+  bg.innerHTML=`<div class="sheet glass"><div class="grab"></div><h3>Apariencia</h3>
+    <div class="themes">${Object.entries(TEMAS).map(([k,v])=>`<button data-t="${k}" class="${k===act?'on':''}"><div class="sw" style="background:${v[1]}"></div>${v[0]}</button>`).join('')}</div>
+    <button class="btn" id="mRuta" style="margin-bottom:10px">⬇ Volver a descargar mi ruta</button>
+    <button class="btn" id="mSalir">Cerrar sesión</button>
+    <p class="small muted center" style="margin:14px 0 0">MapRoad Chofer${NATIVO&&NATIVO.version?' · v'+U.esc(NATIVO.version()):' · web'}</p></div>`;
+  document.body.appendChild(bg);
+  bg.onclick=e=>{ if(e.target===bg) bg.remove(); };
+  bg.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ ponerTema(b.dataset.t); bg.querySelectorAll('[data-t]').forEach(x=>x.classList.toggle('on',x===b)); });
+  $('#mRuta',bg).onclick=()=>{ bg.remove(); recargar(true); };
+  $('#mSalir',bg).onclick=()=>{ bg.remove(); salir(); };
+}
+
+/* Vuelve a bajar la ruta. Antes sube lo pendiente para no pisar avances locales. */
+async function recargar(avisar){
+  if(!navigator.onLine){ if(avisar) U.toast('Sin conexión: se usa la ruta guardada'); return; }
+  await Sync.enviar();
+  if(await Cola.cuantos()){ if(avisar) U.toast('Aún hay registros por enviar; intenta en un momento'); return; }
+  try{
+    const r=await descargarRuta();
+    if(r.sinAcceso){ await sb.auth.signOut(); Est.borrar(); pintarLogin('Esta app es solo para choferes. Tu usuario no tiene un chofer vinculado.'); return; }
+    if(avisar) U.toast(Est.d.ruta?'Ruta actualizada':'Aún no tienes ruta asignada');
+  }catch(e){ if(avisar) U.toast('No se pudo descargar la ruta'); }
+  app.innerHTML=''; pintar(); Gps.iniciar();
+}
+
+async function arrancar(){
+  const {data:{session}} = await sb.auth.getSession();
+  if(!session){ pintarLogin(); return; }
+  Est.cargar();
+  // La ruta guardada sirve si es de hoy, o si quedó en curso (se termina aunque cambie el día).
+  const vigente = Est.d && Est.d.ruta && (Est.d.fecha===U.hoy() || Est.d.ruta.estatus==='en_curso');
+  if(vigente){ app.innerHTML=''; pintar(); Gps.iniciar(); Sync.enviar(); return; }
+  app.innerHTML='<div class="login"><div class="glass card center" style="max-width:300px"><span class="spin"></span><p class="muted" style="margin:10px 0 0">Descargando tu ruta…</p></div></div>';
+  if(Est.d && Est.d.fecha!==U.hoy()) Est.borrar();
+  await recargar(false);
+  if(!$('#cuerpo') && !$('#fLogin')){ app.innerHTML=''; pintar(); }
+}
+setInterval(pintarEstado, 60000);
+arrancar();
+</script>
+</body>
+</html>

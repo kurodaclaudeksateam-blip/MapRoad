@@ -1,0 +1,64 @@
+plugins {
+    id 'com.android.application'
+}
+
+def keystoreProps = new Properties()
+def keystoreFile = rootProject.file('keystore.properties')
+if (keystoreFile.exists()) {
+    keystoreFile.withInputStream { keystoreProps.load(it) }
+}
+
+// La interfaz del chofer NO se duplica: se toma de la carpeta web del repositorio
+// (chofer/, vendor/ y config.js) y se empaqueta dentro del APK en cada compilación.
+def carpetaWeb = rootProject.file('..')
+def webEmpaquetada = layout.buildDirectory.dir('web')
+tasks.register('copiarWeb', Sync) {
+    from(carpetaWeb) {
+        include 'config.js'
+        include 'vendor/**'
+        include 'chofer/**'
+    }
+    into webEmpaquetada.map { it.dir('www') }
+}
+
+android {
+    namespace 'com.grupokuroda.maproad.chofer'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.grupokuroda.maproad.chofer'
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    sourceSets {
+        main.assets.srcDirs += [webEmpaquetada.get().asFile]
+    }
+
+    signingConfigs {
+        release {
+            if (keystoreFile.exists()) {
+                storeFile file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig keystoreFile.exists() ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+preBuild.dependsOn 'copiarWeb'

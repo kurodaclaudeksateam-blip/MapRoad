@@ -1,0 +1,7 @@
+.gradle/
+build/
+app/build/
+local.properties
+# Llave de firma: guárdala en un lugar seguro, no la subas al repositorio.
+keystore.properties
+*.jks
