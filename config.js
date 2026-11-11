@@ -18,5 +18,7 @@ window.MPR_CONFIG = {
   dominioCorporativo: 'kuroda.com',
   // Cada cuánto reporta su posición la app del chofer durante la ruta.
   minutosUbicacion: 4,
+  // true = para cerrar una entrega como 'Entregado' el chofer debe tomar al menos una foto o la firma.
+  evidenciaObligatoria: true,
   apkUrl: 'apk/MapRoadChofer.apk'
 };

@@ -44,6 +44,8 @@ Los usuarios se crean desde el panel a través de la Edge Function [`usuarios-mp
 - Al iniciar la ruta, la unidad aparece en **Monitoreo en vivo** y la app reporta su posición **cada 4 minutos** hasta concluirla. En el APK lo hace un servicio en primer plano (con notificación fija), así que funciona con la pantalla apagada; en navegador solo mientras la pestaña esté abierta.
 - En el mapa cada chofer tiene su color: línea punteada = plan, línea continua = recorrido real, 🚚 = última posición (se pone gris si lleva más de 12 min sin señal).
 - Fotos y firma se suben a Storage (`evidencias-mpr`) y en la base solo queda la URL.
+- Antes de salir: revisión rápida de la unidad, odómetro y combustible. En ruta: navegar, llamar o WhatsApp al cliente, atender una parada **fuera de orden** tocándola en la lista, **reportar una incidencia** (con foto y ubicación) y llamar a base. Al cerrar la entrega: resultado y motivo con un toque, nombre de quien recibe, y foto o firma obligatoria (`evidenciaObligatoria` en `config.js`); se guarda dónde estaba el chofer y a cuántos metros del domicilio. Al concluir: odómetro final.
+- Mientras la ruta no ha iniciado, la app la vuelve a bajar sola al abrirse, así recibe los cambios de tráfico.
 - Tres temas: oscuro, claro y multicolor, estilo *liquid glass*, adaptable a teléfono y tableta.
 
 El intervalo se cambia en [`config.js`](config.js) (`minutosUbicacion`) y requiere recompilar el APK.
@@ -58,11 +60,12 @@ Requiere `android/local.properties` (ruta del SDK) y `android/keystore.propertie
 
 ## Módulos del panel
 
-- **Resumen** — rutas y pedidos de hoy, flota, rutas en curso sin señal GPS.
-- **Monitoreo en vivo** — mapa (Leaflet + OpenStreetMap) y tabla de avance; se actualiza solo (Supabase Realtime).
+- **Resumen (tablero de indicadores)** — por periodo (hoy, ayer, 7 / 30 días o rango) y por centro: servicio (efectividad, avance, entrega a tiempo, incidencias, parciales, vencidos, por reprogramar), operación (duración, minutos por parada, tiempo en sitio, hora de salida, km planeados y recorridos), flota (utilización, ocupación por peso y volumen, documentos por vencer), carga y valor (importes, kg, m³), evidencia (foto, firma, quién recibe, cierres fuera de punto), tendencias por día y por hora, motivos de no entrega, desempeño por chofer y por centro, y una lista de *Requiere atención*. Exporta a CSV.
+- **Monitoreo en vivo** — mapa (Leaflet + OpenStreetMap), indicadores del día, siguiente parada de cada unidad e **incidencias** reportadas por los choferes (se marcan como atendidas). Desde aquí se edita una ruta (chofer, unidad, orden de paradas con ↑ ↓ o reoptimizar) y se **reprograman los no entregados** en una ruta nueva (mismo folio, intento + 1). Se actualiza solo (Supabase Realtime).
 - **Histórico y estadísticas** — filtros por fecha, chofer, unidad, centro y folio; informe por folio con evidencia; exportación a CSV.
-- **Cargar rutas del día** — importa `.xlsx`/`.csv`, valida coordenadas, asigna vehículo → unidad/chofer y genera rutas optimizadas desde la tienda de origen. Incluye plantilla descargable y hoja *Detalle* para el checklist de artículos.
-- **Unidades, choferes, tiendas** — catálogos por centro.
+- **Cargar rutas del día** — importa `.xlsx`/`.csv`, valida coordenadas, asigna vehículo → unidad y chofer (por placa o número económico), avisa de folios ya cargados ese día, de sobrecarga contra la capacidad de la unidad y de rutas sin chofer, y genera rutas optimizadas desde la tienda de origen. Incluye plantilla descargable y hoja *Detalle* para el checklist de artículos.
+- **Unidades, choferes, tiendas** — catálogos por centro con buscador. Unidades: tipo, número económico, capacidad, odómetro, rendimiento, vencimiento de seguro y verificación. Choferes: número de empleado, tipo y vigencia de licencia, contacto de emergencia y alta rápida de su acceso a la app. Tiendas: contacto, teléfono y horario.
+- **Búsqueda rápida** — la barra superior (tecla `/`) abre el informe de cualquier folio, con sus intentos, evidencia, enlace de rastreo e impresión.
 - **Configuración** — sociedades, centros y CEDIS, usuarios y roles, **bitácora de auditoría** (quién cambió qué y cuándo; la llenan triggers en la base).
 - **Rastreo público** (`#/tracking`) — el cliente consulta con su folio; ve avance, hora estimada, zona aproximada (nunca la posición exacta) y fotos de entrega (nunca la firma).
 
@@ -75,6 +78,15 @@ Fecha Minima Entrega, Fecha Maxima Entrega, Control de Destino, Oficina de Venta
 Sucursal que Solicita, Nombre del Vendedor, Comentarios, Folio de Factura,
 Peso Total en KG, Volumen Total en M3, Importe Total Factura
 ```
+
+## Vista previa con datos de ejemplo
+
+Para revisar pantallas sin tocar la base, sirve el repositorio en local y abre:
+
+- Panel: `http://localhost:8766/?demo` (administrador), `?demo=centro` (logística de un centro) o `?demo=auditor`.
+- App del chofer: `http://localhost:8766/chofer/?demo`.
+
+Los datos salen de [`demo.js`](demo.js), viven en memoria y nada se lee ni se escribe en Supabase. El modo solo existe en `localhost`; publicado no hace nada.
 
 ## Publicación
 

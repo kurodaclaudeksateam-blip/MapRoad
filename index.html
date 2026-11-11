@@ -206,11 +206,74 @@ tr:hover td{background:#f8fafc;}
 .tab{padding:9px 14px;font-size:13px;font-weight:600;color:var(--text-soft);border-bottom:2px solid transparent;}
 .tab.active{color:var(--primary);border-color:var(--primary);}
 
+/* ---------- Indicadores (dashboard) ---------- */
+.seg{display:inline-flex;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:3px;gap:2px;}
+.seg button{border:none;background:transparent;padding:6px 12px;border-radius:7px;font-size:12.5px;font-weight:600;color:var(--text-soft);}
+.seg button.on{background:linear-gradient(310deg,var(--dark),var(--dark-2));color:#fff;}
+.dash-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px;}
+.dash-bar select,.dash-bar input{padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:#fff;font-size:12.5px;}
+.kgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:12px;}
+.kpi{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow);min-width:0;}
+.kpi h4{font-size:11px;color:var(--text-soft);text-transform:uppercase;letter-spacing:.04em;font-weight:700;margin:0;line-height:1.3;}
+.kpi .v{font-size:23px;font-weight:800;margin-top:3px;line-height:1.15;color:var(--text);}
+.kpi .v small{font-size:12px;font-weight:600;color:var(--text-mute);}
+.kpi .s{font-size:11.5px;color:var(--text-mute);margin-top:2px;}
+.kpi .meter{height:5px;border-radius:99px;background:var(--border);overflow:hidden;margin-top:7px;}
+.kpi .meter i{display:block;height:100%;border-radius:99px;background:var(--ch-1);}
+.kpi.good .v{color:#0a7a45;} .kpi.warn .v{color:#b3541e;} .kpi.bad .v{color:#b3261e;}
+.sec-t{display:flex;align-items:center;gap:8px;margin:20px 2px 10px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-soft);}
+.sec-t::after{content:'';flex:1;height:1px;background:var(--border);}
+:root{--ch-1:#2a78d6;--ch-2:#eb6834;--ch-3:#c3c2b7;--ch-grid:#e9ecef;}
+.chart{display:flex;align-items:flex-end;gap:2px;height:150px;padding-top:6px;border-bottom:1px solid #c9ced6;}
+.chart .col{flex:1;min-width:0;height:100%;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;cursor:default;}
+.chart .col:hover{background:rgba(52,71,103,.06);}
+.chart .col i{display:block;width:100%;max-width:34px;margin:0 auto;min-height:0;}
+.chart .col i:first-child{border-radius:4px 4px 0 0;}
+.chart-x{display:flex;gap:2px;margin-top:4px;}
+.chart-x span{flex:1;min-width:0;text-align:center;font-size:10px;color:var(--text-mute);white-space:nowrap;overflow:hidden;}
+.ch-leg{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--text-soft);}
+.ch-leg span{display:inline-flex;align-items:center;gap:6px;}
+.ch-leg i{width:10px;height:10px;border-radius:3px;display:inline-block;}
+.hbar{display:grid;grid-template-columns:minmax(90px,150px) 1fr 54px;gap:8px;align-items:center;font-size:12.5px;padding:5px 0;}
+.hbar .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text);}
+.hbar .b{height:12px;background:var(--panel-2);border-radius:0 4px 4px 0;overflow:hidden;}
+.hbar .b i{display:block;height:100%;border-radius:0 4px 4px 0;background:var(--ch-1);}
+.hbar .n{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;}
+.alerta{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.alerta:last-child{border-bottom:none;}
+.alerta .ic{width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;background:var(--warning-soft);}
+.alerta.crit .ic{background:var(--danger-soft);}
+.alerta a{font-weight:600;white-space:nowrap;}
+.mini-bar{display:inline-block;width:60px;height:6px;border-radius:99px;background:var(--border);overflow:hidden;vertical-align:middle;margin-right:6px;}
+.mini-bar i{display:block;height:100%;background:var(--ch-1);border-radius:99px;}
+#tip{position:fixed;z-index:400;pointer-events:none;background:var(--dark-2);color:#fff;font-size:12px;line-height:1.5;padding:7px 10px;border-radius:8px;box-shadow:var(--shadow-lg);max-width:260px;display:none;white-space:pre-line;}
+.acciones{display:flex;flex-wrap:wrap;gap:8px;}
+.buscador{padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;font-size:12.5px;min-width:190px;}
+.top-search{flex:1;max-width:340px;margin:0 14px;position:relative;}
+.top-search input{width:100%;padding:8px 12px 8px 32px;border:1px solid var(--border);border-radius:10px;background:var(--panel);font-size:13px;}
+.top-search::before{content:'🔎';position:absolute;left:10px;top:7px;font-size:12px;opacity:.6;}
+th[data-sort]{cursor:pointer;user-select:none;}
+th[data-sort]:hover{color:var(--text);}
+.venc{font-size:11px;font-weight:700;}
+.venc.v-bad{color:#b3261e;} .venc.v-warn{color:#b3541e;}
+.field-sec{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-mute);margin:14px 0 8px;padding-top:10px;border-top:1px solid var(--border);}
+.demo-flag{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);z-index:500;background:#7c3aed;color:#fff;padding:6px 14px;border-radius:99px;font-size:12px;font-weight:700;box-shadow:var(--shadow-lg);}
+.duo{grid-template-columns:1.25fr .75fr;}
+@media(max-width:1000px){.duo,.cols-2{grid-template-columns:1fr !important;}}
+@media(max-width:820px){.top-search{display:none;}}
+/* Imprimir un informe: solo el contenido de la ventana abierta */
+@media print{
+  body>*:not(.modal-bg){display:none !important;}
+  .modal-bg{position:static;background:none;padding:0;display:block;}
+  .modal,.modal.wide{max-width:none;box-shadow:none;}
+  .modal-b{max-height:none;overflow:visible;} .modal-f,.modal-h .icon-btn{display:none;}
+}
+
 .mobile-warning{display:none;}
 /* Rol observador (auditor) o sin permiso de edición: se ocultan los controles de escritura.
    Es solo comodidad visual — quien realmente bloquea la escritura es RLS en Supabase. */
 body.solo-lectura [data-edit],body.solo-lectura [data-del],body.solo-lectura #btnNueva,body.solo-lectura #btnNuevo,
-body.solo-lectura [data-editruta],body.solo-lectura [data-delruta]{display:none !important;}
+body.solo-lectura [data-editruta],body.solo-lectura [data-delruta],body.solo-lectura [data-escribe]{display:none !important;}
 body.solo-lectura [data-asig]{pointer-events:none;opacity:.75;}
 #btnMenu{display:none;}
 /* Unidad en vivo sobre el mapa */
@@ -230,6 +293,7 @@ body.solo-lectura [data-asig]{pointer-events:none;opacity:.75;}
 <body>
 <div id="app"></div>
 <div class="toast-wrap" id="toastWrap"></div>
+<div id="tip"></div>
 
 <script src="vendor/supabase.js"></script>
 <script src="config.js"></script>
@@ -239,6 +303,9 @@ body.solo-lectura [data-asig]{pointer-events:none;opacity:.75;}
    ============================================================ */
 const CFG = window.MPR_CONFIG;
 const sb = supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey);
+// Vista previa con datos de ejemplo (demo.js): solo en el equipo local con ?demo en la dirección.
+// No lee ni escribe en Supabase; publicado en internet este modo no existe.
+const DEMO = /[?&]demo\b/.test(location.search) && ['localhost','127.0.0.1'].includes(location.hostname);
 
 /* ============================================================
    1. UTILIDADES
@@ -363,6 +430,21 @@ const Util = {
     a.download=nombre; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
   },
   hace(iso){ const m=Util.minsBetween(iso,Util.nowISO()); return m<1?'hace un momento':m<60?`hace ${m} min`:`hace ${Util.fmtMins(m)}`; },
+  pct(a,b){ return b ? Math.round(a/b*100) : null; },
+  pctTxt(a,b){ const p=Util.pct(a,b); return p==null?'—':p+'%'; },
+  prom(arr){ return arr.length ? arr.reduce((s,x)=>s+x,0)/arr.length : null; },
+  suma(arr,fn){ return arr.reduce((s,x)=>s+(Number(fn(x))||0),0); },
+  // Días que faltan para una fecha YYYY-MM-DD (negativo = ya venció); null si no hay fecha.
+  diasPara(fecha){ if(!fecha) return null; return Math.round((new Date(fecha+'T00:00:00')-new Date(Util.todayISO()+'T00:00:00'))/86400000); },
+  vence(fecha){
+    const d=Util.diasPara(fecha); if(d==null) return '';
+    if(d<0) return `<div class="venc v-bad">Venció ${Util.fmtDate(fecha)}</div>`;
+    if(d<=30) return `<div class="venc v-warn">Vence en ${d} día(s)</div>`;
+    return `<div class="small mute2">Vence ${Util.fmtDate(fecha)}</div>`;
+  },
+  // Texto de búsqueda sin acentos ni mayúsculas
+  norm(s){ return String(s==null?'':s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); },
+  coincide(q, ...campos){ q=Util.norm(q).trim(); return !q || campos.some(c=>Util.norm(c).includes(q)); },
   toast(msg,type){
     const wrap=document.getElementById('toastWrap');
     const el=document.createElement('div');
@@ -398,7 +480,15 @@ const DB = {
   fromRow(r){ const o={}; Object.keys(r).forEach(k=>{ o[k.replace(/_([a-z0-9])/g,(m,c)=>c.toUpperCase())]=r[k]; }); return o; },
 
   get(t){ return this._c[t] || (this._c[t]=[]); },
-  find(t,id){ return this.get(t).find(x=>x.id===id); },
+  // Búsqueda por id con índice (los tableros recorren miles de pedidos; un .find() por cada uno
+  // se vuelve lento). El índice se rehace solo cuando la tabla cambió.
+  _ix:{},
+  find(t,id){
+    if(id==null) return undefined;
+    const arr=this.get(t); let ix=this._ix[t];
+    if(!ix || ix.arr!==arr || ix.n!==arr.length){ ix=this._ix[t]={arr, n:arr.length, m:new Map(arr.map(x=>[x.id,x]))}; }
+    return ix.m.get(id);
+  },
   query(t,fn){ return this.get(t).filter(fn); },
 
   // Lee una tabla completa por páginas (PostgREST entrega máximo 1000 renglones por petición).
@@ -418,19 +508,23 @@ const DB = {
   async reload(t){ this._c[t] = await this._all(t); },
   async load(desdeISO){
     const desde = desdeISO || Util.dateISO(new Date(Date.now()-this.DIAS_VENTANA*86400000));
-    const [cats, rutas, pedidos, entregas] = await Promise.all([
+    if(DEMO){ this._desde = this._desde && this._desde<desde ? this._desde : desde; return; }
+    const [cats, rutas, pedidos, entregas, incidencias] = await Promise.all([
       Promise.all(this.CATALOGOS.map(t=>this._all(t))),
       this._all('rutas', q=>q.gte('fecha',desde)),
       this._all('pedidos', q=>q.gte('fecha',desde)),
       this._all('entregas', q=>q.gte('hora_entrega',desde+'T00:00:00')),
+      // Tabla de la ampliación v2: si la base aún no la tiene, el panel sigue funcionando sin ella.
+      this._all('incidencias', q=>q.gte('hora',desde+'T00:00:00')).catch(()=>[]),
     ]);
     this.CATALOGOS.forEach((t,i)=>{ this._c[t]=cats[i]; });
-    this._c.rutas=rutas; this._c.pedidos=pedidos; this._c.entregas=entregas;
+    this._c.rutas=rutas; this._c.pedidos=pedidos; this._c.entregas=entregas; this._c.incidencias=incidencias;
     this._desde=desde;
   },
-  clear(){ this._c={}; this._desde=null; if(this._canal){ sb.removeChannel(this._canal); this._canal=null; } },
+  clear(){ this._c={}; this._ix={}; this._desde=null; if(this._canal){ sb.removeChannel(this._canal); this._canal=null; } },
 
   _w(fn){
+    if(DEMO) return this._q; // vista previa: los cambios solo viven en memoria
     this._q = this._q.then(fn).then(res=>{ if(res && res.error) throw res.error; }).catch(err=>{
       console.error(err);
       const msg = /row-level security|permission denied/i.test(err.message||'') ? 'tu rol no permite ese cambio' : (err.message||err);
@@ -457,7 +551,7 @@ const DB = {
   update(t,id,patch){
     const all=this.get(t); const i=all.findIndex(x=>x.id===id);
     if(i<0) return null;
-    all[i]=Object.assign({},all[i],patch);
+    all[i]=Object.assign({},all[i],patch); this._ix[t]=null;
     this._w(()=>sb.from(this._t(t)).update(this.toRow(patch)).eq('id',id));
     return all[i];
   },
@@ -468,9 +562,9 @@ const DB = {
 
   /* Realtime: avances de los choferes y posiciones GPS llegan solos al panel. */
   subscribe(){
-    if(this._canal) return;
+    if(this._canal || DEMO) return;
     const ch = sb.channel('mpr-panel');
-    ['rutas','pedidos','entregas','ubicaciones'].forEach(t=>{
+    ['rutas','pedidos','entregas','ubicaciones','incidencias'].forEach(t=>{
       ch.on('postgres_changes',{event:'*',schema:'public',table:this._t(t)}, p=>this._rt(t,p));
     });
     this._canal = ch.subscribe();
@@ -483,6 +577,8 @@ const DB = {
     } else {
       const o=this.fromRow(p.new), all=this.get(t), i=all.findIndex(x=>x.id===o.id);
       if(i>-1) all[i]=Object.assign({},all[i],o); else all.push(o);
+      this._ix[t]=null;
+      if(t==='incidencias' && p.eventType==='INSERT') Util.toast('⚠️ Incidencia en ruta: '+(TIPOS_INCIDENCIA[o.tipo]||o.tipo),'err');
     }
     clearTimeout(this._rtTimer);
     this._rtTimer=setTimeout(()=>window.dispatchEvent(new Event('mpr:datos')),700);
@@ -502,7 +598,7 @@ const Ubic = {
   // Devuelve true si trajo algo nuevo (para redibujar el mapa).
   async cargar(rutaIds){
     const faltan = rutaIds.filter(id=>!this._cargadas.has(id));
-    if(!faltan.length) return false;
+    if(!faltan.length || DEMO) return false;
     faltan.forEach(id=>this._cargadas.add(id));
     try{
       const filas = await DB._all('ubicaciones', q=>q.in('ruta_id',faltan));
@@ -726,6 +822,7 @@ function renderAdminShell(user, path){
           <div class="avatar">${Util.esc((user.nombre||user.usuario)[0]||'U').toUpperCase()}</div>
           <div class="who"><b>${Util.esc(user.nombre||user.usuario)}</b><span>${Util.esc(alcanceTexto(user))}</span></div>
         </div>
+        <button class="btn-logout" id="btnPass" style="color:var(--text-soft)">🔒 Cambiar mi contraseña</button>
         <button class="btn-logout" id="btnLogout">Cerrar sesión</button>
       </div>
     </div>
@@ -733,15 +830,26 @@ function renderAdminShell(user, path){
       <div class="topbar">
         <button class="icon-btn" id="btnMenu">☰</button>
         <h1 id="pageTitle"></h1>
+        <form class="top-search" id="topSearch"><input id="topFolio" placeholder="Buscar folio de pedido…  ( / )" autocomplete="off"></form>
         <div style="display:flex;gap:8px;align-items:center">
           ${user.rol==='auditor'?'<span class="badge b-amber">Solo lectura</span>':''}
+          ${puedeEditar()&&path!=='cargar-rutas'?'<a class="btn primary sm" href="#/cargar-rutas">📥 Cargar rutas</a>':''}
           <a class="btn ghost sm" href="#/tracking" target="_blank">📦 Vista de cliente</a>
         </div>
       </div>
       <div class="content" id="content"></div>
     </div>
-  </div>`;
-  document.getElementById('btnLogout').addEventListener('click', async ()=>{ await Auth.logout(); location.hash='#/login'; route(); });
+  </div>${DEMO?'<div class="demo-flag">Vista previa con datos de ejemplo · nada se guarda</div>':''}`;
+  document.getElementById('btnLogout').addEventListener('click', async ()=>{
+    if(DEMO){ location.href=location.pathname; return; }
+    await Auth.logout(); location.hash='#/login'; route();
+  });
+  document.getElementById('btnPass').onclick=openCambiarPassword;
+  document.getElementById('topSearch').onsubmit=e=>{
+    e.preventDefault();
+    const v=document.getElementById('topFolio').value.trim();
+    if(v) buscarFolioGlobal(v);
+  };
   document.getElementById('btnMenu').onclick=()=>document.getElementById('sidebar').classList.toggle('open');
 
   const titles = {dashboard:'Resumen general',monitoreo:'Monitoreo en vivo',historico:'Histórico y estadísticas',
@@ -759,65 +867,397 @@ function renderAdminShell(user, path){
   (renderers[path]||viewDashboard)(document.getElementById('content'), user);
 }
 
+/* Búsqueda rápida desde cualquier pantalla: abre el informe del folio. Si no está en lo ya
+   cargado (más antiguo que la ventana inicial), lo pide a Supabase. */
+async function buscarFolioGlobal(folio){
+  const f=folio.toLowerCase();
+  let hay = DB.get('pedidos').some(p=>p.folio && p.folio.toLowerCase()===f);
+  if(!hay && !DEMO){
+    const {data} = await sb.from('pedidos_mpr').select('*').ilike('folio', folio).order('created_at',{ascending:false}).limit(5);
+    for(const row of (data||[])){
+      const p=DB.fromRow(row);
+      if(!DB.find('pedidos',p.id)) DB.get('pedidos').push(p);
+      if(p.rutaId && !DB.find('rutas',p.rutaId)){
+        const [r,e] = await Promise.all([sb.from('rutas_mpr').select('*').eq('id',p.rutaId).maybeSingle(), sb.from('entregas_mpr').select('*').eq('pedido_id',p.id)]);
+        if(r.data) DB.get('rutas').push(DB.fromRow(r.data));
+        (e.data||[]).forEach(x=>{ if(!DB.find('entregas',x.id)) DB.get('entregas').push(DB.fromRow(x)); });
+      }
+      hay=true;
+    }
+  }
+  if(!hay){
+    // Coincidencia parcial: se manda al histórico con el filtro puesto
+    const parcial = DB.get('pedidos').filter(p=>p.folio && p.folio.toLowerCase().includes(f));
+    if(parcial.length===1) return openInformeFolioModal(parcial[0].folio);
+    Util.toast(parcial.length?`${parcial.length} folios contienen "${folio}": escribe el folio completo`:'No se encontró ningún pedido con ese folio','err');
+    return;
+  }
+  openInformeFolioModal(folio);
+}
+document.addEventListener('keydown', e=>{
+  if(e.key==='/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)){
+    const i=document.getElementById('topFolio'); if(i){ e.preventDefault(); i.focus(); }
+  }
+  if(e.key==='Escape'){ const ms=document.querySelectorAll('.modal-bg'); if(ms.length) ms[ms.length-1].remove(); }
+});
+
+function openCambiarPassword(){
+  openModal('Cambiar mi contraseña', `
+    <div class="field"><label>Nueva contraseña</label><input type="password" name="p1" minlength="8" required autocomplete="new-password"></div>
+    <div class="field"><label>Repite la nueva contraseña</label><input type="password" name="p2" minlength="8" required autocomplete="new-password"></div>
+    <div class="small muted">Mínimo 8 caracteres. Aplica a tu cuenta en todas las apps que comparten este acceso.</div>
+  `, async d=>{
+    if(d.p1!==d.p2){ Util.toast('Las contraseñas no coinciden','err'); return; }
+    if(DEMO){ Util.toast('Vista previa: no se cambia nada'); closeModal(); return; }
+    const {error} = await sb.auth.updateUser({password:d.p1});
+    if(error){ Util.toast(error.message,'err'); return; }
+    Util.toast('Contraseña actualizada','ok'); closeModal();
+  });
+}
+
+/* Tooltip compartido: cualquier elemento con data-tip lo muestra al pasar el cursor. */
+(function(){
+  const tip=document.getElementById('tip');
+  document.addEventListener('mousemove', e=>{
+    const t=e.target.closest && e.target.closest('[data-tip]');
+    if(!t){ tip.style.display='none'; return; }
+    tip.textContent=t.dataset.tip; tip.style.display='block';
+    const w=tip.offsetWidth, h=tip.offsetHeight;
+    tip.style.left=Math.min(window.innerWidth-w-8, e.clientX+14)+'px';
+    tip.style.top=(e.clientY+h+24>window.innerHeight ? e.clientY-h-10 : e.clientY+16)+'px';
+  });
+})();
+
+/* Filtro de texto para las tablas de catálogos: oculta los renglones que no coinciden. */
+function activarBuscador(el, inputSel, tbodySel){
+  const inp=el.querySelector(inputSel); if(!inp) return;
+  inp.oninput=()=>{
+    const q=Util.norm(inp.value).trim();
+    el.querySelectorAll(tbodySel+' tr').forEach(tr=>{ tr.style.display = !q || Util.norm(tr.textContent).includes(q) ? '' : 'none'; });
+  };
+}
+
 /* ============================================================
    8. VISTA: DASHBOARD
    ============================================================ */
+const TIPOS_INCIDENCIA = {falla_mecanica:'Falla mecánica', llanta:'Llanta ponchada', trafico:'Tráfico / bloqueo', accidente:'Accidente',
+  clima:'Clima', inseguridad:'Inseguridad', mercancia:'Mercancía dañada', otro:'Otro'};
+const ESTATUS_TXT = {pendiente:'Pendiente', entregado:'Entregado', cliente_ausente:'Cliente ausente', reprogramado:'Reprogramado',
+  cancelado_sucursal:'Recoge en sucursal', fallido:'No entregado (otro motivo)'};
+const METROS_FUERA = 300;  // una entrega cerrada a más de esta distancia del domicilio se marca "fuera de punto"
+const DIAS_REPROGRAMAR = 14; // un no entregado más viejo que esto ya no se ofrece para reprogramar
+const MIN_SIN_SENAL = 12;  // minutos sin reporte GPS para considerar una unidad sin señal
+
+/* Km reales de una ruta: odómetro capturado por el chofer si existe; si no, lo acumulado por GPS. */
+function kmRealRuta(r){
+  if(r.odometroInicio!=null && r.odometroFin!=null && Number(r.odometroFin)>Number(r.odometroInicio)) return Number(r.odometroFin)-Number(r.odometroInicio);
+  return Number(r.kmGps)>0 ? Number(r.kmGps) : null;
+}
+/* Km en línea recta de un recorrido salida → paradas → regreso (estimación del plan). */
+function kmDeSecuencia(origen, paradas){
+  const seq = [origen, ...paradas, origen].filter(p=>p && p.lat!=null && p.lng!=null);
+  let km=0; for(let i=1;i<seq.length;i++) km+=Util.distKm(seq[i-1],seq[i]);
+  return Math.round(km*10)/10;
+}
+/* Pedidos no entregados que nadie ha vuelto a programar (cada reintento apunta a su intento anterior). */
+function pedidosPorReprogramar(centroId){
+  const ya = new Set(DB.get('pedidos').map(p=>p.reintentoDe).filter(Boolean));
+  const desde = Util.dateISO(new Date(Date.now()-DIAS_REPROGRAMAR*86400000));
+  return DB.query('pedidos', p=>['cliente_ausente','reprogramado','fallido'].includes(p.estatus) && !ya.has(p.id) && (p.fecha||'')>=desde && (!centroId||p.centroId===centroId));
+}
+function rutaSinSenal(r){ return r.estatus==='en_curso' && (!r.ultimaUbicacion || Util.minsBetween(r.ultimaUbicacion,Util.nowISO())>MIN_SIN_SENAL); }
+
+/* Todos los indicadores del tablero para un periodo y (opcional) un centro. */
+function calcIndicadores(f){
+  const hoy=Util.todayISO();
+  const enC = x=>!f.centroId || x.centroId===f.centroId;
+  const rutas = DB.query('rutas', r=>r.fecha>=f.desde && r.fecha<=f.hasta && enC(r));
+  const rutaIds = new Set(rutas.map(r=>r.id));
+  const pedidos = DB.query('pedidos', p=>rutaIds.has(p.rutaId));
+  const entregas = DB.query('entregas', e=>rutaIds.has(e.rutaId));
+  const entDe = new Map(); entregas.forEach(e=>{ const x=entDe.get(e.pedidoId); if(!x||e.horaEntrega>x.horaEntrega) entDe.set(e.pedidoId,e); });
+  const incid = DB.query('incidencias', i=>rutaIds.has(i.rutaId));
+  const unidades = DB.query('unidades', enC), choferes = DB.query('choferes', enC);
+
+  const ent = pedidos.filter(p=>p.estatus==='entregado');
+  const noEx = pedidos.filter(p=>ESTATUS_NO_EXITOSOS.includes(p.estatus));
+  const pend = pedidos.filter(p=>!esEstatusCerrado(p.estatus));
+  const entOk = ent.map(p=>entDe.get(p.id)).filter(Boolean);
+  const conVentana = ent.filter(p=>p.fechaMax && entDe.get(p.id));
+  const aTiempo = conVentana.filter(p=>Util.dateISO(new Date(entDe.get(p.id).horaEntrega))<=p.fechaMax);
+  const enSitio = pedidos.map(p=>{ const e=entDe.get(p.id); return p.horaLlegada&&e ? Util.minsBetween(p.horaLlegada,e.horaEntrega) : null; }).filter(m=>m!=null && m>=0 && m<600);
+  const concl = rutas.filter(r=>r.estatus==='concluida' && r.horaInicio && r.horaFin);
+  const durs = concl.map(r=>Util.minsBetween(r.horaInicio,r.horaFin));
+  const salidas = rutas.filter(r=>r.horaInicio).map(r=>{ const d=new Date(r.horaInicio); return d.getHours()*60+d.getMinutes(); });
+  const kmReales = rutas.map(kmRealRuta).filter(k=>k!=null);
+  const pedidosDe = r=>r.pedidoIds.map(id=>DB.find('pedidos',id)).filter(Boolean);
+  const ocup = rutas.map(r=>{ const u=DB.find('unidades',r.unidadId); if(!u) return null; const ps=pedidosDe(r);
+    return {r,u,kg:Util.suma(ps,p=>p.pesoKg),m3:Util.suma(ps,p=>p.volumenM3)}; }).filter(Boolean);
+  const notif = {env:0, fall:0, omi:0};
+  rutas.forEach(r=>{ const n=r.notificacionInicio; if(!n) return; notif.env+=(n.enviados||[]).length; notif.fall+=(n.fallidos||[]).length; notif.omi+=(n.omitidos||[]).length; });
+  const docs = [];
+  choferes.filter(c=>c.estatus!=='inactivo').forEach(c=>{ const d=Util.diasPara(c.licenciaVence); if(d!=null&&d<=30) docs.push({txt:`Licencia de ${c.nombre}`, d, ir:'choferes'}); });
+  unidades.forEach(u=>{
+    const a=Util.diasPara(u.seguroVence); if(a!=null&&a<=30) docs.push({txt:`Seguro de ${u.placa}`, d:a, ir:'unidades'});
+    const b=Util.diasPara(u.verificacionVence); if(b!=null&&b<=30) docs.push({txt:`Verificación de ${u.placa}`, d:b, ir:'unidades'});
+  });
+
+  // Series
+  const dias=[]; { let d=new Date(f.desde+'T00:00:00'); const fin=new Date(f.hasta+'T00:00:00'); let n=0;
+    while(d<=fin && n<62){ dias.push({fecha:Util.dateISO(d), ent:0, inc:0, pen:0}); d.setDate(d.getDate()+1); n++; } }
+  const diaIx = new Map(dias.map(d=>[d.fecha,d]));
+  const fechaRuta = new Map(rutas.map(r=>[r.id,r.fecha]));
+  pedidos.forEach(p=>{ const d=diaIx.get(fechaRuta.get(p.rutaId)); if(!d) return;
+    if(p.estatus==='entregado') d.ent++; else if(ESTATUS_NO_EXITOSOS.includes(p.estatus)) d.inc++; else d.pen++; });
+  const horas = Array.from({length:24},()=>0);
+  entregas.forEach(e=>{ horas[new Date(e.horaEntrega).getHours()]++; });
+  const motivos = ESTATUS_NO_EXITOSOS.map(k=>({k, t:ESTATUS_TXT[k], n:noEx.filter(p=>p.estatus===k).length})).filter(m=>m.n).sort((a,b)=>b.n-a.n);
+  const incTipos = Object.entries(incid.reduce((o,i)=>{ o[i.tipo]=(o[i.tipo]||0)+1; return o; },{})).map(([k,n])=>({t:TIPOS_INCIDENCIA[k]||k, n})).sort((a,b)=>b.n-a.n);
+
+  const agrupa = (clave, nombreDe)=>{
+    const g=new Map();
+    rutas.forEach(r=>{ const k=r[clave]||''; if(!g.has(k)) g.set(k,{nombre:nombreDe(k), rutas:0, paradas:0, ent:0, inc:0, mins:0, concl:0, paradasConcl:0, sitio:[], km:0});
+      const x=g.get(k), ps=pedidosDe(r);
+      x.rutas++; x.paradas+=ps.length; x.ent+=ps.filter(p=>p.estatus==='entregado').length; x.inc+=ps.filter(p=>ESTATUS_NO_EXITOSOS.includes(p.estatus)).length;
+      if(r.estatus==='concluida'&&r.horaInicio&&r.horaFin){ x.mins+=Util.minsBetween(r.horaInicio,r.horaFin); x.concl++; x.paradasConcl+=r.pedidoIds.length; }
+      ps.forEach(p=>{ const e=entDe.get(p.id); if(p.horaLlegada&&e){ const m=Util.minsBetween(p.horaLlegada,e.horaEntrega); if(m>=0&&m<600) x.sitio.push(m); } });
+      x.km += kmRealRuta(r)||0;
+    });
+    return [...g.values()].sort((a,b)=>b.paradas-a.paradas);
+  };
+
+  const unidadesEnPeriodo = new Set(rutas.map(r=>r.unidadId).filter(Boolean));
+  const choferesEnPeriodo = new Set(rutas.map(r=>r.choferId).filter(Boolean));
+  const operables = unidades.filter(u=>u.estatus!=='mantenimiento');
+  return {
+    rutas, pedidos, entregas, incid, unidades, choferes, dias, horas, motivos, incTipos, docs, notif,
+    total:pedidos.length, ent:ent.length, noEx:noEx.length, pend:pend.length, cerrados:ent.length+noEx.length,
+    parciales:entregas.filter(e=>e.entregaParcial).length,
+    aTiempo:aTiempo.length, conVentana:conVentana.length,
+    vencidos:pend.filter(p=>p.fechaMax && p.fechaMax<hoy).length,
+    porReprogramar:pedidosPorReprogramar(f.centroId).length,
+    reintentos:pedidos.filter(p=>(p.intento||1)>1).length,
+    rPend:rutas.filter(r=>r.estatus==='pendiente').length, rCurso:rutas.filter(r=>r.estatus==='en_curso').length, rConcl:rutas.filter(r=>r.estatus==='concluida').length,
+    rSinChofer:rutas.filter(r=>!r.choferId && r.estatus==='pendiente').length,
+    durProm:Util.prom(durs), minParada: Util.suma(concl,r=>r.pedidoIds.length) ? Util.suma(durs,x=>x)/Util.suma(concl,r=>r.pedidoIds.length) : null,
+    sitioProm:Util.prom(enSitio), salidaProm:Util.prom(salidas),
+    kmPlan:Util.suma(rutas,r=>r.kmPlan), kmReal:kmReales.reduce((a,b)=>a+b,0), hayKmReal:kmReales.length>0,
+    sinSenal:DB.query('rutas', r=>enC(r) && rutaSinSenal(r)).length,
+    incAbiertas:DB.query('incidencias', i=>enC(i) && !i.atendida).length,
+    uDisp:unidades.filter(u=>u.estatus==='disponible').length, uRuta:unidades.filter(u=>u.estatus==='en_ruta').length, uMant:unidades.filter(u=>u.estatus==='mantenimiento').length,
+    utilizacion:Util.pct([...unidadesEnPeriodo].filter(id=>operables.some(u=>u.id===id)).length, operables.length),
+    unidadesUsadas:unidadesEnPeriodo.size, operables:operables.length,
+    ocKg:Util.prom(ocup.filter(o=>o.u.capacidadKg>0).map(o=>o.kg/o.u.capacidadKg*100)),
+    ocM3:Util.prom(ocup.filter(o=>o.u.capacidadM3>0).map(o=>o.m3/o.u.capacidadM3*100)),
+    sobrecarga:ocup.filter(o=>(o.u.capacidadKg>0&&o.kg>o.u.capacidadKg)||(o.u.capacidadM3>0&&o.m3>o.u.capacidadM3)).length,
+    chActivos:choferes.filter(c=>c.estatus!=='inactivo').length, chConRuta:choferesEnPeriodo.size,
+    importe:Util.suma(pedidos,p=>p.importeTotal), importeEnt:Util.suma(ent,p=>p.importeTotal), importeNoEx:Util.suma(noEx,p=>p.importeTotal),
+    kg:Util.suma(pedidos,p=>p.pesoKg), kgEnt:Util.suma(ent,p=>p.pesoKg), m3:Util.suma(pedidos,p=>p.volumenM3), m3Ent:Util.suma(ent,p=>p.volumenM3),
+    conFoto:entOk.filter(e=>(e.fotos||[]).length).length, conFirma:entOk.filter(e=>e.firma).length, conRecibe:entOk.filter(e=>e.recibeNombre).length,
+    entOk:entOk.length, fueraPunto:entOk.filter(e=>e.distanciaM!=null && e.distanciaM>METROS_FUERA).length, conGeo:entOk.filter(e=>e.distanciaM!=null).length,
+    sinCoords:pedidos.filter(p=>p.lat==null||p.lng==null).length,
+    porChofer:agrupa('choferId', id=>DB.find('choferes',id)?.nombre||'Sin chofer'),
+    porCentro:agrupa('centroId', id=>DB.find('centros',id)?.nombre||'Sin centro'),
+  };
+}
+
+let _dashF = null;
 function viewDashboard(el,user){
   const hoy=Util.todayISO();
-  const rutasHoy = DB.query('rutas', r=>r.fecha===hoy);
-  const pedidosHoy = DB.query('pedidos', p=>p.fecha===hoy);
-  const entregados = pedidosHoy.filter(p=>p.estatus==='entregado').length;
-  const fallidos = pedidosHoy.filter(p=>ESTATUS_NO_EXITOSOS.includes(p.estatus)).length;
-  const pendientes = pedidosHoy.length - entregados - fallidos;
-  const enRuta = rutasHoy.filter(r=>r.estatus==='en_curso').length;
-  const choferes = DB.get('choferes');
-  const unidades = DB.get('unidades');
-  const sinSenal = rutasHoy.filter(r=>r.estatus==='en_curso' && (!r.ultimaUbicacion || Util.minsBetween(r.ultimaUbicacion,Util.nowISO())>12)).length;
+  const haceDias = n=>Util.dateISO(new Date(Date.now()-n*86400000));
+  const PERIODOS = {hoy:['Hoy',hoy,hoy], ayer:['Ayer',haceDias(1),haceDias(1)], '7d':['7 días',haceDias(6),hoy], '30d':['30 días',haceDias(29),hoy]};
+  if(!_dashF) _dashF = {per:'hoy', desde:hoy, hasta:hoy, centroId:''};
+  const f=_dashF;
+  if(PERIODOS[f.per]){ f.desde=PERIODOS[f.per][1]; f.hasta=PERIODOS[f.per][2]; }
+  const centros=DB.get('centros');
+  const k = calcIndicadores(f);
+  const unDia = f.desde===f.hasta;
   const hora = new Date().getHours();
   const saludo = hora<12 ? 'Buenos días' : hora<19 ? 'Buenas tardes' : 'Buenas noches';
+  const n1 = (x,d)=>x==null||isNaN(x)?'—':Util.num(x,d==null?1:d);
+  const hhmm = m=>m==null?'—':String(Math.floor(m/60)).padStart(2,'0')+':'+String(Math.round(m%60)).padStart(2,'0');
+  const kpi = (t,v,s,o)=>{ o=o||{}; return `<div class="kpi ${o.cls||''}" ${o.tip?`data-tip="${Util.esc(o.tip)}"`:''}><h4>${t}</h4><div class="v">${v}</div>${s?`<div class="s">${s}</div>`:''}${o.meter!=null?`<div class="meter"><i style="width:${Math.max(0,Math.min(100,o.meter))}%"></i></div>`:''}</div>`; };
+  const tono = (p,ok,reg)=>p==null?'':p>=ok?'good':p>=reg?'warn':'bad';
+  const efect = Util.pct(k.ent,k.cerrados), avance = Util.pct(k.cerrados,k.total), otd = Util.pct(k.aTiempo,k.conVentana);
 
+  // --- Requiere atención ---
+  const al=[];
+  if(k.incAbiertas) al.push(['crit','🚨',`<b>${k.incAbiertas}</b> incidencia(s) en ruta sin atender`,'monitoreo','Atender']);
+  if(k.sinSenal) al.push(['crit','📡',`<b>${k.sinSenal}</b> unidad(es) en ruta sin señal GPS hace más de ${MIN_SIN_SENAL} min`,'monitoreo','Ver mapa']);
+  if(k.rSinChofer) al.push(['crit','🧑‍✈️',`<b>${k.rSinChofer}</b> ruta(s) sin chofer asignado: no le aparecen a nadie en la app`,'monitoreo','Asignar']);
+  if(k.sobrecarga) al.push(['crit','⚖️',`<b>${k.sobrecarga}</b> ruta(s) rebasan la capacidad de la unidad`,'monitoreo','Revisar']);
+  if(k.vencidos) al.push(['','⏰',`<b>${k.vencidos}</b> pedido(s) pendientes con fecha máxima de entrega vencida`,'historico','Ver']);
+  if(k.porReprogramar) al.push(['','🔁',`<b>${k.porReprogramar}</b> pedido(s) no entregados sin reprogramar`,'monitoreo','Reprogramar']);
+  if(k.sinCoords) al.push(['','📍',`<b>${k.sinCoords}</b> pedido(s) sin coordenadas (van al final de la ruta)`,'monitoreo','Corregir']);
+  if(k.notif.fall) al.push(['','✉️',`<b>${k.notif.fall}</b> aviso(s) por correo no se pudieron enviar`,'monitoreo','Ver']);
+  k.docs.sort((a,b)=>a.d-b.d).slice(0,5).forEach(d=>al.push([d.d<0?'crit':'','📄',`${Util.esc(d.txt)}: ${d.d<0?'<b>vencido</b> hace '+(-d.d)+' día(s)':'vence en <b>'+d.d+'</b> día(s)'}`,d.ir,'Actualizar']));
+  if(!DB.get('tiendas').some(t=>t.esOrigen) && puedeEditar()) al.push(['','🏬','Aún no hay una tienda marcada como <b>punto de salida</b>: es necesaria para cargar rutas','asignacion-tiendas','Crear']);
+
+  // --- Gráficas ---
+  const maxDia = Math.max(1,...k.dias.map(d=>d.ent+d.inc+d.pen));
+  const cadaX = Math.ceil(k.dias.length/12);
+  const etiquetaDia = d=>{ const x=new Date(d.fecha+'T00:00:00'); return x.getDate()+'/'+(x.getMonth()+1); };
+  const chartDias = `<div class="chart">${k.dias.map(d=>{
+      const t=d.ent+d.inc+d.pen, h=x=>(x/maxDia*100).toFixed(1);
+      return `<div class="col" data-tip="${Util.esc(Util.fmtDate(d.fecha))}\nEntregados: ${d.ent}\nCon incidencia: ${d.inc}\nPendientes: ${d.pen}\nEfectividad: ${Util.pctTxt(d.ent,d.ent+d.inc)}">
+        ${d.pen?`<i style="height:${h(d.pen)}%;background:var(--ch-3)"></i>`:''}${d.inc?`<i style="height:${h(d.inc)}%;background:var(--ch-2)"></i>`:''}${d.ent?`<i style="height:${h(d.ent)}%;background:var(--ch-1)"></i>`:''}${!t?'<i style="height:0"></i>':''}</div>`;
+    }).join('')}</div>
+    <div class="chart-x">${k.dias.map((d,i)=>`<span>${i%cadaX===0?etiquetaDia(d):''}</span>`).join('')}</div>`;
+  const h0 = Math.max(0, k.horas.findIndex(n=>n>0)), h1 = 23-[...k.horas].reverse().findIndex(n=>n>0);
+  const rangoH = k.horas.some(n=>n>0) ? k.horas.map((n,h)=>({h,n})).slice(Math.min(h0,7), Math.max(h1,19)+1) : [];
+  const maxH = Math.max(1,...k.horas);
+  const chartHoras = rangoH.length ? `<div class="chart">${rangoH.map(x=>`<div class="col" data-tip="${x.h}:00 a ${x.h}:59\n${x.n} entrega(s) cerradas"><i style="height:${(x.n/maxH*100).toFixed(1)}%;background:var(--ch-1)"></i></div>`).join('')}</div>
+    <div class="chart-x">${rangoH.map(x=>`<span>${x.h}h</span>`).join('')}</div>` : '<div class="empty">Aún no hay entregas registradas en el periodo.</div>';
+  const hbars = (filas,color)=>{ const m=Math.max(1,...filas.map(x=>x.n)), tot=filas.reduce((s,x)=>s+x.n,0);
+    return filas.map(x=>`<div class="hbar" data-tip="${Util.esc(x.t)}: ${x.n} (${Util.pctTxt(x.n,tot)})"><span class="t">${Util.esc(x.t)}</span><span class="b"><i style="width:${(x.n/m*100).toFixed(1)}%;${color?'background:'+color:''}"></i></span><span class="n">${x.n}</span></div>`).join(''); };
+  const tablaGrupo = (filas,titulo)=>`<div class="table-wrap"><table>
+    <thead><tr><th>${titulo}</th><th>Rutas</th><th>Paradas</th><th>Efectividad</th><th>Incid.</th><th>Min/parada</th><th>En sitio</th><th>Km</th></tr></thead>
+    <tbody>${filas.length?filas.map(x=>{ const e=Util.pct(x.ent,x.ent+x.inc);
+      return `<tr><td><b>${Util.esc(x.nombre)}</b></td><td>${x.rutas}</td><td>${x.ent+x.inc}/${x.paradas}</td>
+        <td><span class="mini-bar"><i style="width:${e||0}%"></i></span>${e==null?'—':e+'%'}</td><td>${x.inc||'—'}</td>
+        <td>${x.paradasConcl?Math.round(x.mins/x.paradasConcl):'—'}</td><td>${x.sitio.length?Math.round(Util.prom(x.sitio))+' min':'—'}</td><td>${x.km?n1(x.km,0):'—'}</td></tr>`;
+    }).join(''):`<tr><td colspan="8" class="empty">Sin rutas en el periodo.</td></tr>`}</tbody></table></div>`;
+
+  const rutasHoy = DB.query('rutas', r=>r.fecha===hoy && (!f.centroId||r.centroId===f.centroId));
   el.innerHTML = `
-  <div class="welcome-banner">
+  <div class="welcome-banner" style="padding:18px 26px;margin-bottom:14px">
     <div class="welcome-text">
       <span class="small" style="opacity:.8">${saludo},</span>
-      <h2>${Util.esc(user.nombre||user.usuario)}</h2>
-      <p class="small" style="opacity:.85;max-width:360px">Aquí tienes el resumen de operación de hoy, ${Util.fmtDate(hoy)}.</p>
+      <h2 style="margin:0 0 4px">${Util.esc(user.nombre||user.usuario)}</h2>
+      <p class="small" style="opacity:.85;margin:0">${Util.esc(alcanceTexto(user))} · ${unDia?Util.fmtDate(f.desde):Util.fmtDate(f.desde)+' a '+Util.fmtDate(f.hasta)} · ${k.rutas.length} ruta(s), ${k.total} pedido(s)${avance!=null?`, avance ${avance}%`:''}</p>
     </div>
-    <img src="assets/header-vehicle.svg" class="vehicle-img" alt="Vehículo de reparto MapRoad">
+    <img src="assets/header-vehicle.svg" class="vehicle-img" style="max-width:120px" alt="">
   </div>
-  <div class="grid cols-4" style="margin-bottom:18px;">
-    <div class="card"><h3>Rutas de hoy</h3><div class="stat">${rutasHoy.length}</div><div class="trend muted">${enRuta} en curso${sinSenal?` · <span style="color:var(--warning)">${sinSenal} sin señal GPS</span>`:''}</div></div>
-    <div class="card"><h3>Pedidos de hoy</h3><div class="stat">${pedidosHoy.length}</div><div class="trend muted">${pendientes} pendientes</div></div>
-    <div class="card"><h3>Entregados</h3><div class="stat" style="color:var(--success)">${entregados}</div><div class="trend up">${pedidosHoy.length?Math.round(entregados/pedidosHoy.length*100):0}% del total</div></div>
-    <div class="card"><h3>Con incidencia</h3><div class="stat" style="color:var(--danger)">${fallidos}</div><div class="trend ${fallidos?'down':''}">ausente, reprogramado, cancelado o fallido</div></div>
+  <div class="dash-bar">
+    <div class="seg" id="dPer">${Object.entries(PERIODOS).map(([p,v])=>`<button data-per="${p}" class="${f.per===p?'on':''}">${v[0]}</button>`).join('')}<button data-per="rango" class="${f.per==='rango'?'on':''}">Rango</button></div>
+    ${f.per==='rango'?`<input type="date" id="dDesde" value="${f.desde}" max="${hoy}"> <span class="small muted">a</span> <input type="date" id="dHasta" value="${f.hasta}">`:''}
+    ${centros.length>1?`<select id="dCentro"><option value="">Todos los centros</option>${centros.map(c=>`<option value="${c.id}" ${f.centroId===c.id?'selected':''}>${Util.esc(c.nombre)}</option>`).join('')}</select>`:''}
+    <span class="small mute2" style="margin-left:auto">Se actualiza solo · ${Util.fmtTime(Util.nowISO())}</span>
   </div>
-  <div class="grid cols-2" style="grid-template-columns:1.3fr .7fr;">
+
+  <div class="grid duo" style="margin-bottom:4px">
     <div class="panel">
-      <div class="panel-h"><b>Rutas activas de hoy</b><a class="btn sm" href="#/monitoreo">Ver monitoreo →</a></div>
-      <div class="table-wrap"><table>
-        <thead><tr><th>Chofer</th><th>Unidad</th><th>Centro</th><th>Paradas</th><th>Estatus</th><th>Inicio</th></tr></thead>
+      <div class="panel-h"><b>Rutas de hoy (${rutasHoy.length})</b><a class="btn sm" href="#/monitoreo">Monitoreo en vivo →</a></div>
+      <div class="table-wrap" style="max-height:260px;overflow-y:auto"><table>
+        <thead><tr><th>Chofer</th><th>Unidad</th><th>Avance</th><th>Estatus</th><th>Salida</th><th>GPS</th></tr></thead>
         <tbody>${rutasHoy.length? rutasHoy.map(r=>{
-          const ch=DB.find('choferes',r.choferId), un=DB.find('unidades',r.unidadId), ce=DB.find('centros',r.centroId);
-          return `<tr data-verruta="${r.id}" style="cursor:pointer" title="Ver envíos de esta ruta"><td>${Util.esc(ch?.nombre||'—')}</td><td class="mono">${Util.esc(un?.placa||'—')}</td><td>${Util.esc(ce?.nombre||'—')}</td>
-          <td>${r.pedidoIds.length}</td><td>${estatusBadge(r.estatus)}</td><td>${Util.fmtTime(r.horaInicio)}</td></tr>`;
+          const ch=DB.find('choferes',r.choferId), un=DB.find('unidades',r.unidadId);
+          const ps=r.pedidoIds.map(id=>DB.find('pedidos',id)).filter(Boolean), hechas=ps.filter(p=>esEstatusCerrado(p.estatus)).length;
+          return `<tr data-verruta="${r.id}" style="cursor:pointer"><td>${ch?Util.esc(ch.nombre):'<span class="badge b-red">Sin chofer</span>'}</td><td class="mono">${Util.esc(un?.placa||r.vehiculoTexto||'—')}</td>
+          <td><span class="mini-bar"><i style="width:${ps.length?hechas/ps.length*100:0}%"></i></span>${hechas}/${ps.length}</td><td>${estatusBadge(r.estatus)}</td><td>${Util.fmtTime(r.horaInicio)}</td>
+          <td class="small">${r.estatus!=='en_curso'?'—':rutaSinSenal(r)?'<span style="color:#b3261e;font-weight:700">Sin señal</span>':Util.hace(r.ultimaUbicacion)}</td></tr>`;
         }).join('') : `<tr><td colspan="6" class="empty">Aún no se han cargado rutas para hoy. ${puedeEditar()?'<a href="#/cargar-rutas">Cargar ahora →</a>':''}</td></tr>`}</tbody>
       </table></div>
     </div>
     <div class="panel">
-      <div class="panel-h"><b>Flota</b></div>
-      <div class="panel-b">
-        ${!unidades.length?'<div class="empty">Sin unidades registradas.</div>':''}
-        ${unidades.map(u=>{
-          const ch=choferes.find(c=>c.id===u.choferId);
-          return `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
-            <div><b class="mono">${Util.esc(u.placa)}</b><div class="small muted">${Util.esc(ch?.nombre||'Sin chofer')}</div></div>
-            ${estatusBadge(u.estatus)}
-          </div>`;
-        }).join('')}
+      <div class="panel-h"><b>Requiere atención</b>${al.length?`<span class="badge ${al.some(a=>a[0])?'b-red':'b-amber'}">${al.length}</span>`:'<span class="badge b-green">Todo en orden</span>'}</div>
+      <div class="panel-b" style="padding:6px 18px;max-height:260px;overflow-y:auto">
+        ${al.length?al.map(a=>`<div class="alerta ${a[0]}"><span class="ic">${a[1]}</span><span style="flex:1">${a[2]}</span><a href="#/${a[3]}">${a[4]} →</a></div>`).join(''):'<div class="empty" style="padding:26px 10px">Sin pendientes ni alertas en este momento.</div>'}
       </div>
     </div>
-  </div>`;
+  </div>
+
+  <div class="sec-t">Servicio al cliente</div>
+  <div class="kgrid">
+    ${kpi('Pedidos', k.total, `${k.pend} pendientes`)}
+    ${kpi('Entregados', k.ent, `${Util.pctTxt(k.ent,k.total)} del total`, {cls:'good'})}
+    ${kpi('Efectividad', efect==null?'—':efect+'%', 'entregados / visitados', {cls:tono(efect,95,85), meter:efect, tip:'De los pedidos ya visitados, cuántos se entregaron.\nMeta sugerida: 95% o más.'})}
+    ${kpi('Avance', avance==null?'—':avance+'%', `${k.cerrados} de ${k.total} visitados`, {meter:avance})}
+    ${kpi('Con incidencia', k.noEx, `${Util.pctTxt(k.noEx,k.cerrados)} de lo visitado`, {cls:k.noEx?'bad':''})}
+    ${kpi('Entregas parciales', k.parciales, 'con artículos faltantes', {cls:k.parciales?'warn':''})}
+    ${kpi('Entrega a tiempo', otd==null?'—':otd+'%', k.conVentana?`${k.aTiempo} de ${k.conVentana} dentro de fecha`:'sin fecha máxima en los pedidos', {cls:tono(otd,95,85), meter:otd, tip:'Entregados en su fecha máxima de entrega o antes (OTD).'})}
+    ${kpi('Vencidos sin entregar', k.vencidos, 'pendientes fuera de fecha', {cls:k.vencidos?'bad':''})}
+    ${kpi('Por reprogramar', k.porReprogramar, 'no entregados sin nueva ruta', {cls:k.porReprogramar?'warn':'', tip:'Cliente ausente, reprogramados o fallidos que aún no se vuelven a subir a una ruta (últimos 14 días).'})}
+    ${kpi('Reintentos', k.reintentos, 'pedidos en 2.º intento o más')}
+  </div>
+
+  <div class="sec-t">Operación de rutas</div>
+  <div class="kgrid">
+    ${kpi('Rutas', k.rutas.length, `${k.rCurso} en curso · ${k.rConcl} concluidas · ${k.rPend} sin iniciar`)}
+    ${kpi('Paradas por ruta', n1(k.rutas.length?k.total/k.rutas.length:null), 'promedio')}
+    ${kpi('Duración de ruta', Util.fmtMins(k.durProm==null?null:Math.round(k.durProm)), 'promedio, rutas concluidas')}
+    ${kpi('Minutos por parada', n1(k.minParada,0), 'traslado + entrega', {tip:'Duración total de las rutas concluidas entre sus paradas.'})}
+    ${kpi('Tiempo en sitio', k.sitioProm==null?'—':Math.round(k.sitioProm)+' <small>min</small>', 'de "Ya llegué" a entrega cerrada')}
+    ${kpi('Hora de salida', hhmm(k.salidaProm), 'promedio de inicio de ruta')}
+    ${kpi('Km planeados', n1(k.kmPlan,0), 'estimado en línea recta', {tip:'Suma de la distancia estimada al generar cada ruta (salida, paradas y regreso).'})}
+    ${kpi('Km recorridos', k.hayKmReal?n1(k.kmReal,0):'—', 'odómetro o GPS', {tip:'Odómetro capturado por el chofer; si no lo capturó, distancia acumulada por los puntos GPS.'})}
+    ${kpi('Km por entrega', k.hayKmReal&&k.ent?n1(k.kmReal/k.ent):'—', 'recorridos / entregados')}
+    ${kpi('Incidencias en ruta', k.incid.length, k.incAbiertas?`${k.incAbiertas} sin atender`:'reportadas por choferes', {cls:k.incAbiertas?'bad':''})}
+  </div>
+
+  <div class="sec-t">Flota y personal</div>
+  <div class="kgrid">
+    ${kpi('Unidades', k.unidades.length, `${k.uDisp} disponibles · ${k.uRuta} en ruta · ${k.uMant} en taller`)}
+    ${kpi('Utilización de flota', k.utilizacion==null?'—':k.utilizacion+'%', `${k.unidadesUsadas} de ${k.operables} con ruta`, {meter:k.utilizacion, tip:'Unidades operables (fuera de mantenimiento) que tuvieron al menos una ruta en el periodo.'})}
+    ${kpi('Ocupación por peso', k.ocKg==null?'—':Math.round(k.ocKg)+'%', 'carga / capacidad kg', {meter:k.ocKg, cls:k.ocKg>100?'bad':''})}
+    ${kpi('Ocupación por volumen', k.ocM3==null?'—':Math.round(k.ocM3)+'%', 'carga / capacidad m³', {meter:k.ocM3, cls:k.ocM3>100?'bad':''})}
+    ${kpi('Choferes con ruta', `${k.chConRuta} <small>de ${k.chActivos}</small>`, 'activos en el periodo')}
+    ${kpi('Sin señal GPS', k.sinSenal, 'rutas en curso ahora', {cls:k.sinSenal?'bad':''})}
+    ${kpi('Documentos por vencer', k.docs.length, 'licencias, seguros, verificación (30 días)', {cls:k.docs.some(d=>d.d<0)?'bad':k.docs.length?'warn':''})}
+  </div>
+
+  <div class="sec-t">Carga y valor</div>
+  <div class="kgrid">
+    ${kpi('Importe en ruta', Util.money(k.importe), 'facturas del periodo')}
+    ${kpi('Importe entregado', Util.money(k.importeEnt), Util.pctTxt(k.importeEnt,k.importe)+' del importe', {cls:'good'})}
+    ${kpi('Importe no entregado', Util.money(k.importeNoEx), 'pedidos con incidencia', {cls:k.importeNoEx?'bad':''})}
+    ${kpi('Ticket promedio', k.total?Util.money(k.importe/k.total):'—', 'importe por pedido')}
+    ${kpi('Peso', n1(k.kgEnt,0)+' <small>/ '+n1(k.kg,0)+' kg</small>', 'entregado / total')}
+    ${kpi('Volumen', n1(k.m3Ent)+' <small>/ '+n1(k.m3)+' m³</small>', 'entregado / total')}
+  </div>
+
+  <div class="sec-t">Evidencia y calidad de datos</div>
+  <div class="kgrid">
+    ${kpi('Con foto', Util.pctTxt(k.conFoto,k.entOk), `${k.conFoto} de ${k.entOk} entregas`, {meter:Util.pct(k.conFoto,k.entOk)})}
+    ${kpi('Con firma', Util.pctTxt(k.conFirma,k.entOk), `${k.conFirma} de ${k.entOk} entregas`, {meter:Util.pct(k.conFirma,k.entOk)})}
+    ${kpi('Con nombre de quien recibe', Util.pctTxt(k.conRecibe,k.entOk), `${k.conRecibe} de ${k.entOk} entregas`, {meter:Util.pct(k.conRecibe,k.entOk)})}
+    ${kpi('Cerradas fuera de punto', k.fueraPunto, k.conGeo?`a más de ${METROS_FUERA} m del domicilio`:'sin ubicación de cierre aún', {cls:k.fueraPunto?'warn':'', tip:'La app guarda dónde estaba el chofer al cerrar la entrega y lo compara con las coordenadas del pedido.'})}
+    ${kpi('Pedidos sin coordenadas', k.sinCoords, 'no entran a la ruta óptima', {cls:k.sinCoords?'warn':''})}
+    ${kpi('Avisos por correo', k.notif.env, `${k.notif.fall} fallidos · ${k.notif.omi} sin correo válido`, {cls:k.notif.fall?'warn':''})}
+  </div>
+
+  <div class="sec-t">Tendencias</div>
+  <div class="grid cols-2">
+    <div class="panel"><div class="panel-h"><b>Pedidos por día</b>
+      <div class="ch-leg"><span><i style="background:var(--ch-1)"></i>Entregados</span><span><i style="background:var(--ch-2)"></i>Con incidencia</span><span><i style="background:var(--ch-3)"></i>Pendientes</span></div></div>
+      <div class="panel-b">${chartDias}</div></div>
+    <div class="panel"><div class="panel-h"><b>Entregas por hora del día</b><span class="small muted">cuándo se cierran las entregas</span></div>
+      <div class="panel-b">${chartHoras}</div></div>
+  </div>
+  <div class="grid cols-2" style="margin-top:16px">
+    <div class="panel"><div class="panel-h"><b>Motivos de no entrega</b><span class="small muted">${k.noEx} pedido(s)</span></div>
+      <div class="panel-b">${k.motivos.length?hbars(k.motivos,'var(--ch-2)'):'<div class="empty">Sin pedidos con incidencia en el periodo.</div>'}</div></div>
+    <div class="panel"><div class="panel-h"><b>Incidencias en ruta por tipo</b><span class="small muted">${k.incid.length} reporte(s)</span></div>
+      <div class="panel-b">${k.incTipos.length?hbars(k.incTipos):'<div class="empty">Los choferes no han reportado incidencias en el periodo.</div>'}</div></div>
+  </div>
+
+  <div class="sec-t">Desempeño</div>
+  <div class="panel"><div class="panel-h"><b>Por chofer</b><button class="btn sm" id="dCsv">⬇ CSV de indicadores</button></div>${tablaGrupo(k.porChofer,'Chofer')}</div>
+  ${k.porCentro.length>1?`<div class="panel" style="margin-top:16px"><div class="panel-h"><b>Por centro / CEDIS</b></div>${tablaGrupo(k.porCentro,'Centro')}</div>`:''}`;
+
   el.querySelectorAll('[data-verruta]').forEach(tr=>tr.onclick=()=>openDetalleRutaModal(tr.dataset.verruta));
+  const redibuja = async ()=>{
+    if(f.desde && DB._desde && f.desde<DB._desde){
+      Util.toast('Cargando historial…');
+      try{ await DB.load(f.desde); }catch(err){ Util.toast('No se pudo cargar el historial: '+(err.message||err),'err'); }
+    }
+    if(el.isConnected) viewDashboard(el,user);
+  };
+  el.querySelectorAll('[data-per]').forEach(b=>b.onclick=()=>{ f.per=b.dataset.per; redibuja(); });
+  const dd=el.querySelector('#dDesde'), dh=el.querySelector('#dHasta'), dc=el.querySelector('#dCentro');
+  if(dd) dd.onchange=dh.onchange=()=>{ if(dd.value&&dh.value&&dd.value<=dh.value){ f.desde=dd.value; f.hasta=dh.value; redibuja(); } };
+  if(dc) dc.onchange=()=>{ f.centroId=dc.value; redibuja(); };
+  el.querySelector('#dCsv').onclick=()=>{
+    const filas=[['Indicador','Valor'],['Periodo',f.desde+' a '+f.hasta],['Pedidos',k.total],['Entregados',k.ent],['Con incidencia',k.noEx],['Pendientes',k.pend],
+      ['Efectividad %',efect??''],['Avance %',avance??''],['Entrega a tiempo %',otd??''],['Entregas parciales',k.parciales],['Vencidos sin entregar',k.vencidos],['Por reprogramar',k.porReprogramar],
+      ['Rutas',k.rutas.length],['Duración promedio (min)',k.durProm==null?'':Math.round(k.durProm)],['Minutos por parada',k.minParada==null?'':Math.round(k.minParada)],['Tiempo en sitio (min)',k.sitioProm==null?'':Math.round(k.sitioProm)],
+      ['Km planeados',k.kmPlan],['Km recorridos',k.hayKmReal?Math.round(k.kmReal):''],['Utilización de flota %',k.utilizacion??''],['Ocupación peso %',k.ocKg==null?'':Math.round(k.ocKg)],['Ocupación volumen %',k.ocM3==null?'':Math.round(k.ocM3)],
+      ['Importe en ruta',k.importe],['Importe entregado',k.importeEnt],['Importe no entregado',k.importeNoEx],['Kg entregados',k.kgEnt],['Incidencias en ruta',k.incid.length],
+      [],['Chofer','Rutas','Paradas','Entregados','Incidencias','Efectividad %','Min/parada','Min en sitio','Km']]
+      .concat(k.porChofer.map(x=>[x.nombre,x.rutas,x.paradas,x.ent,x.inc,Util.pct(x.ent,x.ent+x.inc)??'',x.paradasConcl?Math.round(x.mins/x.paradasConcl):'',x.sitio.length?Math.round(Util.prom(x.sitio)):'',Math.round(x.km)||'']));
+    Util.descargarCSV(`MapRoad_indicadores_${f.desde}_a_${f.hasta}.csv`, filas);
+  };
+  _liveRefresh = ()=>{ if(el.isConnected) viewDashboard(el,user); };
 }
 
 function estatusBadge(estatus){
@@ -834,55 +1274,82 @@ function estatusBadge(estatus){
 /* ============================================================
    9. VISTA: CONTROL DE UNIDADES
    ============================================================ */
+const TIPOS_UNIDAD = ['Camioneta','Van / panel','Camión 3.5 t','Rabón','Torton','Tráiler','Motocicleta','Otro'];
+const rutasActivasDe = (campo,id)=>DB.query('rutas', r=>r[campo]===id && r.estatus!=='concluida');
+const optSel = (lista,val,vacio)=>(vacio!=null?`<option value="">${vacio}</option>`:'')+lista.map(o=>{ const [v,t]=Array.isArray(o)?o:[o,o]; return `<option value="${Util.esc(v)}" ${val===v?'selected':''}>${Util.esc(t)}</option>`; }).join('');
+
 function viewUnidades(el){
   function draw(){
     const unidades=DB.get('unidades'), choferes=DB.get('choferes'), centros=DB.get('centros');
     el.innerHTML = `
     <div class="panel">
-      <div class="panel-h"><b>Unidades registradas (${unidades.length})</b><button class="btn primary sm" id="btnNueva">+ Nueva unidad</button></div>
+      <div class="panel-h"><b>Unidades registradas (${unidades.length})</b>
+        <div class="acciones"><input class="buscador" id="q" placeholder="Buscar placa, modelo, chofer…"><button class="btn primary sm" id="btnNueva">+ Nueva unidad</button></div></div>
       <div class="table-wrap"><table>
-        <thead><tr><th>Placa</th><th>Modelo</th><th>Capacidad</th><th>Centro</th><th>Chofer asignado</th><th>Estatus</th><th></th></tr></thead>
-        <tbody>${unidades.length?unidades.map(u=>{
+        <thead><tr><th>Placa</th><th>Tipo / modelo</th><th>Capacidad</th><th>Centro</th><th>Chofer asignado</th><th>Odómetro</th><th>Seguro / verificación</th><th>Estatus</th><th></th></tr></thead>
+        <tbody id="tb">${unidades.length?unidades.map(u=>{
           const ch=choferes.find(c=>c.id===u.choferId), ce=centros.find(c=>c.id===u.centroId);
           return `<tr>
-            <td class="mono">${Util.esc(u.placa)}</td><td>${Util.esc(u.modelo||'—')}</td>
-            <td>${Util.num(u.capacidadKg)} kg / ${Util.num(u.capacidadM3)} m³</td>
-            <td>${Util.esc(ce?.nombre||'—')}</td><td>${Util.esc(ch?.nombre||'<span class=\"mute2\">Sin asignar</span>')}</td>
+            <td><b class="mono">${Util.esc(u.placa)}</b>${u.numeroEconomico?`<div class="small mute2">Eco. ${Util.esc(u.numeroEconomico)}</div>`:''}</td>
+            <td>${Util.esc(u.tipo||'—')}<div class="small mute2">${Util.esc([u.marca,u.modelo,u.anio].filter(Boolean).join(' '))}</div></td>
+            <td>${Util.num(u.capacidadKg)} kg<div class="small mute2">${Util.num(u.capacidadM3)} m³</div></td>
+            <td>${Util.esc(ce?.nombre||'—')}</td><td>${ch?Util.esc(ch.nombre):'<span class="mute2">Sin asignar</span>'}</td>
+            <td>${u.odometroKm!=null?Util.num(u.odometroKm,0)+' km':'—'}${u.rendimientoKmL?`<div class="small mute2">${Util.num(u.rendimientoKmL,1)} km/l</div>`:''}</td>
+            <td>${Util.vence(u.seguroVence)||'<span class="mute2 small">Seguro: sin fecha</span>'}${Util.vence(u.verificacionVence)}</td>
             <td>${estatusBadge(u.estatus)}</td>
-            <td><button class="icon-btn" data-edit="${u.id}">✎</button> <button class="icon-btn" data-del="${u.id}">🗑</button></td>
+            <td style="white-space:nowrap"><button class="icon-btn" data-edit="${u.id}" title="Editar">✎</button> <button class="icon-btn" data-del="${u.id}" title="Eliminar">🗑</button></td>
           </tr>`;
-        }).join(''):`<tr><td colspan="7" class="empty">No hay unidades registradas.</td></tr>`}</tbody>
+        }).join(''):`<tr><td colspan="9" class="empty">No hay unidades registradas.</td></tr>`}</tbody>
       </table></div>
     </div>`;
     el.querySelector('#btnNueva').onclick=()=>openUnidadModal();
+    activarBuscador(el,'#q','#tb');
     el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openUnidadModal(b.dataset.edit));
     el.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{
-      if(confirm('¿Eliminar esta unidad?')){ DB.remove('unidades',b.dataset.del); Util.toast('Unidad eliminada'); draw(); }
+      const act=rutasActivasDe('unidadId',b.dataset.del).length;
+      if(act){ Util.toast(`Esa unidad tiene ${act} ruta(s) pendiente(s) o en curso; reasígnalas antes de eliminarla`,'err'); return; }
+      if(confirm('¿Eliminar esta unidad? Su historial de rutas se conserva sin unidad.')){ DB.remove('unidades',b.dataset.del); Util.toast('Unidad eliminada'); draw(); }
     });
   }
   function openUnidadModal(id){
-    const u = id?DB.find('unidades',id):{};
+    const u = id?DB.find('unidades',id):{estatus:'disponible'};
     const choferes=DB.get('choferes'), centros=DB.get('centros');
     openModal(`${id?'Editar':'Nueva'} unidad`, `
-      <div class="field-row"><div class="field"><label>Placa</label><input name="placa" value="${Util.esc(u.placa||'')}" required></div>
-      <div class="field"><label>Modelo</label><input name="modelo" value="${Util.esc(u.modelo||'')}"></div></div>
-      <div class="field-row"><div class="field"><label>Capacidad (kg)</label><input type="number" name="capacidadKg" value="${u.capacidadKg||''}"></div>
-      <div class="field"><label>Capacidad (m³)</label><input type="number" name="capacidadM3" value="${u.capacidadM3||''}"></div></div>
-      <div class="field"><label>Centro</label><select name="centroId">${centros.map(c=>`<option value="${c.id}" ${u.centroId===c.id?'selected':''}>${Util.esc(c.nombre)}</option>`).join('')}</select></div>
-      <div class="field"><label>Chofer asignado</label><select name="choferId"><option value="">Sin asignar</option>${choferes.map(c=>`<option value="${c.id}" ${u.choferId===c.id?'selected':''}>${Util.esc(c.nombre)}</option>`).join('')}</select></div>
-      <div class="field"><label>Estatus</label><select name="estatus">
-        ${['disponible','en_ruta','mantenimiento'].map(s=>`<option value="${s}" ${u.estatus===s?'selected':''}>${s}</option>`).join('')}
-      </select></div>
+      <div class="field-row"><div class="field"><label>Placa *</label><input name="placa" value="${Util.esc(u.placa||'')}" required style="text-transform:uppercase"></div>
+      <div class="field"><label>No. económico</label><input name="numeroEconomico" value="${Util.esc(u.numeroEconomico||'')}"></div></div>
+      <div class="field-row"><div class="field"><label>Tipo</label><select name="tipo">${optSel(TIPOS_UNIDAD,u.tipo,'— Selecciona —')}</select></div>
+      <div class="field"><label>Estatus</label><select name="estatus">${optSel([['disponible','Disponible'],['en_ruta','En ruta'],['mantenimiento','Mantenimiento / taller']],u.estatus)}</select></div></div>
+      <div class="field-row"><div class="field"><label>Marca</label><input name="marca" value="${Util.esc(u.marca||'')}"></div>
+      <div class="field"><label>Modelo</label><input name="modelo" value="${Util.esc(u.modelo||'')}"></div>
+      <div class="field" style="max-width:90px"><label>Año</label><input type="number" name="anio" min="1980" max="2100" value="${u.anio||''}"></div></div>
+      <div class="field-row"><div class="field"><label>Capacidad (kg)</label><input type="number" step="any" min="0" name="capacidadKg" value="${u.capacidadKg||''}"></div>
+      <div class="field"><label>Capacidad (m³)</label><input type="number" step="any" min="0" name="capacidadM3" value="${u.capacidadM3||''}"></div></div>
+      <div class="small muted" style="margin:-6px 0 10px">Con la capacidad se calcula la ocupación de cada ruta y se avisa si va sobrecargada.</div>
+      <div class="field-row"><div class="field"><label>Centro *</label><select name="centroId">${optSel(centros.map(c=>[c.id,c.nombre]),u.centroId)}</select></div>
+      <div class="field"><label>Chofer asignado</label><select name="choferId">${optSel(choferes.filter(c=>c.estatus!=='inactivo'||c.id===u.choferId).map(c=>[c.id,c.nombre]),u.choferId,'Sin asignar')}</select></div></div>
+      <div class="field-sec">Control y documentos</div>
+      <div class="field-row"><div class="field"><label>Odómetro (km)</label><input type="number" step="any" min="0" name="odometroKm" value="${u.odometroKm??''}"></div>
+      <div class="field"><label>Rendimiento (km/l)</label><input type="number" step="any" min="0" name="rendimientoKmL" value="${u.rendimientoKmL??''}"></div></div>
+      <div class="field-row"><div class="field"><label>Seguro vence</label><input type="date" name="seguroVence" value="${u.seguroVence||''}"></div>
+      <div class="field"><label>Verificación vence</label><input type="date" name="verificacionVence" value="${u.verificacionVence||''}"></div></div>
+      <div class="field"><label>Notas</label><input name="notas" value="${Util.esc(u.notas||'')}"></div>
     `, (data)=>{
-      data.capacidadKg=Number(data.capacidadKg)||0; data.capacidadM3=Number(data.capacidadM3)||0;
+      data.placa=data.placa.trim().toUpperCase();
+      if(DB.get('unidades').some(x=>x.id!==id && x.placa.toUpperCase()===data.placa)){ Util.toast('Ya existe una unidad con esa placa','err'); return; }
+      ['capacidadKg','capacidadM3'].forEach(k=>data[k]=Number(data[k])||0);
+      ['anio','odometroKm','rendimientoKmL'].forEach(k=>data[k]=data[k]===''?null:Number(data[k]));
       if(!data.centroId){ Util.toast('Primero da de alta un centro en Configuración','err'); return; }
       // Alta en dos pasos: la unidad se inserta sin chofer y luego se enlazan ambos lados
       // (unidad.choferId <-> chofer.unidadId se referencian mutuamente).
       const choferSel = data.choferId || null;
       const unidadId = id || DB.insert('unidades',Object.assign({},data,{choferId:null})).id;
-      DB.update('unidades',unidadId,id?data:{choferId:choferSel});
+      DB.update('unidades',unidadId,id?Object.assign(data,{choferId:choferSel}):{choferId:choferSel});
       DB.get('choferes').filter(c=>c.unidadId===unidadId && c.id!==choferSel).forEach(c=>DB.update('choferes',c.id,{unidadId:null}));
-      if(choferSel) DB.update('choferes',choferSel,{unidadId});
+      if(choferSel){
+        // Un chofer maneja una sola unidad: se libera la que tuviera antes.
+        DB.get('unidades').filter(x=>x.choferId===choferSel && x.id!==unidadId).forEach(x=>DB.update('unidades',x.id,{choferId:null}));
+        DB.update('choferes',choferSel,{unidadId});
+      }
       Util.toast('Unidad guardada','ok'); closeModal(); draw();
     });
   }
@@ -892,52 +1359,89 @@ function viewUnidades(el){
 /* ============================================================
    10. VISTA: CONTROL DE CHOFERES
    ============================================================ */
-function viewChoferes(el){
+function viewChoferes(el, user){
   function draw(){
     const choferes=DB.get('choferes'), unidades=DB.get('unidades'), centros=DB.get('centros'), usuarios=DB.get('usuarios');
+    const hoy=Util.todayISO();
     el.innerHTML = `
     <div class="panel">
-      <div class="panel-h"><b>Choferes registrados (${choferes.length})</b><button class="btn primary sm" id="btnNuevo">+ Nuevo chofer</button></div>
+      <div class="panel-h"><b>Choferes registrados (${choferes.length})</b>
+        <div class="acciones"><input class="buscador" id="q" placeholder="Buscar nombre, teléfono, unidad…"><button class="btn primary sm" id="btnNuevo">+ Nuevo chofer</button></div></div>
       <div class="table-wrap"><table>
-        <thead><tr><th>Nombre</th><th>Teléfono</th><th>Licencia</th><th>Unidad</th><th>Centro</th><th>Login</th><th>Estatus</th><th></th></tr></thead>
-        <tbody>${choferes.length?choferes.map(c=>{
+        <thead><tr><th>Nombre</th><th>Teléfono</th><th>Licencia</th><th>Unidad</th><th>Centro</th><th>Acceso a la app</th><th>Hoy</th><th>Estatus</th><th></th></tr></thead>
+        <tbody id="tb">${choferes.length?choferes.map(c=>{
           const un=unidades.find(u=>u.id===c.unidadId), ce=centros.find(x=>x.id===c.centroId);
           const us=usuarios.find(u=>u.choferId===c.id);
+          const rh=DB.query('rutas', r=>r.choferId===c.id && r.fecha===hoy);
+          const tel=String(c.telefono||'').replace(/[^0-9+]/g,'');
           return `<tr>
-            <td>${Util.esc(c.nombre)}</td><td class="mono">${Util.esc(c.telefono||'—')}</td><td class="mono">${Util.esc(c.licencia||'—')}</td>
+            <td><b>${Util.esc(c.nombre)}</b>${c.numeroEmpleado?`<div class="small mute2">Emp. ${Util.esc(c.numeroEmpleado)}</div>`:''}</td>
+            <td class="mono">${tel?`<a href="tel:${tel}">${Util.esc(c.telefono)}</a>`:'—'}</td>
+            <td><span class="mono">${Util.esc(c.licencia||'—')}</span>${c.licenciaTipo?` <span class="small mute2">Tipo ${Util.esc(c.licenciaTipo)}</span>`:''}${Util.vence(c.licenciaVence)}</td>
             <td class="mono">${Util.esc(un?.placa||'—')}</td><td>${Util.esc(ce?.nombre||'—')}</td>
-            <td>${us?`<span class="badge b-blue">${Util.esc(us.usuario)}</span>`:`<span class="mute2">Sin acceso</span>`}</td>
+            <td>${us?`<span class="badge ${us.activo?'b-blue':'b-gray'}">${Util.esc(us.usuario)}</span>`:(user.rol==='admin'?`<button class="btn sm" data-acceso="${c.id}" data-escribe>+ Crear acceso</button>`:'<span class="mute2">Sin acceso</span>')}</td>
+            <td>${rh.length?rh.map(r=>estatusBadge(r.estatus)).join(' '):'<span class="mute2 small">Sin ruta</span>'}</td>
             <td>${estatusBadge(c.estatus)}</td>
-            <td><button class="icon-btn" data-edit="${c.id}">✎</button> <button class="icon-btn" data-del="${c.id}">🗑</button></td>
+            <td style="white-space:nowrap"><button class="icon-btn" data-edit="${c.id}" title="Editar">✎</button> <button class="icon-btn" data-del="${c.id}" title="Eliminar">🗑</button></td>
           </tr>`;
-        }).join(''):`<tr><td colspan="8" class="empty">No hay choferes registrados.</td></tr>`}</tbody>
+        }).join(''):`<tr><td colspan="9" class="empty">No hay choferes registrados.</td></tr>`}</tbody>
       </table></div>
     </div>`;
     el.querySelector('#btnNuevo').onclick=()=>openChoferModal();
+    activarBuscador(el,'#q','#tb');
     el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openChoferModal(b.dataset.edit));
+    el.querySelectorAll('[data-acceso]').forEach(b=>b.onclick=()=>openAccesoChofer(b.dataset.acceso));
     el.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{
-      if(confirm('¿Eliminar este chofer?')){ DB.remove('choferes',b.dataset.del); Util.toast('Chofer eliminado'); draw(); }
+      const act=rutasActivasDe('choferId',b.dataset.del).length;
+      if(act){ Util.toast(`Ese chofer tiene ${act} ruta(s) pendiente(s) o en curso; reasígnalas antes de eliminarlo`,'err'); return; }
+      if(confirm('¿Eliminar este chofer? Su historial de rutas se conserva. Si solo ya no trabaja, es mejor marcarlo Inactivo.')){ DB.remove('choferes',b.dataset.del); Util.toast('Chofer eliminado'); draw(); }
+    });
+  }
+  /* Alta rápida del usuario de la app para un chofer (solo administrador), sin ir a Configuración. */
+  function openAccesoChofer(choferId){
+    const c=DB.find('choferes',choferId);
+    const sugerido=Util.norm(c.nombre).trim().split(/\s+/).map((p,i)=>i===0?p[0]:p).slice(0,2).join('').replace(/[^a-z0-9]/g,'');
+    openModal('Acceso a la app — '+c.nombre, `
+      <div class="field-row"><div class="field"><label>Usuario</label><input name="usuario" value="${Util.esc(sugerido)}" required pattern="[A-Za-z0-9._\\-]{3,40}" autocapitalize="none"></div>
+      <div class="field"><label>Contraseña</label><input name="password" type="text" minlength="8" required placeholder="mínimo 8 caracteres" autocomplete="new-password"></div></div>
+      <div class="small muted">El chofer entra con este usuario y contraseña en la app Android. Compártelos con él en persona.</div>
+    `, async data=>{
+      const btn=document.querySelector('#genericModal button[type=submit]'); btn.disabled=true;
+      try{
+        await apiUsuarios({accion:'crear', usuario:data.usuario, password:data.password, nombre:c.nombre, rol:'chofer', choferId, email:''});
+        await DB.reload('usuarios'); Util.toast('Acceso creado','ok'); closeModal(); draw();
+      }catch(err){ btn.disabled=false; Util.toast(err.message,'err'); }
     });
   }
   function openChoferModal(id){
-    const c = id?DB.find('choferes',id):{};
+    const c = id?DB.find('choferes',id):{estatus:'activo'};
     const unidades=DB.get('unidades'), centros=DB.get('centros');
     const usuarios=DB.get('usuarios'); const us = id ? usuarios.find(u=>u.choferId===id) : null;
     openModal(`${id?'Editar':'Nuevo'} chofer`, `
-      <div class="field-row"><div class="field"><label>Nombre completo</label><input name="nombre" value="${Util.esc(c.nombre||'')}" required></div>
-      <div class="field"><label>Teléfono</label><input name="telefono" value="${Util.esc(c.telefono||'')}"></div></div>
-      <div class="field-row"><div class="field"><label>Licencia</label><input name="licencia" value="${Util.esc(c.licencia||'')}"></div>
-      <div class="field"><label>Estatus</label><select name="estatus">${['activo','inactivo'].map(s=>`<option ${c.estatus===s?'selected':''}>${s}</option>`).join('')}</select></div></div>
-      <div class="field-row"><div class="field"><label>Unidad asignada</label><select name="unidadId"><option value="">Sin asignar</option>${unidades.map(u=>`<option value="${u.id}" ${c.unidadId===u.id?'selected':''}>${Util.esc(u.placa)}</option>`).join('')}</select></div>
-      <div class="field"><label>Centro</label><select name="centroId">${centros.map(x=>`<option value="${x.id}" ${c.centroId===x.id?'selected':''}>${Util.esc(x.nombre)}</option>`).join('')}</select></div></div>
-      <div class="small muted" style="margin-top:6px">📱 Acceso a la app móvil: ${us?`usuario <b>${Util.esc(us.usuario)}</b>`:'aún no tiene'} — se crea en <b>Configuración → Usuarios y roles</b> con el rol "Chofer".</div>
+      <div class="field-row"><div class="field"><label>Nombre completo *</label><input name="nombre" value="${Util.esc(c.nombre||'')}" required></div>
+      <div class="field" style="max-width:140px"><label>No. empleado</label><input name="numeroEmpleado" value="${Util.esc(c.numeroEmpleado||'')}"></div></div>
+      <div class="field-row"><div class="field"><label>Teléfono</label><input name="telefono" type="tel" value="${Util.esc(c.telefono||'')}"></div>
+      <div class="field"><label>Correo</label><input name="email" type="email" value="${Util.esc(c.email||'')}"></div></div>
+      <div class="field-row"><div class="field"><label>Unidad asignada</label><select name="unidadId">${optSel(unidades.map(u=>[u.id,u.placa+(u.choferId&&u.choferId!==id?' (hoy con otro chofer)':'')]),c.unidadId,'Sin asignar')}</select></div>
+      <div class="field"><label>Centro *</label><select name="centroId">${optSel(centros.map(x=>[x.id,x.nombre]),c.centroId)}</select></div></div>
+      <div class="field"><label>Estatus</label><select name="estatus">${optSel([['activo','Activo'],['inactivo','Inactivo']],c.estatus)}</select></div>
+      <div class="field-sec">Licencia y emergencias</div>
+      <div class="field-row"><div class="field"><label>No. de licencia</label><input name="licencia" value="${Util.esc(c.licencia||'')}"></div>
+      <div class="field" style="max-width:110px"><label>Tipo</label><select name="licenciaTipo">${optSel(['A','B','C','D','E','Federal'],c.licenciaTipo,'—')}</select></div>
+      <div class="field"><label>Vence</label><input type="date" name="licenciaVence" value="${c.licenciaVence||''}"></div></div>
+      <div class="field"><label>Contacto de emergencia</label><input name="contactoEmergencia" value="${Util.esc(c.contactoEmergencia||'')}" placeholder="Nombre y teléfono"></div>
+      <div class="field"><label>Notas</label><input name="notas" value="${Util.esc(c.notas||'')}"></div>
+      <div class="small muted" style="margin-top:6px">📱 Acceso a la app móvil: ${us?`usuario <b>${Util.esc(us.usuario)}</b>`:'aún no tiene — se crea con el botón "Crear acceso" de la lista'}.</div>
     `, (data)=>{
       if(!data.centroId){ Util.toast('Primero da de alta un centro en Configuración','err'); return; }
-      const choferId = id || DB.insert('choferes',data).id;
-      if(id) DB.update('choferes',id,data);
+      const choferId = id || DB.insert('choferes',Object.assign({},data,{unidadId:null})).id;
+      DB.update('choferes',choferId,id?data:{unidadId:data.unidadId||null});
       // La unidad y el chofer se apuntan mutuamente: se mantiene sincronizado el otro lado.
       DB.get('unidades').filter(u=>u.choferId===choferId && u.id!==data.unidadId).forEach(u=>DB.update('unidades',u.id,{choferId:null}));
-      if(data.unidadId) DB.update('unidades',data.unidadId,{choferId});
+      if(data.unidadId){
+        DB.get('choferes').filter(x=>x.unidadId===data.unidadId && x.id!==choferId).forEach(x=>DB.update('choferes',x.id,{unidadId:null}));
+        DB.update('unidades',data.unidadId,{choferId});
+      }
       Util.toast('Chofer guardado','ok'); closeModal(); draw();
     });
   }
@@ -945,76 +1449,96 @@ function viewChoferes(el){
 }
 
 /* ============================================================
-   11. VISTA: ASIGNACIÓN DE TIENDAS POR CHOFER
+   11. VISTA: TIENDAS Y PUNTOS DE ENTREGA
    ============================================================ */
+/* Acepta "25.6866, -100.3161" pegado de Google Maps en el campo de latitud y lo reparte en los dos. */
+function activarPegadoCoords(modal){
+  const la=modal.querySelector('[name=lat]'), ln=modal.querySelector('[name=lng]'); if(!la||!ln) return;
+  la.addEventListener('paste', e=>{
+    const t=(e.clipboardData||window.clipboardData).getData('text'); const m=t.match(/(-?\d+(?:\.\d+)?)\s*[,;\s]\s*(-?\d+(?:\.\d+)?)/);
+    if(m){ e.preventDefault(); la.value=m[1]; ln.value=m[2]; }
+  });
+}
 function viewAsignacionTiendas(el){
+  let filtroCentro='';
   function draw(){
     const tiendas=DB.get('tiendas'), choferes=DB.get('choferes'), centros=DB.get('centros');
     el.innerHTML = `
     <div class="panel">
       <div class="panel-h">
         <b>Tiendas / puntos de entrega (${tiendas.length})</b>
-        <div style="display:flex;gap:8px">
-          <select id="fCentro" class="small"><option value="">Todos los centros</option>${centros.map(c=>`<option value="${c.id}">${Util.esc(c.nombre)}</option>`).join('')}</select>
+        <div class="acciones">
+          <input class="buscador" id="q" placeholder="Buscar tienda, colonia, C.P.…">
+          <select id="fCentro" class="buscador" style="min-width:0"><option value="">Todos los centros</option>${centros.map(c=>`<option value="${c.id}" ${filtroCentro===c.id?'selected':''}>${Util.esc(c.nombre)}</option>`).join('')}</select>
           <button class="btn primary sm" id="btnNueva">+ Nueva tienda</button>
         </div>
       </div>
       <div class="table-wrap"><table>
-        <thead><tr><th>Tienda</th><th>Colonia</th><th>C.P.</th><th>Centro</th><th>Chofer asignado</th><th></th></tr></thead>
+        <thead><tr><th>Tienda</th><th>Colonia / C.P.</th><th>Contacto</th><th>Centro</th><th>Chofer asignado</th><th>Mapa</th><th></th></tr></thead>
         <tbody id="tbody"></tbody>
       </table></div>
     </div>`;
     function renderRows(){
-      const filtro=el.querySelector('#fCentro').value;
-      const rows = tiendas.filter(t=>!filtro||t.centroId===filtro);
+      filtroCentro=el.querySelector('#fCentro').value;
+      const rows = tiendas.filter(t=>!filtroCentro||t.centroId===filtroCentro).sort((a,b)=>(b.esOrigen?1:0)-(a.esOrigen?1:0)||a.nombre.localeCompare(b.nombre));
       el.querySelector('#tbody').innerHTML = rows.length ? rows.map(t=>{
         const ce=centros.find(c=>c.id===t.centroId);
         return `<tr>
-          <td><b>${Util.esc(t.nombre)}</b> ${t.esOrigen?'<span class="badge b-green">Salida</span>':''}<div class="small muted">${Util.esc(t.direccion||'')}</div></td>
-          <td>${Util.esc(t.colonia||'—')}</td><td class="mono">${Util.esc(t.cp||'—')}</td><td>${Util.esc(ce?.nombre||'—')}</td>
+          <td><b>${Util.esc(t.nombre)}</b> ${t.esOrigen?'<span class="badge b-green">Punto de salida</span>':''}<div class="small muted">${Util.esc(t.direccion||'')}</div></td>
+          <td>${Util.esc(t.colonia||'—')}<div class="small mute2 mono">${Util.esc(t.cp||'')}</div></td>
+          <td>${Util.esc(t.contacto||'—')}<div class="small mute2">${Util.esc([t.telefono,t.horario].filter(Boolean).join(' · '))}</div></td>
+          <td>${Util.esc(ce?.nombre||'—')}</td>
           <td><select data-asig="${t.id}" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px">
             <option value="">Sin asignar</option>
             ${choferes.map(c=>`<option value="${c.id}" ${t.choferId===c.id?'selected':''}>${Util.esc(c.nombre)}</option>`).join('')}
           </select></td>
-          <td><button class="icon-btn" data-edit="${t.id}">✎</button> <button class="icon-btn" data-del="${t.id}">🗑</button></td>
+          <td>${t.lat!=null&&t.lng!=null?`<a href="https://www.google.com/maps?q=${t.lat},${t.lng}" target="_blank" rel="noopener">Ver 📍</a>`:'<span class="badge b-red">Sin coordenadas</span>'}</td>
+          <td style="white-space:nowrap"><button class="icon-btn" data-edit="${t.id}" title="Editar">✎</button> <button class="icon-btn" data-del="${t.id}" title="Eliminar">🗑</button></td>
         </tr>`;
-      }).join('') : `<tr><td colspan="6" class="empty">Sin resultados.</td></tr>`;
+      }).join('') : `<tr><td colspan="7" class="empty">Sin resultados.</td></tr>`;
       el.querySelectorAll('[data-asig]').forEach(s=>s.onchange=()=>{
         DB.update('tiendas', s.dataset.asig, {choferId:s.value||null});
         Util.toast('Asignación actualizada','ok');
       });
       el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openTiendaModal(b.dataset.edit));
-      el.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ if(confirm('¿Eliminar tienda?')){ DB.remove('tiendas',b.dataset.del); Util.toast('Eliminada'); draw(); } });
+      el.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{
+        if(DB.get('rutas').some(r=>r.origenTiendaId===b.dataset.del && r.estatus!=='concluida')){ Util.toast('Esa tienda es el punto de salida de rutas pendientes o en curso','err'); return; }
+        if(confirm('¿Eliminar tienda?')){ DB.remove('tiendas',b.dataset.del); Util.toast('Eliminada'); draw(); }
+      });
+      el.querySelector('#q').dispatchEvent(new Event('input'));
     }
+    activarBuscador(el,'#q','#tbody');
     el.querySelector('#fCentro').onchange=renderRows;
     el.querySelector('#btnNueva').onclick=()=>openTiendaModal();
     renderRows();
   }
   function openTiendaModal(id){
-    const t=id?DB.find('tiendas',id):{};
+    const t=id?DB.find('tiendas',id):{centroId:filtroCentro, esOrigen:!DB.get('tiendas').some(x=>x.esOrigen)};
     const centros=DB.get('centros'), choferes=DB.get('choferes');
     openModal(`${id?'Editar':'Nueva'} tienda`, `
-      <div class="field"><label>Nombre</label><input name="nombre" value="${Util.esc(t.nombre||'')}" required></div>
+      <div class="field"><label>Nombre *</label><input name="nombre" value="${Util.esc(t.nombre||'')}" required></div>
       <div class="field"><label>Dirección</label><input name="direccion" value="${Util.esc(t.direccion||'')}"></div>
       <div class="field-row"><div class="field"><label>Colonia</label><input name="colonia" value="${Util.esc(t.colonia||'')}"></div>
-      <div class="field"><label>C.P.</label><input name="cp" value="${Util.esc(t.cp||'')}"></div></div>
-      <div class="field-row"><div class="field"><label>Latitud <span style="color:var(--danger)">*</span></label><input type="number" step="any" min="-90" max="90" name="lat" value="${t.lat??''}" required></div>
-      <div class="field"><label>Longitud <span style="color:var(--danger)">*</span></label><input type="number" step="any" min="-180" max="180" name="lng" value="${t.lng??''}" required></div></div>
-      <div class="small muted" style="margin:-6px 0 12px">Obligatorias: sin coordenadas la tienda no se puede ubicar en la ruta óptima ni en el mapa. Cópialas desde Google Maps (clic derecho en el punto exacto → clic en las coordenadas).</div>
-      <div class="field-row"><div class="field"><label>Centro</label><select name="centroId">${centros.map(c=>`<option value="${c.id}" ${t.centroId===c.id?'selected':''}>${Util.esc(c.nombre)}</option>`).join('')}</select></div>
-      <div class="field"><label>Chofer asignado</label><select name="choferId"><option value="">Sin asignar</option>${choferes.map(c=>`<option value="${c.id}" ${t.choferId===c.id?'selected':''}>${Util.esc(c.nombre)}</option>`).join('')}</select></div></div>
+      <div class="field" style="max-width:120px"><label>C.P.</label><input name="cp" inputmode="numeric" value="${Util.esc(t.cp||'')}"></div></div>
+      <div class="field-row"><div class="field"><label>Latitud <span style="color:var(--danger)">*</span></label><input type="text" inputmode="decimal" name="lat" value="${t.lat??''}" required placeholder="25.6866"></div>
+      <div class="field"><label>Longitud <span style="color:var(--danger)">*</span></label><input type="text" inputmode="decimal" name="lng" value="${t.lng??''}" required placeholder="-100.3161"></div></div>
+      <div class="small muted" style="margin:-6px 0 12px">Obligatorias. En Google Maps: clic derecho en el punto exacto → clic en las coordenadas para copiarlas → pégalas en <b>Latitud</b> (se reparten solas en los dos campos).</div>
+      <div class="field-row"><div class="field"><label>Contacto</label><input name="contacto" value="${Util.esc(t.contacto||'')}"></div>
+      <div class="field"><label>Teléfono</label><input name="telefono" type="tel" value="${Util.esc(t.telefono||'')}"></div></div>
+      <div class="field"><label>Horario de recepción</label><input name="horario" value="${Util.esc(t.horario||'')}" placeholder="Ej. L-V 8:00 a 17:00"></div>
+      <div class="field-row"><div class="field"><label>Centro *</label><select name="centroId">${optSel(centros.map(c=>[c.id,c.nombre]),t.centroId)}</select></div>
+      <div class="field"><label>Chofer asignado</label><select name="choferId">${optSel(choferes.map(c=>[c.id,c.nombre]),t.choferId,'Sin asignar')}</select></div></div>
       <label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" name="esOrigen" ${t.esOrigen?'checked':''}> Es punto de salida (sucursal / CEDIS desde donde parten rutas)</label>
     `, (data)=>{
       data.esOrigen = data.esOrigen==='on';
       if(!data.centroId){ Util.toast('Primero da de alta un centro en Configuración','err'); return; }
-      const lat=Number(data.lat), lng=Number(data.lng);
-      if(data.lat===''||data.lng===''||isNaN(lat)||isNaN(lng)||lat<-90||lat>90||lng<-180||lng>180){
-        Util.toast('Latitud/Longitud inválidas o vacías','err'); return;
-      }
+      const lat=Util.parseLat(data.lat), lng=Util.parseLng(data.lng);
+      if(lat==null||lng==null){ Util.toast('Latitud/Longitud inválidas o vacías','err'); return; }
       data.lat=lat; data.lng=lng;
       if(id) DB.update('tiendas',id,data); else DB.insert('tiendas',data);
       Util.toast('Tienda guardada','ok'); closeModal(); draw();
     });
+    activarPegadoCoords(document.getElementById('genericModal'));
   }
   draw();
 }
@@ -1036,7 +1560,7 @@ function viewAsignacionCentros(el, user){
           <div class="small muted">${Util.esc(so?.nombre||c.razonSocial||'Sin sociedad asignada')}</div></div>
         ${puedeCrear?`<div><button class="icon-btn" data-edit="${c.id}">✎</button> <button class="icon-btn" data-del="${c.id}">🗑</button></div>`:''}</div>
         <div class="panel-b">
-          <div class="small muted" style="margin-bottom:10px">${Util.esc(c.direccion||'Sin dirección')}</div>
+          <div class="small muted" style="margin-bottom:10px">${Util.esc(c.direccion||'Sin dirección')}${c.responsable||c.telefono?'<br>👤 '+Util.esc([c.responsable,c.telefono].filter(Boolean).join(' · ')):''}</div>
           <div class="grid cols-3">
             <div class="card"><h3>Unidades</h3><div class="stat small-stat">${us.length}</div></div>
             <div class="card"><h3>Choferes</h3><div class="stat small-stat">${ch.length}</div></div>
@@ -1059,8 +1583,10 @@ function viewAsignacionCentros(el, user){
       <div class="field"><label>Tipo</label><select name="tipo"><option value="centro" ${c.tipo!=='cedis'?'selected':''}>Centro / sucursal</option><option value="cedis" ${c.tipo==='cedis'?'selected':''}>CEDIS</option></select></div></div>
       <div class="field"><label>Sociedad (razón social)</label><select name="sociedadId" required>${sociedades.map(s=>`<option value="${s.id}" ${c.sociedadId===s.id?'selected':''}>${Util.esc(s.nombre)}</option>`).join('')}</select></div>
       <div class="field"><label>Dirección</label><input name="direccion" value="${Util.esc(c.direccion||'')}"></div>
-      <div class="field-row"><div class="field"><label>Latitud (opcional)</label><input type="number" step="any" min="-90" max="90" name="lat" value="${c.lat??''}"></div>
-      <div class="field"><label>Longitud (opcional)</label><input type="number" step="any" min="-180" max="180" name="lng" value="${c.lng??''}"></div></div>
+      <div class="field-row"><div class="field"><label>Responsable</label><input name="responsable" value="${Util.esc(c.responsable||'')}"></div>
+      <div class="field"><label>Teléfono de la base</label><input name="telefono" type="tel" value="${Util.esc(c.telefono||'')}" placeholder="El chofer lo marca desde la app"></div></div>
+      <div class="field-row"><div class="field"><label>Latitud (opcional)</label><input type="text" inputmode="decimal" name="lat" value="${c.lat??''}"></div>
+      <div class="field"><label>Longitud (opcional)</label><input type="text" inputmode="decimal" name="lng" value="${c.lng??''}"></div></div>
       <div class="small muted" style="margin-top:-6px">El punto real de partida de cada ruta se define con la <b>tienda de origen</b> en "Cargar rutas del día"; las coordenadas del centro son solo respaldo.</div>
     `, (data)=>{
       const lat=Util.parseLat(data.lat), lng=Util.parseLng(data.lng);
@@ -1070,6 +1596,7 @@ function viewAsignacionCentros(el, user){
       if(id) DB.update('centros',id,data); else DB.insert('centros',data);
       Util.toast('Centro guardado','ok'); closeModal(); draw();
     });
+    activarPegadoCoords(document.getElementById('genericModal'));
   }
   draw();
 }
@@ -1114,6 +1641,7 @@ function viewSociedades(el){
 /* Altas, cambios y bajas de usuarios pasan por la Edge Function usuarios-mpr
    (valida que quien llama sea admin y opera Supabase Auth del lado del servidor). */
 async function apiUsuarios(body){
+  if(DEMO) throw new Error('Vista previa: los usuarios no se crean ni se modifican');
   const {data:{session}} = await sb.auth.getSession();
   const r = await fetch(CFG.supabaseUrl+'/functions/v1/usuarios-mpr', {
     method:'POST',
@@ -1199,7 +1727,7 @@ function viewUsuarios(el, user){
 /* Bitácora: quién cambió qué y cuándo. La llenan triggers en Postgres, así que
    registra también los cambios hechos fuera del panel. */
 function viewBitacora(el){
-  const NOMBRES={sociedades_mpr:'Sociedades',centros_mpr:'Centros',unidades_mpr:'Unidades',choferes_mpr:'Choferes',tiendas_mpr:'Tiendas',usuarios_mpr:'Usuarios',rutas_mpr:'Rutas',pedidos_mpr:'Pedidos',entregas_mpr:'Entregas'};
+  const NOMBRES={sociedades_mpr:'Sociedades',centros_mpr:'Centros',unidades_mpr:'Unidades',choferes_mpr:'Choferes',tiendas_mpr:'Tiendas',usuarios_mpr:'Usuarios',rutas_mpr:'Rutas',pedidos_mpr:'Pedidos',entregas_mpr:'Entregas',incidencias_mpr:'Incidencias'};
   const OPS={INSERT:['b-green','Alta'],UPDATE:['b-blue','Cambio'],DELETE:['b-red','Baja']};
   el.innerHTML = `<div class="panel">
     <div class="filters">
@@ -1214,6 +1742,7 @@ function viewBitacora(el){
   let filas=[];
   const resumen = c => Object.entries(c||{}).filter(([k])=>!['id','created_at'].includes(k)).slice(0,8).map(([k,v])=>`${k}: ${v===null?'—':typeof v==='object'?JSON.stringify(v):v}`).join(' · ');
   async function buscar(){
+    if(DEMO){ el.querySelector('#bBody').innerHTML='<tr><td colspan="5" class="empty">La bitácora se llena con los cambios reales en la base; no aplica en la vista previa.</td></tr>'; return; }
     const hasta = new Date(el.querySelector('#bHasta').value+'T00:00:00'); hasta.setDate(hasta.getDate()+1);
     let q = sb.from('bitacora_mpr').select('*').gte('created_at', new Date(el.querySelector('#bDesde').value+'T00:00:00').toISOString())
       .lt('created_at', hasta.toISOString()).order('created_at',{ascending:false}).limit(500);
@@ -1228,6 +1757,7 @@ function viewBitacora(el){
         <td>${Util.esc(NOMBRES[f.tabla]||f.tabla)}</td><td><span class="badge ${cls}">${txt}</span></td>
         <td class="small" style="max-width:520px;word-break:break-word">${Util.esc(resumen(f.cambios))}</td></tr>`;
     }).join('') : `<tr><td colspan="5" class="empty">Sin movimientos en ese periodo.</td></tr>`;
+    if(filas.length===500) Util.toast('Se muestran los 500 movimientos más recientes; acota las fechas para ver el resto');
   }
   el.querySelector('#bBuscar').onclick=buscar;
   el.querySelector('#bCsv').onclick=()=>Util.descargarCSV('MapRoad_bitacora.csv',
@@ -1281,6 +1811,25 @@ function viewCargarRutas(el){
     </div>
   </div>`;
   el.querySelector('#btnPlantilla').onclick = descargarPlantillaRutas;
+  // Recuerda centro y tienda de salida de la última carga, y muestra primero las salidas del centro elegido.
+  const selC=el.querySelector('#fCentro'), selT=el.querySelector('#fTiendaOrigen');
+  let prev={}; try{ prev=JSON.parse(localStorage.getItem('mpr_carga')||'{}'); }catch(e){}
+  if(prev.centroId && centros.some(c=>c.id===prev.centroId)) selC.value=prev.centroId;
+  function llenarOrigenes(){
+    const cid=selC.value, actual=selT.value;
+    const lista=tiendas.slice().sort((a,b)=>((b.centroId===cid?2:0)+(b.esOrigen?1:0))-((a.centroId===cid?2:0)+(a.esOrigen?1:0)));
+    selT.innerHTML='<option value="">— Selecciona la tienda de salida —</option>'+lista.map(t=>{
+      const ce=centros.find(c=>c.id===t.centroId);
+      return `<option value="${t.id}">${t.esOrigen?'🟢 ':''}${Util.esc(t.nombre)}${ce?' — '+Util.esc(ce.nombre):''}</option>`;
+    }).join('');
+    const delCentro=tiendas.filter(t=>t.esOrigen && t.centroId===cid);
+    selT.value = lista.some(t=>t.id===actual&&t.centroId===cid) ? actual
+      : (prev.tiendaId && tiendas.some(t=>t.id===prev.tiendaId&&t.centroId===cid)) ? prev.tiendaId
+      : delCentro.length===1 ? delCentro[0].id : '';
+  }
+  llenarOrigenes();
+  selC.addEventListener('change', ()=>{ llenarOrigenes(); checkTiendaCoords(); });
+  if(!tiendas.length) el.querySelector('#fTiendaWarn').insertAdjacentHTML('beforebegin', `<div class="small" style="margin:-6px 0 14px;padding:8px 10px;background:var(--warning-soft);border-radius:8px;color:#c94a2c">⚠️ Aún no hay tiendas. Da de alta al menos la sucursal o CEDIS de salida en <a href="#/asignacion-tiendas">Tiendas y puntos de entrega</a>.</div>`);
   function checkTiendaCoords(){
     const t = DB.find('tiendas', el.querySelector('#fTiendaOrigen').value);
     const warnBox = el.querySelector('#fTiendaWarn');
@@ -1370,6 +1919,7 @@ function normalizeRow(raw){
 }
 
 let _vehiculoAsign = {};
+let _choferAsign = {};   // chofer elegido por vehículo (por defecto, el asignado a la unidad)
 
 function procesarImportacion(el, rawRows, detalleRows){
   const rows = rawRows.map(normalizeRow).filter(r=>r.folio);
@@ -1400,79 +1950,116 @@ function procesarImportacion(el, rawRows, detalleRows){
   })).map(p=>{ ['folio','vehiculo','numeroCliente','telefono','cp','folioFactura'].forEach(k=>{ if(p[k]!=null) p[k]=String(p[k]).trim(); }); return p; });
 
   _importState = pedidosNuevos;
-  _vehiculoAsign = {};
+  _vehiculoAsign = {}; _choferAsign = {};
   const unidades = DB.get('unidades');
+  const limpia = s=>String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  // Coincide por placa o número económico, sin importar guiones, espacios ni mayúsculas. El texto del
+  // archivo se unifica a la placa registrada para que una misma unidad escrita de dos formas no genere dos rutas.
+  const unidadDe = v=>unidades.find(u=>limpia(u.placa)===limpia(v) || (u.numeroEconomico && limpia(u.numeroEconomico)===limpia(v)));
+  pedidosNuevos.forEach(p=>{ const u=p.vehiculo && unidadDe(p.vehiculo); if(u) p.vehiculo=u.placa; });
   [...new Set(pedidosNuevos.map(p=>p.vehiculo).filter(Boolean))].forEach(v=>{
-    const match = unidades.find(u=>u.placa.toLowerCase()===String(v).toLowerCase());
+    const match = unidadDe(v);
     _vehiculoAsign[v] = match ? match.id : '';
+    _choferAsign[v] = match && match.choferId ? match.choferId : '';
   });
+  const sinVehiculo = pedidosNuevos.filter(p=>!p.vehiculo).length;
+  if(sinVehiculo) Util.toast(`${sinVehiculo} pedido(s) no traen vehículo: corrígelos en la lista para poder enrutarlos`,'err');
 
   renderImportPreview(el);
 }
 
+let _omitirDup = true;
+/* Folios del archivo que ya existen en una ruta de esa misma fecha (carga repetida). */
+function foliosDuplicados(fecha){
+  const ya = new Set(DB.query('pedidos', p=>p.fecha===fecha && p.folio).map(p=>p.folio.toLowerCase()));
+  return new Set((_importState||[]).filter(p=>ya.has(String(p.folio).toLowerCase())).map(p=>p.folio));
+}
+
 function renderImportPreview(el){
+  const fecha = document.getElementById('fFecha').value || Util.todayISO();
+  const dups = foliosDuplicados(fecha);
   const pedidosNuevos = _importState;
-  const unidades = DB.get('unidades'), choferes = DB.get('choferes');
-  const sinCoords = pedidosNuevos.filter(p=>p.lat==null||p.lng==null).length;
-  const vehiculos = [...new Set(pedidosNuevos.map(p=>p.vehiculo).filter(Boolean))];
+  const activos = pedidosNuevos.filter(p=>!(_omitirDup && dups.has(p.folio)));
+  const unidades = DB.get('unidades'), choferes = DB.get('choferes').filter(c=>c.estatus!=='inactivo');
+  const sinCoords = activos.filter(p=>p.lat==null||p.lng==null).length;
+  const vehiculos = [...new Set(activos.map(p=>p.vehiculo).filter(Boolean))];
   const sinUnidad = vehiculos.filter(v=>!_vehiculoAsign[v]).length;
-  const totalItems = pedidosNuevos.reduce((s,p)=>s+(p.items?p.items.length:0),0);
-  const sinItems = pedidosNuevos.filter(p=>!p.items||!p.items.length).length;
+  const sinChofer = vehiculos.filter(v=>_vehiculoAsign[v] && !_choferAsign[v]).length;
+  const totalItems = activos.reduce((s,p)=>s+(p.items?p.items.length:0),0);
+  const sinItems = activos.filter(p=>!p.items||!p.items.length).length;
+  const sinCorreo = activos.filter(p=>!/^\S+@\S+\.\S+$/.test(String(p.emailContacto||'').trim())).length;
+  const listos = vehiculos.filter(v=>_vehiculoAsign[v]);
 
   const box = document.getElementById('importResult');
   box.innerHTML = `
+    ${dups.size?`<div class="errbox" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span>⚠️ <b>${dups.size}</b> folio(s) de este archivo ya están cargados en rutas del ${Util.fmtDate(fecha)}.</span>
+      <label style="display:flex;gap:6px;align-items:center;font-weight:700"><input type="checkbox" id="chkDup" ${_omitirDup?'checked':''}> Omitirlos (recomendado)</label></div>`:''}
     <div class="card" style="margin-bottom:14px">
-      <div class="grid cols-4">
-        <div><h3>Pedidos detectados</h3><div class="stat small-stat">${pedidosNuevos.length}</div></div>
+      <div class="kgrid">
+        <div><h3>Pedidos a cargar</h3><div class="stat small-stat">${activos.length}</div><div class="small muted">${Util.money(Util.suma(activos,p=>p.importeTotal))}</div></div>
         <div><h3>Vehículos / rutas</h3><div class="stat small-stat">${vehiculos.length}</div></div>
-        <div><h3>Sin coordenadas</h3><div class="stat small-stat" style="color:${sinCoords?'var(--danger)':'inherit'}">${sinCoords}</div></div>
+        <div><h3>Sin coordenadas</h3><div class="stat small-stat" style="color:${sinCoords?'var(--danger)':'inherit'}">${sinCoords}</div>${sinCoords?'<div class="small muted">van al final de la ruta</div>':''}</div>
         <div><h3>Artículos (checklist)</h3><div class="stat small-stat" style="color:${sinItems?'var(--warning)':'inherit'}">${totalItems}</div>${sinItems?`<div class="small muted">${sinItems} pedido(s) sin artículos</div>`:''}</div>
+        <div><h3>Sin correo válido</h3><div class="stat small-stat">${sinCorreo}</div><div class="small muted">no reciben aviso de salida</div></div>
+        <div><h3>Peso / volumen</h3><div class="stat small-stat">${Util.num(Util.suma(activos,p=>p.pesoKg),0)} kg</div><div class="small muted">${Util.num(Util.suma(activos,p=>p.volumenM3),1)} m³</div></div>
       </div>
     </div>
     <div class="panel" style="margin-bottom:14px">
-      <div class="panel-h"><b>Verifica la asignación de chofer por vehículo</b>${sinUnidad?`<span class="badge b-amber">${sinUnidad} sin unidad registrada</span>`:`<span class="badge b-green">Todo asignado</span>`}</div>
+      <div class="panel-h"><b>Unidad y chofer por vehículo</b><span>${sinUnidad?`<span class="badge b-amber">${sinUnidad} sin unidad</span> `:''}${sinChofer?`<span class="badge b-red">${sinChofer} sin chofer</span>`:''}${!sinUnidad&&!sinChofer?'<span class="badge b-green">Todo asignado</span>':''}</span></div>
       <div class="table-wrap"><table>
-        <thead><tr><th>Vehículo (archivo)</th><th>Unidad / chofer</th><th>Paradas</th><th></th></tr></thead>
+        <thead><tr><th>Vehículo (archivo)</th><th>Unidad</th><th>Chofer</th><th>Paradas</th><th>Carga</th><th></th></tr></thead>
         <tbody>${vehiculos.map(v=>{
-          const n = pedidosNuevos.filter(p=>p.vehiculo===v).length;
-          const unidadId = _vehiculoAsign[v];
-          const un = unidades.find(u=>u.id===unidadId);
-          const ch = un ? choferes.find(c=>c.id===un.choferId) : null;
+          const ps = activos.filter(p=>p.vehiculo===v);
+          const un = unidades.find(u=>u.id===_vehiculoAsign[v]);
+          const chId = _choferAsign[v];
+          const kg=Util.suma(ps,p=>p.pesoKg), m3=Util.suma(ps,p=>p.volumenM3);
+          const pk = un&&un.capacidadKg>0 ? Math.round(kg/un.capacidadKg*100) : null, pm = un&&un.capacidadM3>0 ? Math.round(m3/un.capacidadM3*100) : null;
+          const sobre = (pk!=null&&pk>100)||(pm!=null&&pm>100);
+          const yaTiene = chId && DB.get('rutas').some(r=>r.choferId===chId && r.fecha===fecha && r.estatus!=='concluida');
+          const st='padding:6px 8px;border:1px solid var(--border);border-radius:6px;min-width:170px';
           return `<tr>
             <td class="mono">${Util.esc(v)}</td>
-            <td><select data-vasign="${Util.esc(v)}" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;min-width:220px">
-              <option value="">Sin asignar (no se generará ruta)</option>
-              ${unidades.map(u=>{
-                const c=choferes.find(x=>x.id===u.choferId);
-                return `<option value="${u.id}" ${unidadId===u.id?'selected':''}>${Util.esc(u.placa)} — ${Util.esc(c?c.nombre:'sin chofer')}</option>`;
-              }).join('')}
+            <td><select data-vasign="${Util.esc(v)}" style="${st}">
+              <option value="">Sin asignar (no se genera ruta)</option>
+              ${unidades.map(u=>`<option value="${u.id}" ${un&&un.id===u.id?'selected':''}>${Util.esc(u.placa)}${u.estatus==='mantenimiento'?' (en taller)':''}</option>`).join('')}
             </select></td>
-            <td>${n}</td>
-            <td>${un && !ch ? '<span class="badge b-amber">Unidad sin chofer</span>' : (un?'<span class="badge b-green">OK</span>':'<span class="badge b-gray">Pendiente</span>')}</td>
+            <td><select data-casign="${Util.esc(v)}" style="${st}" ${un?'':'disabled'}>
+              <option value="">Sin chofer</option>
+              ${choferes.map(c=>`<option value="${c.id}" ${chId===c.id?'selected':''}>${Util.esc(c.nombre)}</option>`).join('')}
+            </select></td>
+            <td>${ps.length}</td>
+            <td class="small" style="${sobre?'color:#b3261e;font-weight:700':''}">${Util.num(kg,0)} kg${pk!=null?` (${pk}%)`:''}<br>${Util.num(m3,1)} m³${pm!=null?` (${pm}%)`:''}</td>
+            <td>${!un?'<span class="badge b-gray">Pendiente</span>':!chId?'<span class="badge b-red">Falta chofer</span>':sobre?'<span class="badge b-red">Sobrecarga</span>':un.estatus==='mantenimiento'?'<span class="badge b-amber">Unidad en taller</span>':yaTiene?'<span class="badge b-amber">Chofer ya tiene ruta</span>':'<span class="badge b-green">OK</span>'}</td>
           </tr>`;
         }).join('')}</tbody>
       </table></div>
     </div>
     <div class="panel">
-      <div class="panel-h"><b>Pedidos detectados (${pedidosNuevos.length})</b><span class="small muted">Corrige los que falten datos antes de generar</span></div>
-      <div class="table-wrap" style="max-height:300px;overflow-y:auto">
+      <div class="panel-h"><b>Pedidos detectados (${pedidosNuevos.length})</b><input class="buscador" id="qImp" placeholder="Buscar folio, cliente, dirección…"></div>
+      <div class="table-wrap" style="max-height:320px;overflow-y:auto">
         <table><thead><tr><th>Folio</th><th>Vehículo</th><th>Cliente</th><th>Dirección</th><th>Coordenadas</th><th>Entrega máx.</th><th></th></tr></thead>
-        <tbody>${pedidosNuevos.map(p=>`<tr>
-          <td class="mono">${Util.esc(p.folio)}</td><td>${Util.esc(p.vehiculo||'—')}</td>
+        <tbody id="tbImp">${pedidosNuevos.slice().sort((a,b)=>((a.lat==null||a.lng==null)?0:1)-((b.lat==null||b.lng==null)?0:1)).map(p=>`<tr style="${_omitirDup&&dups.has(p.folio)?'opacity:.45':''}">
+          <td class="mono">${Util.esc(p.folio)}${dups.has(p.folio)?' <span class="badge b-amber">Ya cargado</span>':''}</td><td>${p.vehiculo?Util.esc(p.vehiculo):'<span class="badge b-red">Falta</span>'}</td>
           <td>${Util.esc(p.nombreContacto||'—')}</td><td>${Util.esc(p.direccion||'—')}</td>
           <td>${p.lat!=null&&p.lng!=null?`<span class="badge b-green">${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}</span>`:'<span class="badge b-red">Faltan</span>'}</td>
-          <td>${Util.esc(p.fechaMax||'—')}</td>
-          <td><button class="icon-btn" data-editpedido="${p._tmpId}">✎</button></td>
+          <td>${p.fechaMax?Util.fmtDate(p.fechaMax):'—'}${p.fechaMax&&p.fechaMax<fecha?' <span class="badge b-red">Vencida</span>':''}</td>
+          <td><button class="icon-btn" data-editpedido="${p._tmpId}" title="Corregir">✎</button></td>
         </tr>`).join('')}</tbody></table>
       </div>
     </div>
-    <button class="btn primary block" style="margin-top:14px" id="btnGenerar" ${vehiculos.every(v=>!_vehiculoAsign[v])?'disabled':''}>Generar rutas optimizadas para ${vehiculos.filter(v=>_vehiculoAsign[v]).length} vehículo(s)</button>
+    <button class="btn primary block" style="margin-top:14px;padding:12px" id="btnGenerar" ${listos.length?'':'disabled'}>Generar ${listos.length} ruta(s) optimizada(s)${sinChofer?` — ${sinChofer} quedará(n) sin chofer`:''}</button>
   `;
   box.querySelectorAll('[data-vasign]').forEach(s=>s.onchange=()=>{
     _vehiculoAsign[s.dataset.vasign] = s.value;
+    _choferAsign[s.dataset.vasign] = DB.find('unidades',s.value)?.choferId || '';
     renderImportPreview(el);
   });
+  box.querySelectorAll('[data-casign]').forEach(s=>s.onchange=()=>{ _choferAsign[s.dataset.casign] = s.value; renderImportPreview(el); });
   box.querySelectorAll('[data-editpedido]').forEach(b=>b.onclick=()=>openEditarPedidoImportado(el, Number(b.dataset.editpedido)));
+  const chk=box.querySelector('#chkDup'); if(chk) chk.onchange=()=>{ _omitirDup=chk.checked; renderImportPreview(el); };
+  activarBuscador(box,'#qImp','#tbImp');
+  document.getElementById('fFecha').onchange=()=>{ if(_importState) renderImportPreview(el); };
   const btnGenerar = document.getElementById('btnGenerar');
   if(btnGenerar) btnGenerar.onclick = ()=>generarRutas(el);
 }
@@ -1510,20 +2097,22 @@ function generarRutas(el){
   const origenTiendaId = document.getElementById('fTiendaOrigen').value;
   const origenTienda = DB.find('tiendas', origenTiendaId);
   if(!origenTienda){ Util.toast('Selecciona la tienda de origen antes de generar','err'); return; }
+  if(!centroId){ Util.toast('Selecciona el centro de la ruta','err'); return; }
   const unidades = DB.get('unidades'), choferes = DB.get('choferes');
+  const dups = _omitirDup ? foliosDuplicados(fecha) : new Set();
 
   const porVehiculo = {};
-  _importState.forEach(p=>{ (porVehiculo[p.vehiculo]=porVehiculo[p.vehiculo]||[]).push(p); });
+  _importState.filter(p=>!dups.has(p.folio)).forEach(p=>{ (porVehiculo[p.vehiculo||'']=porVehiculo[p.vehiculo||'']||[]).push(p); });
 
-  if(!centroId){ Util.toast('Selecciona el centro de la ruta','err'); return; }
   const pedidosDB = [], rutasDB = [];
-  let rutasCreadas=0, pedidosCreados=0, omitidos=0;
+  let rutasCreadas=0, pedidosCreados=0, omitidos=0, sinChofer=0;
 
   Object.keys(porVehiculo).forEach(placa=>{
     const unidadId = _vehiculoAsign[placa];
     if(!unidadId){ omitidos += porVehiculo[placa].length; return; } // sin unidad asignada: no se genera ruta
     const unidad = unidades.find(u=>u.id===unidadId);
-    const chofer = unidad ? choferes.find(c=>c.id===unidad.choferId) : null;
+    const chofer = choferes.find(c=>c.id===_choferAsign[placa]) || null;
+    if(!chofer) sinChofer++;
     const stops = porVehiculo[placa].filter(p=>p.lat!=null && p.lng!=null);
     const sinGeo = porVehiculo[placa].filter(p=>p.lat==null || p.lng==null);
 
@@ -1535,7 +2124,7 @@ function generarRutas(el){
       const pid = crypto.randomUUID();
       const {_tmpId, ...pClean} = p;
       pedidosDB.push(Object.assign({}, pClean, {
-        id:pid, fecha, centroId, rutaId, ordenEnRuta: idx<orden.length?idx+1:null, estatus:'pendiente'
+        id:pid, fecha, centroId, rutaId, ordenEnRuta: idx<orden.length?idx+1:null, estatus:'pendiente', intento:1
       }));
       pedidoIdsRuta.push(pid);
       pedidosCreados++;
@@ -1544,23 +2133,29 @@ function generarRutas(el){
     rutasDB.push({
       id:rutaId, fecha, choferId: chofer?chofer.id:null, unidadId: unidad?unidad.id:null, centroId, origenTiendaId,
       estatus:'pendiente', pedidoIds:pedidoIdsRuta, ordenOptimizado: pedidoIdsRuta.slice(0,orden.length),
-      horaInicio:null, horaFin:null, vehiculoTexto:placa
+      horaInicio:null, horaFin:null, vehiculoTexto:placa, kmPlan:kmDeSecuencia(origenTienda, orden), kmGps:0
     });
     rutasCreadas++;
   });
 
+  if(!rutasCreadas){ Util.toast('No se generó ninguna ruta: asigna una unidad a por lo menos un vehículo','err'); return; }
   DB.insertMany('rutas',rutasDB); DB.insertMany('pedidos',pedidosDB); // rutas primero: los pedidos las referencian
+  try{ localStorage.setItem('mpr_carga', JSON.stringify({centroId, tiendaId:origenTiendaId})); }catch(e){}
   if(omitidos) Util.toast(`${omitidos} pedido(s) no se enrutaron por vehículos sin unidad asignada`,'err');
-  _importState=null; _vehiculoAsign={};
+  _importState=null; _vehiculoAsign={}; _choferAsign={};
   Util.toast(`Se generaron ${rutasCreadas} rutas con ${pedidosCreados} pedidos`,'ok');
   el.innerHTML = `<div class="panel"><div class="panel-b" style="text-align:center;padding:40px">
     <h2 style="font-size:22px">✅ Rutas generadas</h2>
-    <p class="muted">${rutasCreadas} rutas · ${pedidosCreados} pedidos · Fecha: ${Util.fmtDate(fecha)}</p>
+    <p class="muted">${rutasCreadas} rutas · ${pedidosCreados} pedidos · ${Util.num(Util.suma(rutasDB,r=>r.kmPlan),0)} km estimados · Fecha: ${Util.fmtDate(fecha)}</p>
+    ${dups.size?`<p class="small muted">${dups.size} folio(s) ya cargados se omitieron.</p>`:''}
+    ${sinChofer?`<p class="small" style="color:#b3261e;font-weight:700">${sinChofer} ruta(s) quedaron sin chofer: asígnalo en Monitoreo para que le aparezca en la app.</p>`:''}
     <div style="display:flex;gap:10px;justify-content:center;margin-top:16px">
       <a class="btn primary" href="#/monitoreo">Ver en monitoreo</a>
       <a class="btn" href="#/cargar-rutas" onclick="route();return false;">Cargar otro archivo</a>
     </div>
   </div></div>`;
+  // Si la fecha cargada no es hoy, Monitoreo abre en esa fecha
+  _monFecha = fecha;
 }
 
 /* ============================================================
@@ -1569,86 +2164,141 @@ function generarRutas(el){
 const DRIVER_COLORS = ['#2563eb','#16a34a','#d97706','#dc2626','#7c3aed','#0891b2','#db2777','#65a30d'];
 function colorForChofer(id, list){ const idx=list.findIndex(c=>c.id===id); return DRIVER_COLORS[idx % DRIVER_COLORS.length]; }
 
-function viewMonitoreo(el){
-  let filtros = {fecha:Util.todayISO(), choferId:'', unidadId:'', centroId:'', estatus:''};
+let _monFecha = null; // fecha con la que abre Monitoreo (la última carga de rutas la fija)
+function viewMonitoreo(el, user){
+  let filtros = {fecha:_monFecha||Util.todayISO(), choferId:'', unidadId:'', centroId:'', estatus:'', q:''};
+  _monFecha = null;
   let map=null, mapLayer=null;
   function draw(){
     const choferes=DB.get('choferes'), unidades=DB.get('unidades'), centros=DB.get('centros');
     el.innerHTML = `
+    <div class="kgrid" id="mKpis" style="margin-bottom:14px"></div>
+    <div id="mInc"></div>
     <div class="panel">
       <div class="filters">
         <input type="date" id="ffFecha" value="${filtros.fecha}">
         <select id="ffChofer"><option value="">Todos los choferes</option>${choferes.map(c=>`<option value="${c.id}">${Util.esc(c.nombre)}</option>`).join('')}</select>
         <select id="ffUnidad"><option value="">Todas las unidades</option>${unidades.map(u=>`<option value="${u.id}">${Util.esc(u.placa)}</option>`).join('')}</select>
-        <select id="ffCentro"><option value="">Todos los centros</option>${centros.map(c=>`<option value="${c.id}">${Util.esc(c.nombre)}</option>`).join('')}</select>
+        ${centros.length>1?`<select id="ffCentro"><option value="">Todos los centros</option>${centros.map(c=>`<option value="${c.id}">${Util.esc(c.nombre)}</option>`).join('')}</select>`:''}
         <select id="ffEstatus"><option value="">Todos los estatus</option><option value="pendiente">Pendiente</option><option value="en_curso">En curso</option><option value="concluida">Concluida</option></select>
+        <input id="ffQ" placeholder="Folio o cliente…" style="min-width:150px">
         <button class="btn sm" id="ffReset">Limpiar</button>
+        <span style="flex:1"></span>
+        <button class="btn sm" id="ffCentrar" title="Encuadrar todas las rutas">⤢ Centrar mapa</button>
+        <button class="btn sm" id="ffReprog" data-escribe>🔁 Reprogramar no entregados</button>
       </div>
       <div style="padding:16px">
-        <div id="mapCanvas" class="mapcanvas"></div>
+        <div id="mapCanvas" class="mapcanvas" style="height:430px"></div>
       </div>
       <div class="legend" id="legend"></div>
       <div class="table-wrap"><table>
-        <thead><tr><th>Chofer</th><th>Unidad</th><th>Centro</th><th>Paradas</th><th>Progreso</th><th>Estatus</th><th>Inicio</th><th>Último evento</th><th></th></tr></thead>
+        <thead><tr><th>Chofer</th><th>Unidad</th><th>Progreso</th><th>Siguiente parada</th><th>Estatus</th><th>Salida</th><th>Km</th><th>Último evento</th><th></th></tr></thead>
         <tbody id="tbody"></tbody>
       </table></div>
     </div>`;
-    ['ffFecha','ffChofer','ffUnidad','ffCentro','ffEstatus'].forEach(id=>{
-      el.querySelector('#'+id).onchange = e=>{
-        filtros = {fecha:el.querySelector('#ffFecha').value, choferId:el.querySelector('#ffChofer').value,
-          unidadId:el.querySelector('#ffUnidad').value, centroId:el.querySelector('#ffCentro').value, estatus:el.querySelector('#ffEstatus').value};
-        refresh(true);
-      };
-    });
-    el.querySelector('#ffReset').onclick=()=>{ filtros={fecha:Util.todayISO(),choferId:'',unidadId:'',centroId:'',estatus:''}; draw(); };
+    const lee = ()=>{ filtros = {fecha:el.querySelector('#ffFecha').value, choferId:el.querySelector('#ffChofer').value,
+      unidadId:el.querySelector('#ffUnidad').value, centroId:el.querySelector('#ffCentro')?.value||'', estatus:el.querySelector('#ffEstatus').value, q:el.querySelector('#ffQ').value.trim()}; };
+    ['ffFecha','ffChofer','ffUnidad','ffCentro','ffEstatus'].forEach(id=>{ const c=el.querySelector('#'+id); if(c) c.onchange=async ()=>{
+      lee();
+      if(filtros.fecha && DB._desde && filtros.fecha<DB._desde){ try{ await DB.load(filtros.fecha); }catch(e){} }
+      refresh(true);
+    }; });
+    el.querySelector('#ffQ').oninput=()=>{ lee(); refresh(true); };
+    el.querySelector('#ffReset').onclick=()=>{ filtros={fecha:Util.todayISO(),choferId:'',unidadId:'',centroId:'',estatus:'',q:''}; draw(); };
+    el.querySelector('#ffCentrar').onclick=()=>refresh(true);
+    el.querySelector('#ffReprog').onclick=()=>openReprogramarModal(filtros.centroId, ()=>refresh(true));
     if(map){ map.remove(); map=null; }
     map = L.map(el.querySelector('#mapCanvas'), {scrollWheelZoom:false}).setView([23.6345,-102.5528],5);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
       maxZoom:19, attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
     }).addTo(map);
+    // La rueda del ratón hace zoom solo después de hacer clic en el mapa (no estorba al desplazar la página).
+    map.on('click', ()=>map.scrollWheelZoom.enable()); map.on('mouseout', ()=>map.scrollWheelZoom.disable());
     mapLayer = L.layerGroup().addTo(map);
     refresh(true);
     // Avances y posiciones que llegan por Realtime: se repinta sin mover el encuadre del mapa.
     _liveRefresh = ()=>{ if(el.isConnected) refresh(false); };
   }
   function refresh(fit){
-    const choferes=DB.get('choferes'), unidades=DB.get('unidades'), centros=DB.get('centros'), pedidos=DB.get('pedidos'), entregas=DB.get('entregas');
+    const choferes=DB.get('choferes'), centros=DB.get('centros'), pedidos=DB.get('pedidos'), entregas=DB.get('entregas');
     let rutas = DB.query('rutas', r=>r.fecha===filtros.fecha);
     if(filtros.choferId) rutas=rutas.filter(r=>r.choferId===filtros.choferId);
     if(filtros.unidadId) rutas=rutas.filter(r=>r.unidadId===filtros.unidadId);
     if(filtros.centroId) rutas=rutas.filter(r=>r.centroId===filtros.centroId);
     if(filtros.estatus) rutas=rutas.filter(r=>r.estatus===filtros.estatus);
+    const pedidosDe = r=>(r.ordenOptimizado&&r.ordenOptimizado.length?[...r.ordenOptimizado, ...r.pedidoIds.filter(id=>!r.ordenOptimizado.includes(id))]:r.pedidoIds).map(id=>DB.find('pedidos',id)).filter(Boolean);
+    if(filtros.q) rutas=rutas.filter(r=>pedidosDe(r).some(p=>Util.coincide(filtros.q,p.folio,p.nombreContacto,p.folioFactura)));
+
+    // Indicadores del día en pantalla
+    const todos = rutas.flatMap(pedidosDe);
+    const cerr = todos.filter(p=>esEstatusCerrado(p.estatus)).length, ent = todos.filter(p=>p.estatus==='entregado').length;
+    const sinSenal = rutas.filter(rutaSinSenal).length;
+    const rutaIds = new Set(rutas.map(r=>r.id));
+    const incs = DB.query('incidencias', i=>rutaIds.has(i.rutaId) || (!i.atendida && (!filtros.centroId||i.centroId===filtros.centroId))).sort((a,b)=>new Date(b.hora)-new Date(a.hora));
+    const abiertas = incs.filter(i=>!i.atendida);
+    const porRep = pedidosPorReprogramar(filtros.centroId).length;
+    const k=(t,v,s,c)=>`<div class="kpi ${c||''}"><h4>${t}</h4><div class="v">${v}</div><div class="s">${s||''}</div></div>`;
+    el.querySelector('#mKpis').innerHTML =
+      k('Rutas', rutas.length, `${rutas.filter(r=>r.estatus==='en_curso').length} en curso · ${rutas.filter(r=>r.estatus==='concluida').length} concluidas · ${rutas.filter(r=>r.estatus==='pendiente').length} sin iniciar`)
+      + k('Paradas', `${cerr} <small>de ${todos.length}</small>`, `avance ${Util.pctTxt(cerr,todos.length)}`)
+      + k('Entregados', ent, `efectividad ${Util.pctTxt(ent,cerr)}`, 'good')
+      + k('Con incidencia', cerr-ent, 'no entregados hoy', cerr-ent?'bad':'')
+      + k('Sin señal GPS', sinSenal, `más de ${MIN_SIN_SENAL} min sin reportar`, sinSenal?'bad':'')
+      + k('Incidencias en ruta', abiertas.length, abiertas.length?'sin atender':'sin pendientes', abiertas.length?'bad':'')
+      + k('Por reprogramar', porRep, 'no entregados sin nueva ruta', porRep?'warn':'');
+    el.querySelector('#ffReprog').textContent = `🔁 Reprogramar no entregados${porRep?` (${porRep})`:''}`;
+
+    el.querySelector('#mInc').innerHTML = incs.length ? `<div class="panel" style="margin-bottom:14px">
+      <div class="panel-h"><b>🚨 Incidencias reportadas por choferes</b><span class="badge ${abiertas.length?'b-red':'b-green'}">${abiertas.length?abiertas.length+' sin atender':'Todas atendidas'}</span></div>
+      <div class="table-wrap" style="max-height:190px;overflow-y:auto"><table><tbody>${incs.map(i=>{
+        const r=DB.find('rutas',i.rutaId), ch=DB.find('choferes',i.choferId), un=DB.find('unidades',i.unidadId);
+        const tel=String(ch?.telefono||'').replace(/[^0-9+]/g,'');
+        return `<tr><td style="white-space:nowrap" class="small">${Util.fmtDateTime(i.hora)}</td>
+          <td><b>${Util.esc(TIPOS_INCIDENCIA[i.tipo]||i.tipo)}</b><div class="small muted">${Util.esc(i.descripcion||'')}</div></td>
+          <td>${Util.esc(ch?.nombre||'—')} <span class="mono small mute2">${Util.esc(un?.placa||r?.vehiculoTexto||'')}</span></td>
+          <td style="white-space:nowrap">${tel?`<a class="btn sm" href="tel:${tel}">📞 Llamar</a> `:''}${i.lat!=null?`<a class="btn sm" href="https://www.google.com/maps?q=${i.lat},${i.lng}" target="_blank" rel="noopener">📍 Ver</a> `:''}${i.foto?`<a class="btn sm" href="${Util.esc(i.foto)}" target="_blank" rel="noopener">📷</a>`:''}</td>
+          <td style="white-space:nowrap">${i.atendida?`<span class="badge b-green">Atendida</span><div class="small mute2">${Util.esc(i.atendidaPor||'')}${i.notaAtencion?' · '+Util.esc(i.notaAtencion):''}</div>`:`<button class="btn sm primary" data-atender="${i.id}" data-escribe>Marcar atendida</button>`}</td></tr>`;
+      }).join('')}</tbody></table></div></div>` : '';
+    el.querySelectorAll('[data-atender]').forEach(b=>b.onclick=()=>{
+      const nota=prompt('¿Qué se hizo para atenderla? (opcional)'); if(nota===null) return;
+      DB.update('incidencias', b.dataset.atender, {atendida:true, atendidaPor:user.nombre||user.usuario, atendidaEn:Util.nowISO(), notaAtencion:nota.trim()||null});
+      Util.toast('Incidencia atendida','ok'); refresh(false);
+    });
 
     el.querySelector('#tbody').innerHTML = rutas.length ? rutas.map(r=>{
-      const ch=choferes.find(c=>c.id===r.choferId), un=unidades.find(u=>u.id===r.unidadId), ce=centros.find(c=>c.id===r.centroId);
-      const total=r.pedidoIds.length;
-      const done=r.pedidoIds.filter(pid=>{ const p=pedidos.find(x=>x.id===pid); return p && esEstatusCerrado(p.estatus); }).length;
-      const ultimasEntregas = entregas.filter(e=>e.rutaId===r.id).sort((a,b)=>new Date(b.horaEntrega)-new Date(a.horaEntrega));
+      const ch=DB.find('choferes',r.choferId), un=DB.find('unidades',r.unidadId), ce=centros.find(c=>c.id===r.centroId);
+      const ps=pedidosDe(r), total=ps.length;
+      const done=ps.filter(p=>esEstatusCerrado(p.estatus)).length, inc=ps.filter(p=>ESTATUS_NO_EXITOSOS.includes(p.estatus)).length;
+      const sig=ps.find(p=>!esEstatusCerrado(p.estatus));
+      const ult = entregas.filter(e=>e.rutaId===r.id).sort((a,b)=>new Date(b.horaEntrega)-new Date(a.horaEntrega))[0];
       const color = colorForChofer(r.choferId, choferes);
+      const km=kmRealRuta(r), sinS=rutaSinSenal(r);
+      const tel=String(ch?.telefono||'').replace(/[^0-9+]/g,'');
       return `<tr data-verruta="${r.id}" style="cursor:pointer" title="Ver envíos de esta ruta">
-        <td><span class="dot" style="background:${color}"></span> ${Util.esc(ch?.nombre||'—')}</td>
-        <td class="mono">${Util.esc(un?.placa||r.vehiculoTexto||'—')}</td><td>${Util.esc(ce?.nombre||'—')}</td>
-        <td>${total}</td>
-        <td><div style="background:var(--border);border-radius:99px;height:6px;width:90px;overflow:hidden"><div style="background:${color};height:100%;width:${total?done/total*100:0}%"></div></div>
-        <span class="small muted">${done}/${total}</span></td>
-        <td>${estatusBadge(r.estatus)}</td><td>${Util.fmtTime(r.horaInicio)}</td>
-        <td class="small">${ultimasEntregas[0]?('Folio '+Util.esc(pedidos.find(p=>p.id===ultimasEntregas[0].pedidoId)?.folio||'')+' · '+Util.fmtTime(ultimasEntregas[0].horaEntrega)):'—'}
-          ${r.ultimaUbicacion?`<div class="${r.estatus==='en_curso'&&Util.minsBetween(r.ultimaUbicacion,Util.nowISO())>12?'':'mute2'}" ${r.estatus==='en_curso'&&Util.minsBetween(r.ultimaUbicacion,Util.nowISO())>12?'style="color:var(--warning)"':''}>📡 GPS ${Util.hace(r.ultimaUbicacion)}</div>`:(r.estatus==='en_curso'?'<div style="color:var(--warning)">📡 Sin señal GPS aún</div>':'')}</td>
-        <td><button class="icon-btn" data-editruta="${r.id}" title="Editar ruta">✎</button> <button class="icon-btn" data-delruta="${r.id}" title="Eliminar ruta">🗑</button></td>
+        <td><span class="dot" style="background:${color}"></span> ${ch?Util.esc(ch.nombre):'<span class="badge b-red">Sin chofer</span>'}<div class="small mute2">${Util.esc(ce?.nombre||'')}</div></td>
+        <td class="mono">${Util.esc(un?.placa||r.vehiculoTexto||'—')}</td>
+        <td style="white-space:nowrap"><div style="background:var(--border);border-radius:99px;height:6px;width:90px;overflow:hidden"><div style="background:${color};height:100%;width:${total?done/total*100:0}%"></div></div>
+        <span class="small muted">${done}/${total}${inc?` · <span style="color:#b3261e">${inc} incid.</span>`:''}</span></td>
+        <td class="small">${r.estatus==='concluida'?'—':sig?`${sig.horaLlegada?'📍 En sitio: ':''}<b>${Util.esc(sig.nombreContacto||sig.folio)}</b><div class="mute2 mono">${Util.esc(sig.folio)}</div>`:'<span class="mute2">Regresando a base</span>'}</td>
+        <td>${estatusBadge(r.estatus)}</td><td>${Util.fmtTime(r.horaInicio)}${r.horaFin?`<div class="small mute2">Fin ${Util.fmtTime(r.horaFin)}</div>`:''}</td>
+        <td class="small" style="white-space:nowrap">${km!=null?Util.num(km,0):'—'}${r.kmPlan?` <span class="mute2">/ ${Util.num(r.kmPlan,0)} plan</span>`:''}</td>
+        <td class="small">${ult?('Folio '+Util.esc(DB.find('pedidos',ult.pedidoId)?.folio||'')+' · '+Util.fmtTime(ult.horaEntrega)):'—'}
+          ${r.estatus==='en_curso'?`<div style="${sinS?'color:#b3261e;font-weight:700':'color:var(--text-mute)'}">📡 ${r.ultimaUbicacion?'GPS '+Util.hace(r.ultimaUbicacion):'Sin señal GPS aún'}</div>`:''}</td>
+        <td style="white-space:nowrap">${tel?`<a class="icon-btn" href="tel:${tel}" title="Llamar al chofer" data-nofila>📞</a> `:''}<button class="icon-btn" data-editruta="${r.id}" title="Editar ruta">✎</button> <button class="icon-btn" data-delruta="${r.id}" title="Eliminar ruta">🗑</button></td>
       </tr>`;
-    }).join('') : `<tr><td colspan="9" class="empty">No hay rutas que coincidan con los filtros.</td></tr>`;
+    }).join('') : `<tr><td colspan="9" class="empty">No hay rutas que coincidan con los filtros. ${puedeEditar()?'<a href="#/cargar-rutas">Cargar rutas →</a>':''}</td></tr>`;
 
     el.querySelectorAll('[data-verruta]').forEach(tr=>tr.onclick=(e)=>{
-      if(e.target.closest('[data-editruta]')||e.target.closest('[data-delruta]')) return;
+      if(e.target.closest('[data-editruta]')||e.target.closest('[data-delruta]')||e.target.closest('[data-nofila]')) return;
       openDetalleRutaModal(tr.dataset.verruta);
     });
-    el.querySelectorAll('[data-editruta]').forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); openEditarRutaModal(b.dataset.editruta, refresh); });
-    el.querySelectorAll('[data-delruta]').forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); eliminarRuta(b.dataset.delruta, refresh); });
+    el.querySelectorAll('[data-editruta]').forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); openEditarRutaModal(b.dataset.editruta, ()=>refresh(true)); });
+    el.querySelectorAll('[data-delruta]').forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); eliminarRuta(b.dataset.delruta, ()=>refresh(true)); });
 
     el.querySelector('#legend').innerHTML = rutas.map(r=>{
       const ch=choferes.find(c=>c.id===r.choferId);
-      return `<div class="li"><span class="sw" style="background:${colorForChofer(r.choferId,choferes)}"></span>${Util.esc(ch?.nombre||'—')}</div>`;
-    }).join('') + (rutas.length?'<span class="mute2 small" style="margin-left:auto">┄ plan · ━ recorrido real (GPS cada '+CFG.minutosUbicacion+' min) · 🚚 unidad en vivo</span>':'<span class="mute2 small">Sin rutas para mostrar</span>');
+      return `<div class="li"><span class="sw" style="background:${colorForChofer(r.choferId,choferes)}"></span>${Util.esc(ch?.nombre||r.vehiculoTexto||'—')}</div>`;
+    }).join('') + (rutas.length?'<span class="mute2 small" style="margin-left:auto">┄ plan · ━ recorrido real (GPS cada '+CFG.minutosUbicacion+' min) · 🚚 unidad en vivo · ⚠️ incidencia</span>':'<span class="mute2 small">Sin rutas para mostrar</span>');
 
     drawMap(map, mapLayer, rutas, pedidos, centros, choferes, fit);
     // El recorrido GPS se pide aparte (solo de las rutas en pantalla) y se pinta al llegar.
@@ -1657,6 +2307,59 @@ function viewMonitoreo(el){
     });
   }
   draw();
+}
+
+/* Vuelve a programar pedidos no entregados: crea una ruta nueva con una copia de cada pedido
+   (mismo folio, intento + 1) que apunta al intento anterior. El pedido original queda como está. */
+function openReprogramarModal(centroId, onDone){
+  const lista = pedidosPorReprogramar(centroId).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+  if(!lista.length){ Util.toast('No hay pedidos pendientes de reprogramar','ok'); return; }
+  const unidades=DB.get('unidades').filter(u=>u.estatus!=='mantenimiento'), choferes=DB.get('choferes').filter(c=>c.estatus!=='inactivo');
+  const tiendas=DB.get('tiendas').filter(t=>t.lat!=null&&t.lng!=null).sort((a,b)=>(b.esOrigen?1:0)-(a.esOrigen?1:0));
+  const entDe = id=>DB.get('entregas').filter(e=>e.pedidoId===id).sort((a,b)=>new Date(b.horaEntrega)-new Date(a.horaEntrega))[0];
+  const manana = Util.dateISO(new Date(Date.now()+86400000));
+  const origenPrev = DB.find('rutas',lista[0].rutaId)?.origenTiendaId;
+  openModalCustom('reprogModal', `Reprogramar pedidos no entregados (${lista.length})`, `
+    <div class="field-row">
+      <div class="field"><label>Fecha de la nueva ruta</label><input type="date" id="rpFecha" value="${manana}" min="${Util.todayISO()}"></div>
+      <div class="field"><label>Unidad</label><select id="rpUnidad">${optSel(unidades.map(u=>[u.id,u.placa]),'', '— Selecciona —')}</select></div>
+      <div class="field"><label>Chofer</label><select id="rpChofer">${optSel(choferes.map(c=>[c.id,c.nombre]),'', '— Selecciona —')}</select></div>
+    </div>
+    <div class="field"><label>Punto de salida</label><select id="rpOrigen">${optSel(tiendas.map(t=>[t.id,(t.esOrigen?'🟢 ':'')+t.nombre]),origenPrev,'— Selecciona —')}</select></div>
+    <div class="table-wrap" style="max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
+      <table><thead><tr><th><input type="checkbox" id="rpTodos" checked></th><th>Folio</th><th>Cliente</th><th>Resultado</th><th>Motivo</th><th>Fecha original</th><th>Fecha propuesta</th></tr></thead>
+      <tbody>${lista.map(p=>{ const e=entDe(p.id); return `<tr>
+        <td><input type="checkbox" data-rp="${p.id}" checked></td><td class="mono">${Util.esc(p.folio)}${(p.intento||1)>1?` <span class="badge b-amber">Intento ${p.intento}</span>`:''}</td>
+        <td>${Util.esc(p.nombreContacto||'—')}<div class="small mute2">${Util.esc(p.direccion||'')}</div></td><td>${estatusBadge(p.estatus)}</td>
+        <td class="small">${Util.esc(e?.motivo||'—')}</td><td class="small">${Util.fmtDate(p.fecha)}</td><td class="small">${e?.nuevaFecha?Util.fmtDate(e.nuevaFecha):'—'}</td></tr>`; }).join('')}</tbody></table>
+    </div>
+    <div class="small muted" style="margin-top:10px">Se crea una ruta nueva optimizada. El cliente verá el nuevo intento al rastrear su folio; el historial del intento anterior se conserva.</div>
+  `, [{label:'Cancelar', cls:'btn', action:'cancel'},{label:'Crear ruta de reintento', cls:'btn primary', action:'crear'}], (action, m)=>{
+    if(action==='cancel'){ closeCustomModal('reprogModal'); return; }
+    const fecha=m.querySelector('#rpFecha').value, unidad=DB.find('unidades',m.querySelector('#rpUnidad').value);
+    const chofer=DB.find('choferes',m.querySelector('#rpChofer').value), origen=DB.find('tiendas',m.querySelector('#rpOrigen').value);
+    const ids=[...m.querySelectorAll('[data-rp]:checked')].map(c=>c.dataset.rp);
+    if(!fecha||!unidad||!chofer||!origen){ Util.toast('Completa fecha, unidad, chofer y punto de salida','err'); return; }
+    if(!ids.length){ Util.toast('Selecciona al menos un pedido','err'); return; }
+    const sel=ids.map(id=>DB.find('pedidos',id)).filter(Boolean);
+    const conGeo=sel.filter(p=>p.lat!=null&&p.lng!=null), sinGeo=sel.filter(p=>p.lat==null||p.lng==null);
+    const orden=optimizarRuta(origen, conGeo.map(p=>({id:p.id,lat:p.lat,lng:p.lng})));
+    const rutaId=crypto.randomUUID(), centro=unidad.centroId||sel[0].centroId, nuevos=[];
+    [...orden.map(o=>conGeo.find(p=>p.id===o.id)), ...sinGeo].forEach((p,i)=>{
+      nuevos.push(Object.assign({}, p, {id:crypto.randomUUID(), createdAt:Util.nowISO(), rutaId, centroId:centro, fecha, estatus:'pendiente', horaLlegada:null,
+        ordenEnRuta:i<orden.length?i+1:null, intento:(p.intento||1)+1, reintentoDe:p.id, vehiculo:unidad.placa}));
+    });
+    DB.insertMany('rutas',[{id:rutaId, fecha, choferId:chofer.id, unidadId:unidad.id, centroId:centro, origenTiendaId:origen.id, estatus:'pendiente',
+      pedidoIds:nuevos.map(p=>p.id), ordenOptimizado:nuevos.slice(0,orden.length).map(p=>p.id), horaInicio:null, horaFin:null,
+      vehiculoTexto:unidad.placa, kmPlan:kmDeSecuencia(origen,orden), kmGps:0}]);
+    DB.insertMany('pedidos',nuevos);
+    closeCustomModal('reprogModal');
+    Util.toast(`Ruta de reintento creada para el ${Util.fmtDate(fecha)} con ${nuevos.length} pedido(s)`,'ok');
+    if(onDone) onDone();
+  });
+  const m=document.getElementById('reprogModal');
+  m.querySelector('#rpTodos').onchange=e=>m.querySelectorAll('[data-rp]').forEach(c=>c.checked=e.target.checked);
+  m.querySelector('#rpUnidad').onchange=e=>{ const u=DB.find('unidades',e.target.value); if(u&&u.choferId) m.querySelector('#rpChofer').value=u.choferId; };
 }
 
 /* ---- Edición de una ruta ya generada: reasignar chofer/unidad y corregir pedidos ---- */
@@ -1676,10 +2379,12 @@ function eliminarRuta(rutaId, onDeleted){
 }
 
 function openEditarRutaModal(rutaId, onSaved){
-  const ruta = DB.find('rutas', rutaId);
+  let ruta = DB.find('rutas', rutaId);
   if(!ruta) return;
   const unidades=DB.get('unidades'), choferes=DB.get('choferes');
-  let pedidosRuta = ruta.pedidoIds.map(pid=>DB.find('pedidos',pid)).filter(Boolean);
+  // En el orden en que se recorren: primero el orden optimizado, luego las paradas sin coordenadas.
+  const ordenIni = [...(ruta.ordenOptimizado||[]), ...ruta.pedidoIds.filter(id=>!(ruta.ordenOptimizado||[]).includes(id))];
+  let pedidosRuta = ordenIni.map(pid=>DB.find('pedidos',pid)).filter(Boolean);
 
   function render(){
     openModalCustom('editarRutaModal', `Editar ruta — ${Util.esc(ruta.vehiculoTexto||'')}`, `
@@ -1689,8 +2394,9 @@ function openEditarRutaModal(rutaId, onSaved){
       </div>
       <div class="small muted" style="margin:4px 0 10px">Corrige los pedidos con datos faltantes o incorrectos (dirección, teléfono, coordenadas).</div>
       <div class="table-wrap" style="max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
-        <table><thead><tr><th>Folio</th><th>Cliente</th><th>Dirección</th><th>Teléfono</th><th>Lat</th><th>Lng</th></tr></thead>
-        <tbody>${pedidosRuta.map(p=>`<tr data-pedidorow="${p.id}">
+        <table><thead><tr><th>Orden</th><th>Folio</th><th>Cliente</th><th>Dirección</th><th>Teléfono</th><th>Lat</th><th>Lng</th></tr></thead>
+        <tbody>${pedidosRuta.map((p,i)=>`<tr data-pedidorow="${p.id}" style="${p.estatus!=='pendiente'?'opacity:.6':''}">
+          <td style="white-space:nowrap"><b>${i+1}</b> ${p.estatus==='pendiente'?`<button type="button" class="icon-btn" data-mover="-1" data-pid="${p.id}" title="Subir" ${i===0?'disabled':''}>↑</button><button type="button" class="icon-btn" data-mover="1" data-pid="${p.id}" title="Bajar" ${i===pedidosRuta.length-1?'disabled':''}>↓</button>`:estatusBadge(p.estatus)}</td>
           <td class="mono">${Util.esc(p.folio)}</td>
           <td><input data-f="nombreContacto" value="${Util.esc(p.nombreContacto||'')}" style="width:130px"></td>
           <td><input data-f="direccion" value="${Util.esc(p.direccion||'')}" style="width:160px"></td>
@@ -1699,7 +2405,7 @@ function openEditarRutaModal(rutaId, onSaved){
           <td><input data-f="lng" type="number" step="any" value="${p.lng!=null?p.lng:''}" style="width:90px"></td>
         </tr>`).join('')}</tbody></table>
       </div>
-      <div class="small muted" style="margin-top:10px">"Reoptimizar orden" recalcula el orden de paradas con las coordenadas actuales (solo aplica a paradas pendientes).</div>
+      <div class="small muted" style="margin-top:10px">Usa ↑ ↓ para cambiar el orden a mano, o "Reoptimizar orden" para recalcularlo con las coordenadas actuales (solo paradas pendientes). ${ruta.estatus!=='pendiente'?'<b>La ruta ya inició:</b> el chofer verá los cambios al tocar "Volver a descargar mi ruta" en su app.':'El chofer recibe los cambios al abrir su app.'}</div>
     `, [
       {label:'Cancelar', cls:'btn', action:'cancel'},
       {label:'🗑 Eliminar ruta', cls:'btn danger', action:'eliminar'},
@@ -1712,18 +2418,8 @@ function openEditarRutaModal(rutaId, onSaved){
         eliminarRuta(ruta.id, onSaved);
         return;
       }
-      // recolectar ediciones de la tabla antes de guardar/reoptimizar
-      modalEl.querySelectorAll('[data-pedidorow]').forEach(row=>{
-        const pid=row.dataset.pedidorow;
-        const p=pedidosRuta.find(x=>x.id===pid);
-        if(!p) return;
-        row.querySelectorAll('[data-f]').forEach(inp=>{
-          const f=inp.dataset.f;
-          p[f] = f==='lat' ? Util.parseLat(inp.value) : f==='lng' ? Util.parseLng(inp.value) : inp.value;
-        });
-      });
-      const choferId = modalEl.querySelector('#erChofer').value || null;
-      const unidadId = modalEl.querySelector('#erUnidad').value || null;
+      recolectar(modalEl);
+      const choferId = ruta.choferId, unidadId = ruta.unidadId;
 
       if(action==='reoptimizar'){
         const origen = resolverOrigenRuta(ruta);
@@ -1742,14 +2438,38 @@ function openEditarRutaModal(rutaId, onSaved){
       pedidosRuta.forEach(p=>DB.update('pedidos', p.id, {
         nombreContacto:p.nombreContacto, direccion:p.direccion, telefono:p.telefono, lat:p.lat, lng:p.lng, ordenEnRuta:p.ordenEnRuta
       }));
+      pedidosRuta.forEach((p,i)=>{ p.ordenEnRuta=i+1; });
+      const conGeo = pedidosRuta.filter(p=>p.lat!=null&&p.lng!=null);
       DB.update('rutas', ruta.id, {
-        choferId, unidadId,
-        ordenOptimizado: pedidosRuta.filter(p=>p.lat!=null&&p.lng!=null).sort((a,b)=>(a.ordenEnRuta||99)-(b.ordenEnRuta||99)).map(p=>p.id)
+        choferId, unidadId, pedidoIds: pedidosRuta.map(p=>p.id),
+        ordenOptimizado: conGeo.map(p=>p.id), kmPlan: kmDeSecuencia(resolverOrigenRuta(ruta), conGeo)
       });
       closeCustomModal('editarRutaModal');
-      Util.toast('Ruta actualizada','ok');
+      Util.toast(choferId?'Ruta actualizada':'Ruta guardada SIN chofer: no le aparece a nadie en la app', choferId?'ok':'err');
       if(onSaved) onSaved();
     });
+    const m=document.getElementById('editarRutaModal');
+    m.querySelectorAll('[data-mover]').forEach(b=>b.onclick=()=>{
+      recolectar(m);
+      const i=pedidosRuta.findIndex(p=>p.id===b.dataset.pid), j=i+Number(b.dataset.mover);
+      if(i<0||j<0||j>=pedidosRuta.length) return;
+      [pedidosRuta[i],pedidosRuta[j]]=[pedidosRuta[j],pedidosRuta[i]];
+      render();
+    });
+    m.querySelector('#erUnidad').onchange=e=>{ const u=DB.find('unidades',e.target.value); if(u&&u.choferId&&!m.querySelector('#erChofer').value) m.querySelector('#erChofer').value=u.choferId; };
+  }
+  // Pasa a memoria lo capturado en la tabla y en los selectores (antes de redibujar o guardar).
+  function recolectar(modalEl){
+    pedidosRuta = pedidosRuta.map(p=>Object.assign({},p));
+    modalEl.querySelectorAll('[data-pedidorow]').forEach(row=>{
+      const p=pedidosRuta.find(x=>x.id===row.dataset.pedidorow);
+      if(!p) return;
+      row.querySelectorAll('[data-f]').forEach(inp=>{
+        const f=inp.dataset.f;
+        p[f] = f==='lat' ? Util.parseLat(inp.value) : f==='lng' ? Util.parseLng(inp.value) : inp.value;
+      });
+    });
+    ruta = Object.assign({}, ruta, {choferId: modalEl.querySelector('#erChofer').value || null, unidadId: modalEl.querySelector('#erUnidad').value || null});
   }
   render();
 }
@@ -1761,8 +2481,12 @@ function openDetalleRutaModal(rutaId){
   const choferes=DB.get('choferes'), unidades=DB.get('unidades'), centros=DB.get('centros'), entregas=DB.get('entregas');
   const ch=choferes.find(c=>c.id===ruta.choferId), un=unidades.find(u=>u.id===ruta.unidadId), ce=centros.find(c=>c.id===ruta.centroId);
   const origenRuta = resolverOrigenRuta(ruta);
-  const ordenIds = (ruta.ordenOptimizado&&ruta.ordenOptimizado.length?ruta.ordenOptimizado:ruta.pedidoIds);
+  // Orden optimizado y, al final, las paradas sin coordenadas (antes no aparecían en el detalle).
+  const ordenIds = [...(ruta.ordenOptimizado||[]), ...ruta.pedidoIds.filter(id=>!(ruta.ordenOptimizado||[]).includes(id))];
   const pedidos = ordenIds.map(pid=>DB.find('pedidos',pid)).filter(Boolean);
+  const kmR = kmRealRuta(ruta), chk = ruta.checklistSalida;
+  const fallas = chk && typeof chk==='object' ? Object.entries(chk).filter(([,v])=>v===false).map(([k])=>k) : [];
+  const incs = DB.query('incidencias', i=>i.rutaId===ruta.id);
   const entregadas = pedidos.filter(p=>p.estatus==='entregado').length;
   const fallidas = pedidos.filter(p=>ESTATUS_NO_EXITOSOS.includes(p.estatus)).length;
 
@@ -1777,6 +2501,14 @@ function openDetalleRutaModal(rutaId){
       <div class="card"><h3>Entregadas</h3><div class="stat small-stat" style="color:var(--success)">${entregadas}</div></div>
       <div class="card"><h3>Con incidencia</h3><div class="stat small-stat" style="color:var(--danger)">${fallidas}</div></div>
       <div class="card"><h3>Estatus ruta</h3><div style="margin-top:4px">${estatusBadge(ruta.estatus)}</div></div>
+    </div>
+    <div class="small" style="margin:-4px 0 12px;line-height:1.9">
+      🛣️ <b>Km:</b> ${kmR!=null?Util.num(kmR,1)+' recorridos':'—'}${ruta.kmPlan?' · '+Util.num(ruta.kmPlan,1)+' planeados':''}
+      ${ruta.odometroInicio!=null?` · <b>Odómetro:</b> ${Util.num(ruta.odometroInicio,0)}${ruta.odometroFin!=null?' → '+Util.num(ruta.odometroFin,0):''}`:''}
+      ${ruta.combustibleInicio?` · ⛽ ${Util.esc(ruta.combustibleInicio)}`:''}
+      ${ruta.horaInicio&&ruta.horaFin?` · ⏱ ${Util.fmtMins(Util.minsBetween(ruta.horaInicio,ruta.horaFin))}`:''}
+      ${chk?` · <b>Revisión de salida:</b> ${fallas.length?`<span class="badge b-red">Con falla: ${Util.esc(fallas.join(', '))}</span>`:'<span class="badge b-green">Sin fallas</span>'}`:''}
+      ${incs.length?` · <span class="badge ${incs.some(i=>!i.atendida)?'b-red':'b-gray'}">${incs.length} incidencia(s)</span>`:''}
     </div>
     <div class="table-wrap" style="max-height:360px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
       <table><thead><tr><th>#</th><th>Folio</th><th>Cliente</th><th>Estatus</th><th>Llegada</th><th>Salida</th><th>En sitio</th><th></th></tr></thead>
@@ -1795,7 +2527,7 @@ function openDetalleRutaModal(rutaId){
           <td class="small">${p.horaLlegada?Util.fmtTime(p.horaLlegada):'—'}</td>
           <td class="small">${ent?Util.fmtTime(ent.horaEntrega):'—'}</td>
           <td class="small">${enSitio!=null?Util.fmtMins(enSitio):'—'}</td>
-          <td><button class="btn sm" data-verfolio="${Util.esc(p.folio)}">Ver informe</button></td>
+          <td><button class="btn sm" data-verfolio="${Util.esc(p.folio)}" data-pid="${p.id}">Ver informe</button></td>
         </tr>`;
       }).join(''):`<tr><td colspan="8" class="empty">Esta ruta no tiene envíos.</td></tr>`}
         ${origenRuta?`<tr style="background:var(--danger-soft)">
@@ -1808,21 +2540,27 @@ function openDetalleRutaModal(rutaId){
   `, [{label:'Cerrar', cls:'btn primary', action:'cerrar'}], (action)=>{
     if(action==='cerrar') closeCustomModal('detalleRutaModal');
   });
-  document.getElementById('detalleRutaModal').querySelectorAll('[data-verfolio]').forEach(b=>b.onclick=()=>openInformeFolioModal(b.dataset.verfolio));
+  document.getElementById('detalleRutaModal').querySelectorAll('[data-verfolio]').forEach(b=>b.onclick=()=>openInformeFolioModal(b.dataset.verfolio, b.dataset.pid));
 }
 
 /* ---- Informe completo de un pedido (folio): datos, ruta y evidencia de entrega ---- */
-function openInformeFolioModal(folioQuery){
-  const pedido = DB.get('pedidos').find(p=>p.folio && p.folio.toLowerCase()===String(folioQuery).trim().toLowerCase());
+function openInformeFolioModal(folioQuery, pedidoId){
+  // Un folio puede tener varios intentos (reprogramaciones): se abre el que se pide o el más reciente.
+  const intentos = DB.get('pedidos').filter(p=>p.folio && p.folio.toLowerCase()===String(folioQuery).trim().toLowerCase())
+    .sort((a,b)=>(b.intento||1)-(a.intento||1) || String(b.createdAt).localeCompare(String(a.createdAt)));
+  const pedido = (pedidoId && intentos.find(p=>p.id===pedidoId)) || intentos[0];
   if(!pedido){ Util.toast('No se encontró ningún pedido con ese folio','err'); return; }
   const ruta = pedido.rutaId ? DB.find('rutas', pedido.rutaId) : null;
   const choferes=DB.get('choferes'), unidades=DB.get('unidades'), centros=DB.get('centros');
   const ch = ruta ? choferes.find(c=>c.id===ruta.choferId) : null;
   const un = ruta ? unidades.find(u=>u.id===ruta.unidadId) : null;
   const ce = ruta ? centros.find(c=>c.id===ruta.centroId) : null;
-  const ent = DB.get('entregas').find(e=>e.pedidoId===pedido.id);
+  const ent = DB.get('entregas').filter(e=>e.pedidoId===pedido.id).sort((a,b)=>new Date(b.horaEntrega)-new Date(a.horaEntrega))[0];
+  const items = (pedido.items||[]).filter(it=>it&&it.nombre);
+  const enlace = CFG.webUrl+'#/tracking?folio='+encodeURIComponent(pedido.folio);
 
   openModalCustom('informeFolioModal', `Informe de entrega — Folio ${Util.esc(pedido.folio)}`, `
+    ${intentos.length>1?`<div class="tabs">${intentos.slice().reverse().map(p=>`<a href="#" class="tab ${p.id===pedido.id?'active':''}" data-intento="${p.id}">Intento ${p.intento||1} · ${Util.fmtDate(p.fecha)}</a>`).join('')}</div>`:''}
     <div class="grid cols-2" style="margin-bottom:14px">
       <div class="card">
         <h3>Pedido</h3>
@@ -1832,7 +2570,11 @@ function openInformeFolioModal(folioQuery){
           <div><b>Dirección:</b> ${Util.esc(pedido.direccion||'—')}${pedido.colonia?', '+Util.esc(pedido.colonia):''}${pedido.cp?' · C.P. '+Util.esc(pedido.cp):''}</div>
           <div><b>Ventana de entrega:</b> ${Util.fmtDate(pedido.fechaMin)} — ${Util.fmtDate(pedido.fechaMax)}</div>
           <div><b>Peso / Volumen:</b> ${Util.esc(pedido.pesoKg||'—')} kg / ${Util.esc(pedido.volumenM3||'—')} m³</div>
-          <div><b>Importe factura:</b> ${pedido.importeTotal?Util.money(pedido.importeTotal):'—'}</div>
+          <div><b>Factura:</b> ${Util.esc(pedido.folioFactura||'—')} · ${pedido.importeTotal?Util.money(pedido.importeTotal):'—'}</div>
+          <div><b>No. cliente:</b> ${Util.esc(pedido.numeroCliente||'—')} · <b>Correo:</b> ${Util.esc(pedido.emailContacto||'—')}</div>
+          <div><b>Vendedor:</b> ${Util.esc(pedido.nombreVendedor||'—')} · <b>Sucursal:</b> ${Util.esc(pedido.sucursalSolicita||'—')}</div>
+          ${pedido.comentarios?`<div><b>Comentarios:</b> ${Util.esc(pedido.comentarios)}</div>`:''}
+          ${items.length&&!ent?`<div><b>Artículos:</b> ${items.map(it=>Util.esc(it.nombre)+' x'+Util.esc(it.cantidad??1)).join(', ')}</div>`:''}
         </div>
       </div>
       <div class="card">
@@ -1857,6 +2599,8 @@ function openInformeFolioModal(folioQuery){
             <div class="card"><h3>Salida</h3><div class="stat small-stat">${Util.fmtTime(ent.horaEntrega)}</div></div>
             <div class="card"><h3>Tiempo en sitio</h3><div class="stat small-stat">${pedido.horaLlegada?Util.fmtMins(Util.minsBetween(pedido.horaLlegada, ent.horaEntrega)):'—'}</div></div>
           </div>
+          ${ent.recibeNombre?`<div class="small" style="margin-bottom:8px"><b>Recibió:</b> ${Util.esc(ent.recibeNombre)}</div>`:''}
+          ${ent.lat!=null?`<div class="small" style="margin-bottom:8px"><b>Ubicación al cerrar:</b> <a href="https://www.google.com/maps?q=${ent.lat},${ent.lng}" target="_blank" rel="noopener">ver en mapa</a>${ent.distanciaM!=null?` · a ${Util.num(ent.distanciaM,0)} m del domicilio ${ent.distanciaM>METROS_FUERA?'<span class="badge b-amber">Fuera de punto</span>':'<span class="badge b-green">En el punto</span>'}`:''}</div>`:''}
           ${ent.motivo?`<div class="small" style="margin-bottom:8px"><b>Motivo:</b> ${Util.esc(ent.motivo)}</div>`:''}
           ${ent.nuevaFecha?`<div class="small" style="margin-bottom:8px"><b>Nueva fecha propuesta:</b> ${Util.fmtDate(ent.nuevaFecha)}</div>`:''}
           ${ent.comentarios?`<div class="small" style="margin-bottom:8px"><b>Comentarios:</b> ${Util.esc(ent.comentarios)}</div>`:''}
@@ -1872,15 +2616,18 @@ function openInformeFolioModal(folioQuery){
             <div class="thumbs">${ent.fotos.length?ent.fotos.map(f=>`<a class="thumb" href="${Util.esc(f)}" target="_blank"><img src="${Util.esc(f)}"></a>`).join(''):'<span class="small mute2">Sin fotos</span>'}</div>
           </div>
           <div class="field"><label>Firma del cliente</label>
-            ${ent.firma?`<img src="${ent.firma}" style="max-width:100%;border:1px solid var(--border);border-radius:8px;background:#fff">`:'<span class="small mute2">Sin firma</span>'}
+            ${ent.firma?`<img src="${Util.esc(ent.firma)}" style="max-width:100%;border:1px solid var(--border);border-radius:8px;background:#fff">`:'<span class="small mute2">Sin firma</span>'}
           </div>
           ${ent.documentos&&ent.documentos.length?`<div class="field"><label>Documentos</label><div class="small">${ent.documentos.map(d=>Util.esc(d)).join(', ')}</div></div>`:''}
         ` : (pedido.horaLlegada ? `<div class="empty">📍 El chofer llegó a las ${Util.fmtTime(pedido.horaLlegada)} — entrega en curso.</div>` : `<div class="empty">Este pedido aún no ha sido entregado.</div>`)}
       </div>
     </div>
-  `, [{label:'Cerrar', cls:'btn primary', action:'cerrar'}], (action)=>{
+  `, [{label:'🔗 Copiar enlace de rastreo', cls:'btn', action:'enlace'},{label:'🖨 Imprimir', cls:'btn', action:'imprimir'},{label:'Cerrar', cls:'btn primary', action:'cerrar'}], (action)=>{
     if(action==='cerrar') closeCustomModal('informeFolioModal');
+    if(action==='imprimir') window.print();
+    if(action==='enlace'){ (navigator.clipboard?navigator.clipboard.writeText(enlace):Promise.reject()).then(()=>Util.toast('Enlace copiado: envíalo al cliente','ok')).catch(()=>prompt('Copia el enlace de rastreo:',enlace)); }
   });
+  document.getElementById('informeFolioModal').querySelectorAll('[data-intento]').forEach(a=>a.onclick=e=>{ e.preventDefault(); openInformeFolioModal(pedido.folio, a.dataset.intento); });
 }
 
 /* Pinta cada ruta en el color de su chofer:
@@ -1936,6 +2683,13 @@ function drawMap(map, mapLayer, rutas, pedidos, centros, choferes, fit){
         .addTo(mapLayer);
     }
   });
+  // Incidencias reportadas por los choferes de las rutas en pantalla
+  const idsRutas = new Set(rutas.map(r=>r.id));
+  DB.query('incidencias', i=>idsRutas.has(i.rutaId) && i.lat!=null && i.lng!=null).forEach(i=>{
+    L.marker([i.lat,i.lng], {zIndexOffset:900, icon:L.divIcon({className:'', iconSize:[26,26], iconAnchor:[13,13],
+      html:`<div style="width:26px;height:26px;border-radius:50%;background:${i.atendida?'#e9ecef':'#fff'};border:2px solid ${i.atendida?'#8392ab':'#d03b3b'};display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.3)">⚠️</div>`})})
+      .bindPopup(`<b>${Util.esc(TIPOS_INCIDENCIA[i.tipo]||i.tipo)}</b><br>${Util.esc(i.descripcion||'')}<br>${Util.fmtTime(i.hora)} · ${i.atendida?'Atendida':'<b style="color:#b3261e">Sin atender</b>'}`).addTo(mapLayer);
+  });
   if(!fit) return;
   if(pts.length){ map.fitBounds(L.latLngBounds(pts), {padding:[24,24], maxZoom:14}); }
   else { map.setView([23.6345,-102.5528],5); }
@@ -1962,8 +2716,8 @@ function construirSecuenciaConSalidaRegreso(ruta, pedidosDB){
   const origen = resolverOrigenRuta(ruta);
   if(origen) seq.push({lat:origen.lat, lng:origen.lng, esSalida:true, hora:ruta.horaInicio, nombre:origen.nombre});
   (ruta.ordenOptimizado&&ruta.ordenOptimizado.length?ruta.ordenOptimizado:ruta.pedidoIds).forEach(pid=>{
-    const p = pedidosDB.find(x=>x.id===pid);
-    if(p&&p.lat!=null) seq.push(p);
+    const p = DB.find('pedidos',pid);
+    if(p&&p.lat!=null&&p.lng!=null) seq.push(p);
   });
   if(origen) seq.push({lat:origen.lat, lng:origen.lng, esRegreso:true, hora:ruta.horaFin, nombre:origen.nombre});
   return seq;
@@ -2016,13 +2770,19 @@ function viewHistorico(el){
     };
     el.querySelector('#hCsv').onclick=()=>{
       const ch=DB.get('choferes'), un=DB.get('unidades'), ce=DB.get('centros'), pe=DB.get('pedidos'), en=DB.get('entregas');
-      const filas=[['Fecha','Centro','Chofer','Unidad','Folio','Cliente','Dirección','Estatus','Llegada','Entrega','Min. en sitio','Motivo','Comentarios']];
+      const filas=[['Fecha','Centro','Chofer','Unidad','Parada','Folio','Intento','Factura','No. cliente','Cliente','Dirección','Colonia','C.P.','Estatus','Salida de ruta','Llegada','Entrega','Min. en sitio',
+        'Fecha máx. entrega','A tiempo','Entrega parcial','Recibió','Fotos','Firma','Metros al domicilio','Motivo','Nueva fecha','Comentarios','Peso kg','Volumen m3','Importe','Vendedor','Sucursal']];
+      const entDe=new Map(); en.forEach(e=>{ const x=entDe.get(e.pedidoId); if(!x||e.horaEntrega>x.horaEntrega) entDe.set(e.pedidoId,e); });
+      const hl = iso=>iso?Util.fmtDateTime(iso):'';
       _rutasHist.forEach(r=>r.pedidoIds.forEach(pid=>{
-        const p=pe.find(x=>x.id===pid); if(!p) return;
-        const e=en.find(x=>x.pedidoId===pid);
-        filas.push([r.fecha, ce.find(c=>c.id===r.centroId)?.nombre||'', ch.find(c=>c.id===r.choferId)?.nombre||'', un.find(u=>u.id===r.unidadId)?.placa||r.vehiculoTexto||'',
-          p.folio, p.nombreContacto||'', p.direccion||'', p.estatus, p.horaLlegada||'', e?.horaEntrega||'',
-          p.horaLlegada&&e?Util.minsBetween(p.horaLlegada,e.horaEntrega):'', e?.motivo||'', e?.comentarios||'']);
+        const p=DB.find('pedidos',pid); if(!p) return;
+        const e=entDe.get(pid);
+        filas.push([r.fecha, DB.find('centros',r.centroId)?.nombre||'', DB.find('choferes',r.choferId)?.nombre||'', DB.find('unidades',r.unidadId)?.placa||r.vehiculoTexto||'',
+          p.ordenEnRuta||'', p.folio, p.intento||1, p.folioFactura||'', p.numeroCliente||'', p.nombreContacto||'', p.direccion||'', p.colonia||'', p.cp||'', ESTATUS_TXT[p.estatus]||p.estatus,
+          hl(r.horaInicio), hl(p.horaLlegada), hl(e?.horaEntrega), p.horaLlegada&&e?Util.minsBetween(p.horaLlegada,e.horaEntrega):'',
+          p.fechaMax||'', p.estatus==='entregado'&&e&&p.fechaMax?(Util.dateISO(new Date(e.horaEntrega))<=p.fechaMax?'Sí':'No'):'', e?(e.entregaParcial?'Sí':'No'):'', e?.recibeNombre||'',
+          e?(e.fotos||[]).length:'', e?(e.firma?'Sí':'No'):'', e?.distanciaM!=null?Math.round(e.distanciaM):'', e?.motivo||'', e?.nuevaFecha||'', e?.comentarios||'',
+          p.pesoKg??'', p.volumenM3??'', p.importeTotal??'', p.nombreVendedor||'', p.sucursalSolicita||'']);
       }));
       Util.descargarCSV(`MapRoad_entregas_${filtros.desde}_a_${filtros.hasta}.csv`, filas);
     };
@@ -2041,12 +2801,12 @@ function viewHistorico(el){
     if(filtros.choferId) rutas=rutas.filter(r=>r.choferId===filtros.choferId);
     if(filtros.unidadId) rutas=rutas.filter(r=>r.unidadId===filtros.unidadId);
     if(filtros.centroId) rutas=rutas.filter(r=>r.centroId===filtros.centroId);
-    if(filtros.folio) rutas=rutas.filter(r=>r.pedidoIds.some(pid=>{ const p=pedidos.find(x=>x.id===pid); return p && p.folio && p.folio.toLowerCase().includes(filtros.folio.toLowerCase()); }));
+    if(filtros.folio) rutas=rutas.filter(r=>r.pedidoIds.some(pid=>{ const p=DB.find('pedidos',pid); return p && p.folio && p.folio.toLowerCase().includes(filtros.folio.toLowerCase()); }));
 
     _rutasHist = rutas;
     const concluidas = rutas.filter(r=>r.estatus==='concluida');
     const totalParadas = rutas.reduce((s,r)=>s+r.pedidoIds.length,0);
-    const totalExitosas = rutas.reduce((s,r)=>s+r.pedidoIds.filter(pid=>pedidos.find(p=>p.id===pid)?.estatus==='entregado').length,0);
+    const totalExitosas = rutas.reduce((s,r)=>s+r.pedidoIds.filter(pid=>DB.find('pedidos',pid)?.estatus==='entregado').length,0);
     const duraciones = concluidas.filter(r=>r.horaInicio&&r.horaFin).map(r=>Util.minsBetween(r.horaInicio,r.horaFin));
     const promDuracion = duraciones.length ? Math.round(duraciones.reduce((a,b)=>a+b,0)/duraciones.length) : null;
 
@@ -2058,7 +2818,7 @@ function viewHistorico(el){
 
     el.querySelector('#hBody').innerHTML = rutas.length ? rutas.sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(r=>{
       const ch=choferes.find(c=>c.id===r.choferId), un=unidades.find(u=>u.id===r.unidadId), ce=centros.find(c=>c.id===r.centroId);
-      const exitosas=r.pedidoIds.filter(pid=>pedidos.find(p=>p.id===pid)?.estatus==='entregado').length;
+      const exitosas=r.pedidoIds.filter(pid=>DB.find('pedidos',pid)?.estatus==='entregado').length;
       const dur = r.horaInicio&&r.horaFin ? Util.minsBetween(r.horaInicio,r.horaFin) : null;
       const prom = dur && r.pedidoIds.length ? Math.round(dur/r.pedidoIds.length) : null;
       return `<tr data-verruta="${r.id}" style="cursor:pointer" title="Ver envíos de esta ruta">
@@ -2260,8 +3020,14 @@ function closeCustomModal(id){ const m=document.getElementById(id); if(m) m.remo
 (async function(){
   document.getElementById('app').innerHTML='<div class="auth-wrap"><div style="color:#fff;font-weight:600">Cargando MapRoad…</div></div>';
   try{
-    const u = await Auth.init();
-    if(u && u.rol!=='chofer' && currentPath()!=='tracking'){ await DB.load(); DB.subscribe(); }
+    if(DEMO){
+      await new Promise((ok,no)=>{ const s=document.createElement('script'); s.src='demo.js'; s.onload=ok; s.onerror=no; document.head.appendChild(s); });
+      const d = window.MPR_DEMO.panel((location.search.match(/demo=(\w+)/)||[])[1]);
+      Auth.user = d.usuario; DB._c = d.tablas; DB._desde = d.desde; Ubic.porRuta = d.ubic;
+    } else {
+      const u = await Auth.init();
+      if(u && u.rol!=='chofer' && currentPath()!=='tracking'){ await DB.load(); DB.subscribe(); }
+    }
   }catch(err){ console.error(err); Util.toast('No se pudo conectar con el servidor: '+(err.message||err),'err'); }
   _listo = true;
   route();

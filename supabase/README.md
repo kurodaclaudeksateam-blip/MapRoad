@@ -12,6 +12,10 @@ Todo lo de MapRoad se distingue por nombre y no modifica objetos existentes:
 
 [`schema_mpr.sql`](schema_mpr.sql) es el esquema completo y se puede volver a aplicar sin riesgo (`if not exists` / `create or replace`). No inserta datos, salvo dar el rol de administrador a la cuenta `fcerezo@kuroda.com`.
 
+## Ampliación v2
+
+[`migracion_v2_mpr.sql`](migracion_v2_mpr.sql) se aplica **después** del esquema base y antes de publicar el panel y el APK 1.1. Solo agrega: columnas opcionales en catálogos, rutas, pedidos y entregas; la tabla `incidencias_mpr`; y las nuevas versiones de `mpr_chofer_ruta`, `mpr_chofer_sync` (eventos `incidencia`, odómetro, revisión de salida, ubicación de la entrega, km por GPS) y `mpr_bitacora`. Es compatible con el APK 1.0.
+
 ## Acceso
 
 - **Panel** (admin, sociedad, centro, auditor): lee y escribe las tablas directamente; RLS limita cada renglón al alcance del rol.

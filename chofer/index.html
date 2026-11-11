@@ -96,7 +96,16 @@ button{cursor:pointer;}
 .btn.ok{background:linear-gradient(135deg,#34d399,#10b981);color:#042f1f;border-color:transparent;box-shadow:0 10px 26px rgba(16,185,129,.35), inset 0 1px 0 rgba(255,255,255,.45);}
 .btn:disabled{opacity:.5;}
 .btn.sm{min-height:40px;font-size:13.5px;padding:8px 14px;width:auto;}
-.row{display:flex;gap:10px;} .row>*{flex:1;}
+.row{display:flex;gap:10px;} .row>*{flex:1;min-width:0;}
+.row3{display:flex;gap:8px;margin-top:10px;} .row3>*{flex:1;width:auto;padding:8px 6px;white-space:nowrap;}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:8px;} .opts.c3{grid-template-columns:repeat(3,1fr);}
+.opt{min-height:48px;padding:10px 8px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--field);font-weight:700;font-size:13.5px;text-align:center;}
+.opt.on{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 22%,transparent);box-shadow:0 0 0 2px color-mix(in srgb,var(--acc) 35%,transparent);}
+.opt.mal{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 20%,transparent);color:var(--bad);}
+#eRes .opt:first-child{grid-column:1/-1;}
+.tap{cursor:pointer;} .tap:active{transform:scale(.985);}
+button.chip{cursor:pointer;color:var(--tx);}
+.demo-flag{position:fixed;bottom:0;left:0;right:0;z-index:95;background:#7c3aed;color:#fff;text-align:center;font-size:11.5px;font-weight:700;padding:3px;}
 
 /* Campos */
 .field{margin-bottom:12px;}
@@ -171,7 +180,9 @@ button{cursor:pointer;}
    ============================================================ */
 const CFG = window.MPR_CONFIG;
 const sb = supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey);
-const NATIVO = window.MRNative || null;   // puente del APK (GPS en segundo plano); null en navegador
+const NATIVO = window.MRNative || null;
+// Vista previa con una ruta de ejemplo (../demo.js): solo en el equipo local con ?demo. No toca Supabase.
+const DEMO = /[?&]demo\b/.test(location.search) && ['localhost','127.0.0.1'].includes(location.hostname);   // puente del APK (GPS en segundo plano); null en navegador
 const MIN_GPS = CFG.minutosUbicacion || 4;
 const $ = (s,el)=>(el||document).querySelector(s);
 const app = $('#app');
@@ -221,9 +232,10 @@ const Cola = {
 /* ---------- Estado local: la ruta del día descargada ---------- */
 const Est = {
   d:null, usuario:null,
-  cargar(){ try{ this.d=JSON.parse(localStorage.getItem('mpr_ruta')); }catch(e){ this.d=null; } },
-  guardar(){ localStorage.setItem('mpr_ruta', JSON.stringify(this.d)); },
-  borrar(){ this.d=null; localStorage.removeItem('mpr_ruta'); },
+  K: DEMO ? 'mpr_ruta_demo' : 'mpr_ruta',
+  cargar(){ try{ this.d=JSON.parse(localStorage.getItem(this.K)); }catch(e){ this.d=null; } },
+  guardar(){ localStorage.setItem(this.K, JSON.stringify(this.d)); },
+  borrar(){ this.d=null; localStorage.removeItem(this.K); },
   // Paradas en el orden optimizado; las que no tenían coordenadas van al final (no se pierden).
   orden(){
     const r=this.d.ruta, ps=this.d.pedidos, ids=[...(r.ordenOptimizado||[])];
@@ -252,6 +264,7 @@ const Sync = {
     if(enviarYa) this.enviar();
   },
   async enviar(){
+    if(DEMO){ const evs=await Cola.todos(); await Cola.quitar(evs.map(e=>e.k)); this.ultimo=U.ahora(); pintarEstado(); return; }
     if(this.ocupado || !navigator.onLine) { pintarEstado(); return; }
     this.ocupado=true; pintarEstado();
     try{
@@ -259,6 +272,7 @@ const Sync = {
       if(evs.length){
         // 1) Evidencias pendientes → Storage (una por una; lo ya subido no se repite)
         for(const ev of evs){
+          if(ev.t==='incidencia' && ev._foto){ ev.foto = await this._subir(ev.rutaId+'/inc-'+ev.id+'.jpg', ev._foto, 'image/jpeg'); ev._foto=null; await Cola.guardar(ev); }
           if(ev.t!=='entrega') continue;
           while(ev._fotos && ev._fotos.length){
             ev.fotos.push(await this._subir(`${ev._rutaId}/${ev.id}/f${ev.fotos.length}.jpg`, ev._fotos[0], 'image/jpeg'));
@@ -296,7 +310,7 @@ const Gps = {
   timer:null, ultimo:null,
   activa(){ return !!(Est.d && Est.d.ruta && Est.d.ruta.estatus==='en_curso'); },
   iniciar(){
-    if(!this.activa()) return;
+    if(!this.activa() || DEMO) return;
     if(NATIVO){ NATIVO.startTracking(MIN_GPS); this.recoger(); return; }
     if(this.timer) return;
     this.tomar();
@@ -337,6 +351,7 @@ async function entrar(usuario, password){
   return false;
 }
 async function salir(){
+  if(DEMO){ localStorage.removeItem(Est.K); location.reload(); return; }
   if(await Cola.cuantos()){ await Sync.enviar(); if(await Cola.cuantos()){ U.toast('Hay registros sin enviar. Conéctate a internet antes de salir.'); return; } }
   Gps.detener(); await sb.auth.signOut(); Est.borrar(); pintarLogin();
 }
@@ -348,7 +363,7 @@ async function descargarRuta(){
     if(/sin_acceso_chofer/.test(error.message||'')) return {sinAcceso:true};
     throw error;
   }
-  Est.d = {fecha:data.fecha, chofer:data.chofer, unidad:data.unidad, origen:data.origen,
+  Est.d = {fecha:data.fecha, chofer:data.chofer, unidad:data.unidad, origen:data.origen, centro:data.centro||null,
     ruta:data.ruta?U.camel(data.ruta):null, pedidos:(data.pedidos||[]).map(U.camel), bajada:U.ahora()};
   Est.guardar();
   return {};
@@ -408,6 +423,27 @@ async function pintarEstado(){
   el.innerHTML=chips.join('');
 }
 
+const tel = t=>String(t||'').replace(/[^0-9+]/g,'');
+const urlMapa = p=>p.lat!=null ? `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}&travelmode=driving`
+  : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([p.direccion,p.colonia,p.cp].filter(Boolean).join(', '))}`;
+// WhatsApp al cliente (México: 10 dígitos → se antepone 52)
+const urlWa = (t,txt)=>{ let n=String(t||'').replace(/\D/g,''); if(n.length===10) n='52'+n; return n.length>=11 ? `https://wa.me/${n}?text=${encodeURIComponent(txt)}` : ''; };
+const gpsFresco = min=>Gps.ultimo && U.mins(Gps.ultimo.hora,U.ahora())<=min ? Gps.ultimo : null;
+
+/* Posición para dejar constancia de dónde se cerró una entrega o se reportó una incidencia.
+   Usa el último punto si es reciente; si no, intenta una lectura rápida y nunca bloquea al chofer. */
+function posActual(ms){
+  return new Promise(ok=>{
+    const rec=gpsFresco(2); if(rec) return ok(rec);
+    const resp=()=>gpsFresco(10);
+    if(DEMO || !navigator.geolocation) return ok(resp());
+    let fin=false; const acaba=v=>{ if(fin) return; fin=true; clearTimeout(t); ok(v); };
+    const t=setTimeout(()=>acaba(resp()), ms||4000);
+    navigator.geolocation.getCurrentPosition(p=>acaba({lat:p.coords.latitude,lng:p.coords.longitude,prec:p.coords.accuracy,hora:U.ahora()}),
+      ()=>acaba(resp()), {enableHighAccuracy:true,timeout:ms||4000,maximumAge:60000});
+  });
+}
+
 function pintar(){
   if(!$('#cuerpo')) cascaron();
   pintarEstado();
@@ -424,89 +460,150 @@ function pintar(){
   }
   const r=d.ruta, orden=Est.orden();
   const hechas=orden.filter(p=>CERRADOS.includes(p.estatus)).length;
-  const idx=orden.findIndex(p=>!CERRADOS.includes(p.estatus));
+  const abiertas=orden.filter(p=>!CERRADOS.includes(p.estatus));
 
   if(r.estatus==='pendiente') return pintarInicio(body, orden);
   if(r.estatus==='concluida') return pintarResumen(body, orden);
-  if(idx===-1) return pintarCierre(body, orden);
+  if(!abiertas.length) return pintarCierre(body, orden);
 
-  const cur=orden[idx];
-  const mapa = cur.lat!=null ? `https://www.google.com/maps/dir/?api=1&destination=${cur.lat},${cur.lng}&travelmode=driving`
-    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([cur.direccion,cur.colonia,cur.cp].filter(Boolean).join(', '))}`;
+  // Parada actual: la que ya tiene llegada registrada, la que el chofer eligió, o la siguiente del orden.
+  const cur = abiertas.find(p=>p.horaLlegada) || abiertas.find(p=>p.id===d.actualId) || abiertas[0];
+  const idx = orden.indexOf(cur);
+  const g=gpsFresco(MIN_GPS*2+1), km = g && cur.lat!=null ? U.km(g,cur) : null;
+  const wa = urlWa(cur.telefono, `Hola, soy ${d.chofer?d.chofer.nombre.split(' ')[0]:'el repartidor'}. Voy en camino con su pedido ${cur.folio}.`);
   body.innerHTML = `<div class="cols"><div>
     <div class="glass card">
       <div style="display:flex;justify-content:space-between;align-items:baseline"><b>Progreso</b><span class="small muted">${hechas} de ${orden.length} paradas</span></div>
       <div class="prog" style="margin-top:8px"><i style="width:${orden.length?hechas/orden.length*100:0}%"></i></div>
-      <div class="small muted" style="margin-top:8px">🚚 Salida ${U.esc(d.origen?d.origen.nombre:'de sucursal')} · ${U.hora(r.horaInicio)}</div>
+      <div class="small muted" style="margin-top:8px">🚚 Salida ${U.esc(d.origen?d.origen.nombre:'de sucursal')} · ${U.hora(r.horaInicio)} · en ruta ${U.dur(U.mins(r.horaInicio,U.ahora()))}</div>
     </div>
     <div class="glass card cur">
       <div style="display:flex;gap:12px;align-items:flex-start">
         <div class="stop" style="padding:0;margin:0"><div class="n">${idx+1}</div></div>
         <div style="flex:1;min-width:0">
-          <span class="small muted">Siguiente parada</span>
+          <span class="small muted">${cur.horaLlegada?'Estás en':'Siguiente parada'}${km!=null&&!cur.horaLlegada?` · a ${km<1?Math.round(km*1000)+' m':km.toFixed(1)+' km'}`:''}</span>
           <h2>${U.esc(cur.nombreContacto||cur.folio)}</h2>
           <div class="muted">${U.esc([cur.direccion,cur.colonia,cur.cp?('C.P. '+cur.cp):''].filter(Boolean).join(', ')||'Sin dirección')}</div>
         </div>
       </div>
       <div class="chips" style="margin-bottom:4px">
         <span class="chip">📦 <span class="mono">${U.esc(cur.folio)}</span></span>
-        ${cur.telefono?`<a class="chip" href="tel:${U.esc(String(cur.telefono).replace(/[^0-9+]/g,''))}" style="color:inherit;text-decoration:none">📞 ${U.esc(cur.telefono)}</a>`:''}
         ${(cur.items||[]).length?`<span class="chip">🧾 ${cur.items.length} artículo(s)</span>`:''}
+        ${(cur.intento||1)>1?`<span class="chip warn">Intento ${cur.intento}</span>`:''}
       </div>
       ${cur.comentarios?`<div class="note">📝 ${U.esc(cur.comentarios)}</div>`:''}
+      <div class="row3">
+        <a class="btn sm" href="${urlMapa(cur)}" target="_blank">🧭 Navegar</a>
+        ${tel(cur.telefono)?`<a class="btn sm" href="tel:${tel(cur.telefono)}">📞 Llamar</a>`:''}
+        ${wa?`<a class="btn sm" href="${wa}" target="_blank">💬 WhatsApp</a>`:''}
+      </div>
       ${cur.horaLlegada?`
-        <div class="note" style="color:var(--ok)">✅ Llegada registrada · ${U.hora(cur.horaLlegada)}</div>
-        <button class="btn ok" id="bEntregar">Registrar entrega y firma</button>
-        <a class="btn sm" href="${mapa}" target="_blank" style="margin:10px auto 0">🧭 Abrir mapa</a>`:`
-        <div class="row" style="margin-top:10px"><a class="btn" href="${mapa}" target="_blank">🧭 Navegar</a><button class="btn pri" id="bLlegue">📍 Ya llegué</button></div>
-        <div class="small muted" style="margin-top:10px">Confirma tu llegada para poder registrar la entrega: así se mide el traslado y el tiempo en sitio.</div>`}
+        <div class="note" style="color:var(--ok)">✅ Llegada registrada · ${U.hora(cur.horaLlegada)} · en sitio ${U.dur(U.mins(cur.horaLlegada,U.ahora()))}</div>
+        <button class="btn ok" id="bEntregar">Registrar entrega</button>`:`
+        <button class="btn pri" id="bLlegue" style="margin-top:10px">📍 Ya llegué</button>
+        <div class="small muted center" style="margin-top:8px">Si vas a otra parada primero, tócala en la lista.</div>`}
+    </div>
+    <div class="row" style="margin-bottom:14px">
+      <button class="btn sm glassy" id="bInc" style="width:100%">⚠️ Reportar incidencia</button>
+      ${telBase()?`<a class="btn sm glassy" href="tel:${telBase()}" style="width:100%">📞 Llamar a base</a>`:''}
     </div></div>
-    <div><div class="small muted" style="margin:4px 6px 8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">Ruta completa</div>${listaParadas(orden, idx)}</div>
+    <div><div class="small muted" style="margin:4px 6px 8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">Ruta completa · toca una parada para ver el detalle</div>${listaParadas(orden, idx)}</div>
   </div>`;
   const bl=$('#bLlegue'); if(bl) bl.onclick=async ()=>{
-    cur.horaLlegada=U.ahora(); Est.guardar();
+    cur.horaLlegada=U.ahora(); d.actualId=cur.id; Est.guardar();
     await Sync.evento({t:'llegada', pedidoId:cur.id, hora:cur.horaLlegada}); // viaja con el siguiente envío
     U.toast('Llegada registrada'); pintar();
   };
   const be=$('#bEntregar'); if(be) be.onclick=()=>hojaEntrega(cur);
+  $('#bInc').onclick=hojaIncidencia;
+  activarLista(orden);
 }
+const telBase = ()=>tel((Est.d.centro&&Est.d.centro.telefono)||(Est.d.origen&&Est.d.origen.telefono));
 
 function listaParadas(orden, idxActual){
   return orden.map((p,i)=>{
     const hecho=CERRADOS.includes(p.estatus), mal=hecho&&p.estatus!=='entregado';
-    return `<div class="glass stop ${hecho?'done':''} ${mal?'bad':''} ${i===idxActual?'cur':''}">
+    return `<div class="glass stop tap ${hecho?'done':''} ${mal?'bad':''} ${i===idxActual?'cur':''}" data-parada="${p.id}">
       <div class="n">${hecho?(mal?'!':'✓'):i+1}</div>
       <div style="min-width:0;flex:1"><b>${U.esc(p.nombreContacto||p.folio)}</b>
         <div class="small muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${U.esc(p.direccion||'')}</div>
-        ${hecho?`<span class="small" style="color:var(--${mal?'warn':'ok'});font-weight:700">${ETIQ[p.estatus]}</span>`:''}</div>
+        ${hecho?`<span class="small" style="color:var(--${mal?'warn':'ok'});font-weight:700">${ETIQ[p.estatus]}</span>`:`<span class="small muted mono">${U.esc(p.folio)}</span>`}</div>
+      <div class="muted" style="align-self:center">›</div>
     </div>`;
   }).join('');
 }
+function activarLista(orden){
+  document.querySelectorAll('[data-parada]').forEach(el=>el.onclick=()=>hojaParada(orden.find(p=>p.id===el.dataset.parada), orden));
+}
 
+/* Detalle de cualquier parada: datos, artículos y, si está pendiente, atenderla fuera de orden. */
+function hojaParada(p, orden){
+  if(!p) return;
+  const d=Est.d, hecho=CERRADOS.includes(p.estatus), enCurso=d.ruta.estatus==='en_curso';
+  const enSitio = orden.find(x=>x.horaLlegada && !CERRADOS.includes(x.estatus));
+  const items=(p.items||[]).filter(it=>it&&it.nombre);
+  const bg=document.createElement('div'); bg.className='sheet-bg';
+  bg.innerHTML=`<div class="sheet glass"><div class="grab"></div>
+    <h3>${U.esc(p.nombreContacto||p.folio)}</h3>
+    <div class="chips" style="margin-top:0"><span class="chip">📦 <span class="mono">${U.esc(p.folio)}</span></span>${hecho?`<span class="chip ${p.estatus==='entregado'?'ok':'warn'}">${ETIQ[p.estatus]}</span>`:'<span class="chip">Pendiente</span>'}${p.folioFactura?`<span class="chip">Factura ${U.esc(p.folioFactura)}</span>`:''}</div>
+    <div class="note">📍 ${U.esc([p.direccion,p.colonia,p.cp?('C.P. '+p.cp):''].filter(Boolean).join(', ')||'Sin dirección')}</div>
+    ${p.comentarios?`<div class="note">📝 ${U.esc(p.comentarios)}</div>`:''}
+    ${items.length?`<div class="field"><label>Artículos (${items.length})</label><div class="items">${items.map(it=>`<label><span style="flex:1">${U.esc(it.nombre)}</span><span class="mono small">x${U.esc(it.cantidad!=null?it.cantidad:1)}</span></label>`).join('')}</div></div>`:''}
+    <div class="row3" style="margin-bottom:12px">
+      <a class="btn sm" href="${urlMapa(p)}" target="_blank">🧭 Navegar</a>
+      ${tel(p.telefono)?`<a class="btn sm" href="tel:${tel(p.telefono)}">📞 Llamar</a>`:''}
+    </div>
+    ${!hecho&&enCurso&&!p.horaLlegada ? (enSitio&&enSitio.id!==p.id
+        ? `<div class="note">Primero cierra la entrega de <b>${U.esc(enSitio.nombreContacto||enSitio.folio)}</b>, donde ya registraste tu llegada.</div>`
+        : `<button class="btn pri" id="pIr">Atender esta parada ahora</button>`) : ''}
+    <button class="btn" id="pX" style="margin-top:10px">Cerrar</button></div>`;
+  document.body.appendChild(bg);
+  const cerrar=()=>bg.remove();
+  bg.onclick=e=>{ if(e.target===bg) cerrar(); }; $('#pX',bg).onclick=cerrar;
+  const ir=$('#pIr',bg); if(ir) ir.onclick=()=>{ d.actualId=p.id; Est.guardar(); cerrar(); pintar(); window.scrollTo({top:0,behavior:'smooth'}); };
+}
+
+const CHECKLIST = ['Llantas','Luces','Frenos','Niveles','Documentos'];
 function pintarInicio(body, orden){
   const d=Est.d, sinGeo=orden.filter(p=>p.lat==null).length;
+  const kg=orden.reduce((s,p)=>s+(Number(p.pesoKg)||0),0);
+  const odo = d.unidad && d.unidad.odometroKm!=null ? Math.round(d.unidad.odometroKm) : '';
   body.innerHTML = `<div class="cols"><div>
-    <div class="glass card cur center" style="padding:24px 18px">
-      <div style="font-size:44px">🚀</div>
+    <div class="glass card cur" style="padding:20px 16px">
+      <div class="center"><div style="font-size:40px">🚀</div>
       <h2 style="font-size:20px">Ruta lista para iniciar</h2>
-      <p class="muted" style="margin:4px 0 14px">${U.esc(U.fecha(d.ruta.fecha))}</p>
-      <div class="grid2" style="text-align:left;margin-bottom:14px">
+      <p class="muted" style="margin:4px 0 14px">${U.esc(U.fecha(d.ruta.fecha))}</p></div>
+      <div class="grid2" style="margin-bottom:12px">
         <div class="kpi"><span>Paradas</span><b>${orden.length}</b></div>
         <div class="kpi"><span>Unidad</span><b>${U.esc(d.unidad?d.unidad.placa:'—')}</b></div>
+        ${d.ruta.kmPlan?`<div class="kpi"><span>Recorrido aprox.</span><b>${Math.round(d.ruta.kmPlan)} km</b></div>`:''}
+        ${kg?`<div class="kpi"><span>Carga</span><b>${Math.round(kg).toLocaleString('es-MX')} kg</b></div>`:''}
       </div>
-      <div class="note" style="text-align:left">📍 Sales de <b>${U.esc(d.origen?d.origen.nombre:'la sucursal')}</b>${sinGeo?`<br>⚠️ ${sinGeo} parada(s) sin coordenadas: van al final de la lista.`:''}</div>
-      <div class="note" style="text-align:left">📡 Al iniciar, tu unidad aparece en el mapa de monitoreo y la app reporta tu ubicación cada ${MIN_GPS} minutos hasta que concluyas la ruta.</div>
+      <div class="note">📍 Sales de <b>${U.esc(d.origen?d.origen.nombre:'la sucursal')}</b>${sinGeo?`<br>⚠️ ${sinGeo} parada(s) sin coordenadas: van al final de la lista.`:''}</div>
+      <div class="field"><label>Revisión de la unidad — toca lo que tenga falla</label>
+        <div class="opts c3" id="iChk">${CHECKLIST.map(c=>`<button type="button" class="opt on" data-c="${c}">✓ ${c}</button>`).join('')}</div></div>
+      <div class="row">
+        <div class="field"><label>Odómetro (km)</label><input id="iOdo" type="number" inputmode="numeric" min="0" value="${odo}" placeholder="Opcional"></div>
+        <div class="field"><label>Combustible</label><select id="iGas"><option>Lleno</option><option>3/4</option><option>1/2</option><option>1/4</option><option>Reserva</option></select></div>
+      </div>
       <button class="btn pri" id="bIniciar">Salir de la sucursal e iniciar ruta</button>
+      <div class="small muted center" style="margin-top:10px">📡 Al iniciar, la app reporta tu ubicación cada ${MIN_GPS} minutos hasta que concluyas la ruta.</div>
     </div></div>
-    <div><div class="small muted" style="margin:4px 6px 8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">Paradas de hoy</div>${listaParadas(orden,-1)}</div>
+    <div><div class="small muted" style="margin:4px 6px 8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">Paradas de hoy · toca para ver el detalle</div>${listaParadas(orden,-1)}</div>
   </div>`;
+  body.querySelectorAll('#iChk .opt').forEach(b=>b.onclick=()=>{ const on=b.classList.toggle('on'); b.classList.toggle('mal',!on); b.textContent=(on?'✓ ':'✕ ')+b.dataset.c; });
+  activarLista(orden);
   $('#bIniciar').onclick=async ()=>{
     if(NATIVO && !NATIVO.hasLocationPermission()){ NATIVO.requestLocationPermission(); U.toast('Permite el acceso a tu ubicación para iniciar la ruta'); return; }
-    d.ruta.estatus='en_curso'; d.ruta.horaInicio=U.ahora(); Est.guardar();
-    await Sync.evento({t:'inicio', rutaId:d.ruta.id, hora:d.ruta.horaInicio}, true);
+    const chk={}; body.querySelectorAll('#iChk .opt').forEach(b=>{ chk[b.dataset.c]=b.classList.contains('on'); });
+    const fallas=Object.keys(chk).filter(k=>!chk[k]);
+    if(fallas.length && !confirm(`Marcaste falla en: ${fallas.join(', ')}.\n¿Salir de todos modos? Tráfico lo verá en el panel.`)) return;
+    const odoV=$('#iOdo').value;
+    d.ruta.estatus='en_curso'; d.ruta.horaInicio=U.ahora(); d.ruta.odometroInicio=odoV===''?null:Number(odoV); d.ruta.checklistSalida=chk; Est.guardar();
+    await Sync.evento({t:'inicio', rutaId:d.ruta.id, hora:d.ruta.horaInicio, odometro:odoV, combustible:$('#iGas').value, checklist:chk}, true);
     Gps.iniciar();
     U.toast('Salida registrada. ¡Buen camino!');
-    pintar();
+    pintar(); window.scrollTo({top:0});
     avisarClientes();
   };
 }
@@ -514,7 +611,7 @@ function pintarInicio(body, orden){
 /* Correo "tu pedido va en camino" a los clientes de la ruta (no bloquea al chofer). */
 async function avisarClientes(){
   const d=Est.d, r=d.ruta;
-  if(!CFG.notifUrl || !navigator.onLine) return;
+  if(DEMO || !CFG.notifUrl || !navigator.onLine) return;
   const orden=Est.orden(), t0=new Date(r.horaInicio).getTime();
   try{
     const resp = await fetch(CFG.notifUrl, {method:'POST',
@@ -534,21 +631,34 @@ async function avisarClientes(){
   }catch(e){ console.error(e); }
 }
 
+const MOTIVOS_RAPIDOS = {
+  cliente_ausente:['No había nadie','Negocio cerrado','No contesta el teléfono'],
+  reprogramado:['El cliente pidió otro día','Sin personal para recibir','No tenía el pago'],
+  cancelado_sucursal:['Pasará a recoger a sucursal'],
+  fallido:['Dirección incorrecta','Acceso bloqueado','Mercancía dañada','Rechazó el pedido','Faltó mercancía'],
+};
+const RES_CORTO = {entregado:'✅ Entregado', cliente_ausente:'🚪 Ausente', reprogramado:'📅 Reprogramar', cancelado_sucursal:'🏬 Recoge en sucursal', fallido:'⛔ No se pudo'};
+const EVIDENCIA_OBLIGATORIA = CFG.evidenciaObligatoria !== false;
+
 function hojaEntrega(pedido){
   const items=(pedido.items||[]).filter(it=>it&&it.nombre);
-  let fotos=[], firmo=false;
+  let fotos=[], firmo=false, res='entregado';
   const bg=document.createElement('div'); bg.className='sheet-bg';
   bg.innerHTML = `<div class="sheet glass">
     <div class="grab"></div>
     <h3>Entrega · <span class="mono">${U.esc(pedido.folio)}</span></h3>
     <div class="small muted" style="margin:-8px 0 12px">${U.esc(pedido.nombreContacto||'')} · en sitio ${U.dur(U.mins(pedido.horaLlegada,U.ahora()))}</div>
-    <div class="field"><label>Resultado</label><select id="eRes">${Object.entries(RESULTADOS).map(([k,v])=>`<option value="${k}">${U.esc(v.label)}</option>`).join('')}</select></div>
-    <div class="field hidden" id="wMot"><label>Motivo</label><input id="eMot" placeholder="No contestó, dirección incorrecta…"></div>
+    <div class="field"><label>¿Qué pasó?</label>
+      <div class="opts" id="eRes">${Object.keys(RESULTADOS).map(k=>`<button type="button" class="opt ${k==='entregado'?'on':''}" data-r="${k}">${RES_CORTO[k]}</button>`).join('')}</div></div>
+    <div class="field hidden" id="wMot"><label>Motivo</label>
+      <div class="chips" id="eMotR" style="margin:0 0 8px"></div>
+      <input id="eMot" placeholder="Escribe o toca un motivo"></div>
     <div class="field hidden" id="wFec"><label>Nueva fecha propuesta (opcional)</label><input type="date" id="eFec" min="${U.hoy()}"></div>
     ${items.length?`<div class="field" id="wItems"><label>Artículos entregados <span id="eCnt"></span></label>
       <div class="items">${items.map((it,i)=>`<label><input type="checkbox" data-i="${i}" checked><span style="flex:1">${U.esc(it.nombre)}</span><span class="mono small">x${U.esc(it.cantidad!=null?it.cantidad:1)}</span></label>`).join('')}</div>
       <div class="small muted" style="margin-top:6px">Desmarca lo que no se entregó: queda como entrega parcial.</div></div>`:''}
-    <div class="field"><label>Fotos de evidencia (hasta 10)</label>
+    <div class="field" id="wRec"><label>Nombre de quien recibe</label><input id="eRec" autocomplete="off" placeholder="Nombre y apellido" value=""></div>
+    <div class="field"><label>Fotos de evidencia <span id="eFn" class="muted"></span></label>
       <label class="btn sm" style="width:100%">📷 Tomar o elegir foto<input type="file" accept="image/*" capture="environment" multiple id="eFotos" style="display:none"></label>
       <div class="thumbs" id="eThumbs"></div></div>
     <div class="field" id="wSig"><label>Firma de quien recibe</label><canvas class="sig" id="eSig"></canvas>
@@ -564,14 +674,21 @@ function hojaEntrega(pedido){
   const chks=()=>Array.from(bg.querySelectorAll('.items input'));
   const cuenta=()=>{ const c=q('#eCnt'); if(c) c.textContent=`(${chks().filter(x=>x.checked).length}/${chks().length})`; };
   chks().forEach(c=>c.onchange=cuenta); cuenta();
-  q('#eRes').onchange=e=>{
-    const cfg=RESULTADOS[e.target.value], ok=e.target.value==='entregado';
+  const ponRes=k=>{
+    res=k; const cfg=RESULTADOS[k], ok=k==='entregado';
+    bg.querySelectorAll('#eRes .opt').forEach(b=>b.classList.toggle('on',b.dataset.r===k));
     q('#wMot').classList.toggle('hidden',!cfg.motivo); q('#wFec').classList.toggle('hidden',!cfg.fecha);
     if(q('#wItems')) q('#wItems').classList.toggle('hidden',!ok);
-    q('#wSig').classList.toggle('hidden',!ok);
+    q('#wSig').classList.toggle('hidden',!ok); q('#wRec').classList.toggle('hidden',!ok);
+    q('#eMotR').innerHTML=(MOTIVOS_RAPIDOS[k]||[]).map(m=>`<button type="button" class="chip" data-m="${U.esc(m)}">${U.esc(m)}</button>`).join('');
+    bg.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{ q('#eMot').value=b.dataset.m; });
+    q('#eOk').textContent = ok ? 'Cerrar entrega' : 'Guardar: '+ETIQ[k];
+    q('#eOk').className = 'btn '+(ok?'ok':'pri');
   };
+  bg.querySelectorAll('#eRes .opt').forEach(b=>b.onclick=()=>ponRes(b.dataset.r));
 
   const pintaFotos=()=>{ q('#eThumbs').innerHTML=fotos.map((f,i)=>`<div class="thumb"><img src="${f}"><button type="button" data-i="${i}">✕</button></div>`).join('');
+    q('#eFn').textContent = fotos.length?`(${fotos.length}/10)`:'';
     bg.querySelectorAll('.thumb button').forEach(b=>b.onclick=()=>{ fotos.splice(+b.dataset.i,1); pintaFotos(); }); };
   q('#eFotos').onchange=async e=>{
     for(const f of Array.from(e.target.files).slice(0,10-fotos.length)){ try{ fotos.push(await U.foto(f,1100,0.62)); }catch(err){} }
@@ -589,19 +706,22 @@ function hojaEntrega(pedido){
   q('#eSigX').onclick=()=>{ ctx.clearRect(0,0,cv.width,cv.height); firmo=false; };
 
   q('#eOk').onclick=async ()=>{
-    const res=q('#eRes').value, cfg=RESULTADOS[res], motivo=q('#eMot').value.trim();
-    if(cfg.motivo && !motivo){ U.toast('Escribe el motivo'); q('#eMot').focus(); return; }
+    const cfg=RESULTADOS[res], motivo=q('#eMot').value.trim();
+    if(cfg.motivo && !motivo){ U.toast('Escribe o toca el motivo'); q('#eMot').focus(); return; }
     let itemsEnt=null, parcial=false;
     if(res==='entregado' && items.length){
       const c=chks(); itemsEnt=items.map((it,i)=>({nombre:it.nombre,cantidad:it.cantidad,codigo:it.codigo,entregado:c[i].checked}));
       parcial=itemsEnt.some(x=>!x.entregado);
       if(!itemsEnt.some(x=>x.entregado)){ U.toast('Si no se entregó nada, elige otro resultado'); return; }
     }
-    q('#eOk').disabled=true;
-    const hora=U.ahora();
-    pedido.estatus=res; Est.guardar();
+    if(res==='entregado' && EVIDENCIA_OBLIGATORIA && !fotos.length && !firmo){ U.toast('Falta la evidencia: toma una foto o pide la firma'); return; }
+    q('#eOk').disabled=true; q('#eOk').innerHTML='<span class="spin"></span> Guardando…';
+    const hora=U.ahora(), g=await posActual(3500);
+    const dist = g && pedido.lat!=null ? Math.round(U.km(g,pedido)*1000) : '';
+    pedido.estatus=res; Est.d.actualId=null; Est.guardar();
     await Sync.evento({t:'entrega', id:crypto.randomUUID(), pedidoId:pedido.id, hora, resultado:res, motivo, nuevaFecha:q('#eFec').value||'',
       itemsEntregados:itemsEnt, entregaParcial:parcial, comentarios:q('#eCom').value.trim(), fotos:[], firma:'', documentos:[],
+      recibe:res==='entregado'?q('#eRec').value.trim():'', lat:g?g.lat:'', lng:g?g.lng:'', prec:g&&g.prec!=null?g.prec:'', dist,
       _rutaId:Est.d.ruta.id, _fotos:fotos, _firma:(res==='entregado'&&firmo)?cv.toDataURL('image/png'):null}, true);
     cerrar();
     U.toast(res==='entregado'?(parcial?'Entrega parcial registrada':'Entrega registrada ✅'):'Registrado: '+ETIQ[res]);
@@ -609,61 +729,104 @@ function hojaEntrega(pedido){
   };
 }
 
+/* Incidencia en ruta: llega al panel de monitoreo en cuanto hay señal. */
+const TIPOS_INC = {falla_mecanica:'🔧 Falla mecánica', llanta:'🛞 Llanta', trafico:'🚧 Tráfico / bloqueo', accidente:'💥 Accidente', clima:'🌧️ Clima', inseguridad:'🚨 Inseguridad', mercancia:'📦 Mercancía dañada', otro:'❓ Otro'};
+function hojaIncidencia(){
+  const d=Est.d; if(!d||!d.ruta) return;
+  let tipo='', foto=null;
+  const bg=document.createElement('div'); bg.className='sheet-bg';
+  bg.innerHTML=`<div class="sheet glass"><div class="grab"></div><h3>Reportar incidencia</h3>
+    <div class="field"><label>¿Qué pasó?</label><div class="opts" id="nTipo">${Object.entries(TIPOS_INC).map(([k,v])=>`<button type="button" class="opt" data-t="${k}">${v}</button>`).join('')}</div></div>
+    <div class="field"><label>Detalle (opcional)</label><textarea id="nDes" rows="2" placeholder="Dónde estás, qué necesitas…"></textarea></div>
+    <div class="field"><label class="btn sm" style="width:100%" id="nFl">📷 Agregar foto (opcional)<input type="file" accept="image/*" capture="environment" id="nFoto" style="display:none"></label></div>
+    <div class="row"><button class="btn" id="nX">Cancelar</button><button class="btn pri" id="nOk">Enviar a base</button></div>
+    ${telBase()?`<a class="btn sm" href="tel:${telBase()}" style="margin:12px auto 0">📞 Mejor llamo a base</a>`:''}</div>`;
+  document.body.appendChild(bg);
+  const cerrar=()=>bg.remove();
+  bg.onclick=e=>{ if(e.target===bg) cerrar(); }; $('#nX',bg).onclick=cerrar;
+  bg.querySelectorAll('#nTipo .opt').forEach(b=>b.onclick=()=>{ tipo=b.dataset.t; bg.querySelectorAll('#nTipo .opt').forEach(x=>x.classList.toggle('on',x===b)); });
+  $('#nFoto',bg).onchange=async e=>{ try{ foto=await U.foto(e.target.files[0],1100,0.62); $('#nFl',bg).firstChild.textContent='✅ Foto lista (toca para cambiarla)'; }catch(err){} };
+  $('#nOk',bg).onclick=async ()=>{
+    if(!tipo){ U.toast('Elige qué pasó'); return; }
+    $('#nOk',bg).disabled=true;
+    const g=await posActual(3500);
+    d.incidencias=(d.incidencias||0)+1; Est.guardar();
+    await Sync.evento({t:'incidencia', id:crypto.randomUUID(), rutaId:d.ruta.id, tipo, descripcion:$('#nDes',bg).value.trim(), lat:g?g.lat:'', lng:g?g.lng:'', foto:'', _foto:foto}, true);
+    cerrar(); U.toast('Incidencia enviada a base');
+  };
+}
+
 function pintarCierre(body, orden){
   const d=Est.d, o=d.origen;
   let dist='';
-  if(o && o.lat!=null && Gps.ultimo && U.mins(Gps.ultimo.hora,U.ahora())<=MIN_GPS*2+1){
-    const km=U.km(Gps.ultimo,o); dist = km<0.5 ? '📍 Estás en el punto de retorno.' : `📍 Estás a ${km.toFixed(1)} km del punto de retorno.`;
+  const g=gpsFresco(MIN_GPS*2+1);
+  if(o && o.lat!=null && g){
+    const km=U.km(g,o); dist = km<0.5 ? '📍 Estás en el punto de retorno.' : `📍 Estás a ${km.toFixed(1)} km del punto de retorno.`;
   }
+  const ok=orden.filter(p=>p.estatus==='entregado').length;
   body.innerHTML = `<div class="glass card cur center" style="padding:26px 18px">
     <div style="font-size:46px">🏁</div><h2 style="font-size:20px">Paradas completadas</h2>
-    <p class="muted">Regresa a <b>${U.esc(o?o.nombre:'la sucursal')}</b> y concluye la ruta.</p>
+    <p class="muted">${ok} de ${orden.length} entregadas. Regresa a <b>${U.esc(o?o.nombre:'la sucursal')}</b> y concluye la ruta.</p>
     ${dist?`<div class="note">${dist}</div>`:''}
+    ${o&&o.lat!=null?`<a class="btn sm" href="${urlMapa(o)}" target="_blank" style="margin:0 auto 12px">🧭 Navegar a la base</a>`:''}
+    <div class="field" style="text-align:left"><label>Odómetro al llegar (km)</label><input id="fOdo" type="number" inputmode="numeric" min="${d.ruta.odometroInicio||0}" placeholder="${d.ruta.odometroInicio!=null?'Salida: '+d.ruta.odometroInicio:'Opcional'}"></div>
     <button class="btn ok" id="bFin">Concluir ruta</button>
   </div>${listaParadas(orden,-1)}`;
+  activarLista(orden);
   $('#bFin').onclick=async ()=>{
-    if(!NATIVO) Gps.tomar();
-    d.ruta.estatus='concluida'; d.ruta.horaFin=U.ahora(); Est.guardar();
+    const odo=$('#fOdo').value;
+    if(odo!=='' && d.ruta.odometroInicio!=null && Number(odo)<Number(d.ruta.odometroInicio)){ U.toast('El odómetro final no puede ser menor al de salida ('+d.ruta.odometroInicio+')'); return; }
+    if(!NATIVO && !DEMO) Gps.tomar();
+    d.ruta.estatus='concluida'; d.ruta.horaFin=U.ahora(); d.ruta.odometroFin=odo===''?null:Number(odo); Est.guardar();
     await Gps.recoger();
-    await Sync.evento({t:'fin', rutaId:d.ruta.id, hora:d.ruta.horaFin}, true);
+    await Sync.evento({t:'fin', rutaId:d.ruta.id, hora:d.ruta.horaFin, odometro:odo}, true);
     Gps.detener();
     U.toast('Ruta concluida'); pintar();
   };
 }
 
 function pintarResumen(body, orden){
-  const r=Est.d.ruta, ok=orden.filter(p=>p.estatus==='entregado').length;
+  const d=Est.d, r=d.ruta, ok=orden.filter(p=>p.estatus==='entregado').length, mal=orden.length-ok;
+  const km = r.odometroInicio!=null && r.odometroFin!=null ? r.odometroFin-r.odometroInicio : null;
   body.innerHTML = `<div class="glass card center" style="padding:26px 18px">
     <div style="font-size:46px">✅</div><h2 style="font-size:20px">Ruta concluida</h2>
-    <p class="muted">Gracias, ${U.esc(Est.d.chofer?Est.d.chofer.nombre.split(' ')[0]:'')}. Ya puedes cerrar la app.</p>
+    <p class="muted">Gracias, ${U.esc(d.chofer?d.chofer.nombre.split(' ')[0]:'')}. Ya puedes cerrar la app.</p>
     <div class="grid2" style="text-align:left;margin-top:14px">
       <div class="kpi"><span>Duración</span><b>${U.dur(U.mins(r.horaInicio,r.horaFin))}</b></div>
       <div class="kpi"><span>Entregadas</span><b>${ok}/${orden.length}</b></div>
-      <div class="kpi"><span>Salida</span><b>${U.hora(r.horaInicio)}</b></div>
+      <div class="kpi"><span>Horario</span><b>${U.hora(r.horaInicio)} – ${U.hora(r.horaFin)}</b></div>
       <div class="kpi"><span>Efectividad</span><b>${orden.length?Math.round(ok/orden.length*100):0}%</b></div>
+      <div class="kpi"><span>No entregadas</span><b>${mal}</b></div>
+      <div class="kpi"><span>Recorrido</span><b>${km!=null?km.toLocaleString('es-MX')+' km':'—'}</b></div>
     </div>
     <button class="btn sm" id="bOtra" style="margin:16px auto 0">Buscar otra ruta</button>
   </div>${listaParadas(orden,-1)}`;
+  activarLista(orden);
   $('#bOtra').onclick=()=>recargar(true);
 }
 
 function menu(){
-  const act=document.documentElement.dataset.theme;
+  const act=document.documentElement.dataset.theme, enRuta=Est.d&&Est.d.ruta&&Est.d.ruta.estatus==='en_curso';
   const bg=document.createElement('div'); bg.className='sheet-bg';
-  bg.innerHTML=`<div class="sheet glass"><div class="grab"></div><h3>Apariencia</h3>
+  bg.innerHTML=`<div class="sheet glass"><div class="grab"></div>
+    ${enRuta?`<button class="btn" id="mInc" style="margin-bottom:10px">⚠️ Reportar incidencia</button>`:''}
+    ${Est.d&&telBase()?`<a class="btn" href="tel:${telBase()}" style="margin-bottom:10px">📞 Llamar a base</a>`:''}
+    <button class="btn" id="mRuta" style="margin-bottom:16px">⬇ Volver a descargar mi ruta</button>
+    <h3>Apariencia</h3>
     <div class="themes">${Object.entries(TEMAS).map(([k,v])=>`<button data-t="${k}" class="${k===act?'on':''}"><div class="sw" style="background:${v[1]}"></div>${v[0]}</button>`).join('')}</div>
-    <button class="btn" id="mRuta" style="margin-bottom:10px">⬇ Volver a descargar mi ruta</button>
     <button class="btn" id="mSalir">Cerrar sesión</button>
-    <p class="small muted center" style="margin:14px 0 0">MapRoad Chofer${NATIVO&&NATIVO.version?' · v'+U.esc(NATIVO.version()):' · web'}</p></div>`;
+    <p class="small muted center" style="margin:14px 0 0">MapRoad Chofer${NATIVO&&NATIVO.version?' · v'+U.esc(NATIVO.version()):' · web'}${DEMO?' · vista previa':''}</p></div>`;
   document.body.appendChild(bg);
   bg.onclick=e=>{ if(e.target===bg) bg.remove(); };
   bg.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ ponerTema(b.dataset.t); bg.querySelectorAll('[data-t]').forEach(x=>x.classList.toggle('on',x===b)); });
+  const mi=$('#mInc',bg); if(mi) mi.onclick=()=>{ bg.remove(); hojaIncidencia(); };
   $('#mRuta',bg).onclick=()=>{ bg.remove(); recargar(true); };
   $('#mSalir',bg).onclick=()=>{ bg.remove(); salir(); };
 }
 
 /* Vuelve a bajar la ruta. Antes sube lo pendiente para no pisar avances locales. */
 async function recargar(avisar){
+  if(DEMO){ Est.d=window.MPR_DEMO.chofer(); Est.guardar(); app.innerHTML=''; pintar(); if(avisar) U.toast('Ruta de ejemplo reiniciada'); return; }
   if(!navigator.onLine){ if(avisar) U.toast('Sin conexión: se usa la ruta guardada'); return; }
   await Sync.enviar();
   if(await Cola.cuantos()){ if(avisar) U.toast('Aún hay registros por enviar; intenta en un momento'); return; }
@@ -676,17 +839,45 @@ async function recargar(avisar){
 }
 
 async function arrancar(){
+  if(DEMO){
+    await new Promise((ok,no)=>{ const s=document.createElement('script'); s.src='../demo.js'; s.onload=ok; s.onerror=no; document.head.appendChild(s); });
+    document.body.insertAdjacentHTML('beforeend','<div class="demo-flag">Vista previa con una ruta de ejemplo · nada se guarda</div>');
+    Est.cargar(); if(!Est.d || Est.d.fecha!==U.hoy()){ Est.d=window.MPR_DEMO.chofer(); Est.guardar(); }
+    Gps.ultimo={lat:Est.d.origen.lat+.004, lng:Est.d.origen.lng+.003, prec:12, hora:U.ahora()};
+    app.innerHTML=''; pintar(); return;
+  }
   const {data:{session}} = await sb.auth.getSession();
   if(!session){ pintarLogin(); return; }
   Est.cargar();
   // La ruta guardada sirve si es de hoy, o si quedó en curso (se termina aunque cambie el día).
   const vigente = Est.d && Est.d.ruta && (Est.d.fecha===U.hoy() || Est.d.ruta.estatus==='en_curso');
-  if(vigente){ app.innerHTML=''; pintar(); Gps.iniciar(); Sync.enviar(); return; }
+  if(vigente){
+    app.innerHTML=''; pintar(); Gps.iniciar(); Sync.enviar();
+    // Ruta aún sin iniciar: se vuelve a bajar en silencio por si tráfico la cambió (orden, paradas, unidad).
+    if(Est.d.ruta.estatus==='pendiente') refrescarPendiente();
+    return;
+  }
   app.innerHTML='<div class="login"><div class="glass card center" style="max-width:300px"><span class="spin"></span><p class="muted" style="margin:10px 0 0">Descargando tu ruta…</p></div></div>';
   if(Est.d && Est.d.fecha!==U.hoy()) Est.borrar();
   await recargar(false);
   if(!$('#cuerpo') && !$('#fLogin')){ app.innerHTML=''; pintar(); }
 }
+/* Mientras la ruta no ha iniciado no hay avances locales que cuidar: se puede reemplazar sin riesgo. */
+let _ultRefresco=0;
+async function refrescarPendiente(){
+  if(DEMO || !navigator.onLine || !Est.d || !Est.d.ruta || Est.d.ruta.estatus!=='pendiente') return;
+  if(Date.now()-_ultRefresco<90000 || document.querySelector('.sheet-bg')) return;
+  _ultRefresco=Date.now();
+  try{
+    const firma=()=>JSON.stringify([Est.d.ruta&&Est.d.ruta.ordenOptimizado, Est.d.ruta&&Est.d.ruta.pedidoIds, Est.d.unidad]);
+    const antes=firma();
+    const r=await descargarRuta();
+    if(r.sinAcceso) return;
+    if(firma()!==antes) U.toast('Tráfico actualizó tu ruta');
+    if(!document.querySelector('.sheet-bg')){ app.innerHTML=''; pintar(); }
+  }catch(e){}
+}
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) refrescarPendiente(); });
 setInterval(pintarEstado, 60000);
 arrancar();
 </script>
